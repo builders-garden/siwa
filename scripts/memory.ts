@@ -138,7 +138,7 @@ export function hasWalletRecord(memoryPath: string = DEFAULT_MEMORY_PATH): boole
 }
 
 /**
- * Check if the agent is registered on-chain.
+ * Check if the agent is registered onchain.
  */
 export function isRegistered(memoryPath: string = DEFAULT_MEMORY_PATH): boolean {
   const mem = readMemory(memoryPath);

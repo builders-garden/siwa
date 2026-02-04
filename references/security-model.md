@@ -13,7 +13,7 @@ If the private key is stored in a plaintext file (like a `.env` or a markdown me
 1. Read the file containing the private key
 2. Exfiltrate it (embed in an HTTP request, return it in a response, encode it in an outbound message)
 
-The key is then compromised, and the attacker controls the agent's on-chain identity.
+The key is then compromised, and the attacker controls the agent's onchain identity.
 
 ### What we defend against
 
@@ -187,7 +187,7 @@ export KEYSTORE_BACKEND="env"
 
 ## Key Rotation
 
-To rotate the agent's key while preserving its on-chain identity:
+To rotate the agent's key while preserving its onchain identity:
 
 1. Create a new wallet via `createWallet()`
 2. Transfer the agent NFT to the new address: `transferFrom(oldAddress, newAddress, agentId)`

@@ -7,7 +7,7 @@ export interface SIWAVerifyResult {
   agentId: number;
   agentRegistry: string;
   chainId: number;
-  verified: 'offline' | 'on-chain';
+  verified: 'offline' | 'onchain';
   error?: string;
 }
 
@@ -89,7 +89,7 @@ export async function verifySIWARequest(
       };
     }
 
-    // 7. On-chain verification (live mode only)
+    // 7. Onchain verification (live mode only)
     if (provider) {
       const registryParts = fields.agentRegistry.split(':');
       if (registryParts.length !== 3 || registryParts[0] !== 'eip155') {
@@ -99,7 +99,7 @@ export async function verifySIWARequest(
           agentId: fields.agentId,
           agentRegistry: fields.agentRegistry,
           chainId: fields.chainId,
-          verified: 'on-chain',
+          verified: 'onchain',
           error: 'Invalid agentRegistry format',
         };
       }
@@ -132,7 +132,7 @@ export async function verifySIWARequest(
               agentId: fields.agentId,
               agentRegistry: fields.agentRegistry,
               chainId: fields.chainId,
-              verified: 'on-chain',
+              verified: 'onchain',
               error: 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)',
             };
           }
@@ -145,7 +145,7 @@ export async function verifySIWARequest(
             agentId: fields.agentId,
             agentRegistry: fields.agentRegistry,
             chainId: fields.chainId,
-            verified: 'on-chain',
+            verified: 'onchain',
             error: 'Signer is not the owner of this agent NFT',
           };
         }
@@ -157,11 +157,11 @@ export async function verifySIWARequest(
         agentId: fields.agentId,
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
-        verified: 'on-chain',
+        verified: 'onchain',
       };
     }
 
-    // Offline mode — skip on-chain check, trust the signature
+    // Offline mode — skip onchain check, trust the signature
     return {
       valid: true,
       address: recovered,

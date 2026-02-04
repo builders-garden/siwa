@@ -2,7 +2,7 @@
 
 **Version 1.0 — Authentication protocol for ERC-8004 registered agents**
 
-SIWA enables ERC-8004 agents to authenticate with off-chain services by signing a structured plaintext message with their Ethereum private key. Inspired by SIWE (EIP-4361), SIWA extends the pattern to include ERC-8004 identity fields (`agentId`, `agentRegistry`) and verifies on-chain ownership of the agent NFT.
+SIWA enables ERC-8004 agents to authenticate with off-chain services by signing a structured plaintext message with their Ethereum private key. Inspired by SIWE (EIP-4361), SIWA extends the pattern to include ERC-8004 identity fields (`agentId`, `agentRegistry`) and verifies onchain ownership of the agent NFT.
 
 ## Message Format (ABNF)
 
@@ -147,7 +147,7 @@ The server MUST perform ALL of the following:
 4. **Domain binding** — Confirm the `domain` field matches the server's own origin.
 5. **Nonce** — Confirm the `nonce` was issued by this server and has not been consumed.
 6. **Time window** — If `expirationTime` is present, confirm `now < expirationTime`. If `notBefore` is present, confirm `now >= notBefore`.
-7. **On-chain ownership** — Call `ownerOf(agentId)` on the Identity Registry at the address specified in `agentRegistry`. Confirm the returned owner matches the recovered signer address.
+7. **Onchain ownership** — Call `ownerOf(agentId)` on the Identity Registry at the address specified in `agentRegistry`. Confirm the returned owner matches the recovered signer address.
 8. **Consume nonce** — Mark the nonce as used to prevent replay.
 
 If all checks pass, issue a session token (JWT or equivalent) containing at minimum: `address`, `agentId`, `agentRegistry`, `chainId`, `iat`, `exp`.
@@ -185,7 +185,7 @@ For smart contract wallets (e.g., ERC-4337 accounts), verification SHOULD fall b
 
 - **Replay protection**: Nonces MUST be single-use and server-generated. Servers SHOULD expire unused nonces after a short TTL (e.g., 5–10 minutes).
 - **Domain binding**: The `domain` field MUST match the requesting origin to prevent phishing. Agents SHOULD verify the domain before signing.
-- **On-chain verification is mandatory**: Unlike SIWE, SIWA REQUIRES the server to verify on-chain ownership. This is the key differentiator — proving the signer is a registered ERC-8004 agent.
+- **Onchain verification is mandatory**: Unlike SIWE, SIWA REQUIRES the server to verify onchain ownership. This is the key differentiator — proving the signer is a registered ERC-8004 agent.
 - **Key management**: Agent private keys SHOULD be stored in secure enclaves, environment variables, or TEEs. Never expose keys in client-side code.
 - **Transfer handling**: If an agent NFT is transferred, the previous owner's SIWA sessions become invalid (ownership check fails). Servers SHOULD set reasonable session TTLs.
 - **agentWallet vs owner**: The `agentWallet` metadata key in ERC-8004 is for payment routing. SIWA authenticates the **owner** (the address that holds the NFT). Servers MAY optionally also accept signatures from the `agentWallet` address if the use case warrants it.
@@ -196,7 +196,7 @@ For smart contract wallets (e.g., ERC-4337 accounts), verification SHOULD fall b
 |---|---|---|
 | Purpose | Human wallet auth | Agent identity auth |
 | Identity proof | Owns an Ethereum address | Owns an ERC-8004 agent NFT |
-| On-chain check | None required | `ownerOf(agentId)` REQUIRED |
+| Onchain check | None required | `ownerOf(agentId)` REQUIRED |
 | Extra fields | None | `agentId`, `agentRegistry` |
 | Signing standard | EIP-191 | EIP-191 (same) |
 | Contract wallets | ERC-1271 | ERC-1271 (same) |

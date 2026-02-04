@@ -169,8 +169,8 @@ app.listen(PORT, () => {
   console.log(`\u{1F310} SIWA Server running at http://localhost:${PORT}`);
   console.log(`\u{1F4CB} Dashboard: http://localhost:${PORT}`);
   if (isLiveMode) {
-    console.log(`\u{1F511} Mode: live (on-chain verification via ${RPC_URL})`);
+    console.log(`\u{1F511} Mode: live (onchain verification via ${RPC_URL})`);
   } else {
-    console.log(`\u{1F511} Mode: offline (no on-chain verification)`);
+    console.log(`\u{1F511} Mode: offline (no onchain verification)`);
   }
 });

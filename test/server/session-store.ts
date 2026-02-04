@@ -11,7 +11,7 @@ export interface AgentSession {
   chainId: number;
   issuedAt: Date;
   expiresAt: Date;
-  verified: 'offline' | 'on-chain';
+  verified: 'offline' | 'onchain';
 }
 
 interface VerificationResult {
@@ -25,7 +25,7 @@ const sessions: AgentSession[] = [];
 
 export function createSession(
   result: VerificationResult,
-  mode: 'offline' | 'on-chain'
+  mode: 'offline' | 'onchain'
 ): AgentSession {
   const payload = {
     address: result.address,

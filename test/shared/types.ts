@@ -26,7 +26,7 @@ export interface VerifyResponse {
   address?: string;
   agentId?: number;
   agentRegistry?: string;
-  verified?: 'offline' | 'on-chain';
+  verified?: 'offline' | 'onchain';
   expiresAt?: string;
   error?: string;
 }

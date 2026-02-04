@@ -6,7 +6,7 @@ A Claude Code skill for registering AI agents on the [ERC-8004 (Trustless Agents
 
 - **Create Wallet** — Generate an Ethereum wallet with secure key storage (OS keychain, encrypted V3 file, or env var)
 - **Register Agent (Sign Up)** — Mint an ERC-721 identity NFT on the ERC-8004 Identity Registry with metadata (endpoints, trust model, services)
-- **Authenticate (Sign In)** — Prove ownership of an on-chain agent identity by signing a structured SIWA message; receive a JWT from the relying party
+- **Authenticate (Sign In)** — Prove ownership of an onchain agent identity by signing a structured SIWA message; receive a JWT from the relying party
 
 ## Project Structure
 
@@ -16,7 +16,7 @@ scripts/           Core skill implementation
   memory.ts          MEMORY.md read/write helpers
   siwa.ts            SIWA message building, signing, verification
   create_wallet.ts   Wallet creation flow
-  register_agent.ts  On-chain registration flow
+  register_agent.ts  Onchain registration flow
 
 references/        Protocol documentation
   siwa-spec.md       Full SIWA specification

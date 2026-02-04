@@ -48,7 +48,7 @@ export const config = {
   templatePath: path.resolve(projectRoot, '..', 'assets', 'MEMORY.md.template'),
   registrationFile: process.env.REGISTRATION_FILE || path.resolve(projectRoot, '..', 'assets', 'registration-template.json'),
 
-  // On-chain settings
+  // Onchain settings
   rpcUrl: process.env.RPC_URL || '',
   chainId: parseInt(process.env.CHAIN_ID || '84532'),
   storageMode: (process.env.STORAGE_MODE || 'base64') as 'ipfs' | 'base64',

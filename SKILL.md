@@ -3,11 +3,11 @@ name: erc-8004-agent
 description: >
   Skill for registering AI agents on the ERC-8004 Trustless Agents standard and authenticating
   them via SIWA (Sign In With Agent). Use this skill when an agent needs to: (1) create or
-  manage an Ethereum wallet for on-chain identity, (2) register on the ERC-8004 Identity Registry
+  manage an Ethereum wallet for onchain identity, (2) register on the ERC-8004 Identity Registry
   as an NFT-based agent identity (SIGN UP), (3) authenticate with a server by proving ownership
   of an ERC-8004 identity using a signed challenge (SIGN IN / SIWA), (4) build or update an
   ERC-8004 registration file (metadata JSON with endpoints, trust models, services), (5) upload
-  agent metadata to IPFS or base64 data URI, (6) look up or verify an agent's on-chain registration.
+  agent metadata to IPFS or base64 data URI, (6) look up or verify an agent's onchain registration.
   The agent persists public identity state in MEMORY.md and stores private keys securely in the
   OS keychain or an encrypted V3 keystore file — never in plaintext.
   Triggers on: ERC-8004, trustless agents, agent registration, SIWA, Sign In With Agent,
@@ -16,11 +16,11 @@ description: >
 
 # ERC-8004 Agent Skill
 
-Register AI agents on-chain (ERC-8004) and authenticate them via **SIWA (Sign In With Agent)**.
+Register AI agents onchain (ERC-8004) and authenticate them via **SIWA (Sign In With Agent)**.
 
 ## Overview
 
-ERC-8004 ("Trustless Agents") provides three on-chain registries deployed as per-chain singletons:
+ERC-8004 ("Trustless Agents") provides three onchain registries deployed as per-chain singletons:
 
 - **Identity Registry** — ERC-721 NFTs. Each agent gets a unique `agentId` (tokenId) and an `agentURI` pointing to a JSON registration file.
 - **Reputation Registry** — Feedback signals (score, tags) from clients to agents.
@@ -34,7 +34,7 @@ ERC-8004 ("Trustless Agents") provides three on-chain registries deployed as per
 
 > **Full details**: [references/security-model.md](references/security-model.md)
 
-The agent's private key is the root of its on-chain identity. It must be protected against prompt injection, accidental exposure, and file system snooping.
+The agent's private key is the root of its onchain identity. It must be protected against prompt injection, accidental exposure, and file system snooping.
 
 ### Principle: The private key NEVER enters the agent's context
 
@@ -161,7 +161,7 @@ const encoded = Buffer.from(JSON.stringify(registrationFile)).toString('base64')
 const agentURI = `data:application/json;base64,${encoded}`;
 ```
 
-### Step 4: Register On-Chain (signer from keystore)
+### Step 4: Register Onchain (signer from keystore)
 
 ```typescript
 import { getSigner } from './scripts/keystore';
@@ -321,7 +321,7 @@ The server MUST:
 1. Recover signer from signature (EIP-191)
 2. Match recovered address to message address
 3. Validate domain binding, nonce, time window
-4. **Call `ownerOf(agentId)` on-chain** to confirm signer owns the agent NFT
+4. **Call `ownerOf(agentId)` onchain** to confirm signer owns the agent NFT
 5. Issue session token
 
 See [scripts/siwa.ts](scripts/siwa.ts) for the full `verifySIWA()` implementation.
@@ -360,7 +360,7 @@ See [scripts/siwa.ts](scripts/siwa.ts) for the full `verifySIWA()` implementatio
 - **[scripts/keystore.ts](scripts/keystore.ts)** — Secure key storage abstraction (OS keychain, encrypted V3 file, env fallback)
 - **[scripts/memory.ts](scripts/memory.ts)** — MEMORY.md read/write helpers (public data only)
 - **[scripts/create_wallet.ts](scripts/create_wallet.ts)** — Wallet creation (key → keystore, address → MEMORY.md)
-- **[scripts/register_agent.ts](scripts/register_agent.ts)** — On-chain agent registration
+- **[scripts/register_agent.ts](scripts/register_agent.ts)** — Onchain agent registration
 - **[scripts/siwa.ts](scripts/siwa.ts)** — SIWA message building, signing (via keystore), and server-side verification
 
 ## Assets

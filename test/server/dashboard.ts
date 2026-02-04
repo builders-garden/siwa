@@ -12,7 +12,7 @@ export function renderDashboard(
         <td>${s.agentId}</td>
         <td title="${s.address}">${s.address.slice(0, 6)}...${s.address.slice(-4)}</td>
         <td title="${s.agentRegistry}">${s.agentRegistry.length > 30 ? s.agentRegistry.slice(0, 30) + '...' : s.agentRegistry}</td>
-        <td><span class="badge badge-${s.verified === 'on-chain' ? 'live' : 'offline'}">${s.verified}</span></td>
+        <td><span class="badge badge-${s.verified === 'onchain' ? 'live' : 'offline'}">${s.verified}</span></td>
         <td>${s.issuedAt.toISOString()}</td>
         <td>${s.expiresAt.toISOString()}</td>
         <td>
@@ -187,7 +187,7 @@ async function refreshSessions() {
       const addr = s.address;
       const truncAddr = addr.slice(0,6) + '...' + addr.slice(-4);
       const reg = s.agentRegistry.length > 30 ? s.agentRegistry.slice(0,30) + '...' : s.agentRegistry;
-      const badgeClass = s.verified === 'on-chain' ? 'live' : 'offline';
+      const badgeClass = s.verified === 'onchain' ? 'live' : 'offline';
       const tokenTrunc = s.token.slice(0,20) + '...';
       return '<tr>' +
         '<td>' + s.agentId + '</td>' +

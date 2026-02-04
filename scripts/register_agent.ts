@@ -1,7 +1,7 @@
 /**
  * register_agent.ts
  *
- * Registers an ERC-8004 agent on-chain.
+ * Registers an ERC-8004 agent onchain.
  * Reads the wallet from the secure keystore (never from MEMORY.md),
  * uploads metadata, mints the agent NFT, and writes public results
  * to MEMORY.md.
@@ -131,7 +131,7 @@ async function main() {
     console.log(`Uploaded to IPFS: ${agentURI}`);
   }
 
-  // --- Register on-chain ---
+  // --- Register onchain ---
 
   const registry = new ethers.Contract(registryAddress, IDENTITY_REGISTRY_ABI, signer);
   console.log(`Registering on chain ${chainId}...`);

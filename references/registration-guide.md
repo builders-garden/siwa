@@ -2,7 +2,7 @@
 
 ## Registration File Schema (v1)
 
-The `agentURI` on-chain resolves to this JSON file. It follows the ERC-8004 registration-v1 schema.
+The `agentURI` onchain resolves to this JSON file. It follows the ERC-8004 registration-v1 schema.
 
 ### Required Fields
 
@@ -20,7 +20,7 @@ The `agentURI` on-chain resolves to this JSON file. It follows the ERC-8004 regi
 | Field | Type | Description |
 |---|---|---|
 | `x402Support` | boolean | Whether the agent supports x402 micropayments |
-| `registrations` | array | List of on-chain registrations (populated after minting) |
+| `registrations` | array | List of onchain registrations (populated after minting) |
 | `supportedTrust` | array | Trust models: `"reputation"`, `"crypto-economic"`, `"tee-attestation"` |
 
 ### Service Endpoint Object
@@ -76,7 +76,7 @@ Each entry in the `registrations` array:
 
 An agent MAY have multiple registrations across different chains.
 
-## On-Chain Metadata Keys
+## Onchain Metadata Keys
 
 Set via `setMetadata(agentId, key, value)`. The key `agentWallet` is reserved and MUST be set via `setAgentWallet()` with an EIP-712 signature proof.
 
@@ -92,7 +92,7 @@ An agent MAY prove control of an HTTPS endpoint-domain by publishing:
 https://{endpoint-domain}/.well-known/agent-registration.json
 ```
 
-This file MUST contain at least a `registrations` array with entries matching the on-chain agent. If the endpoint domain is the same domain serving the agent's primary registration file, this check is redundant.
+This file MUST contain at least a `registrations` array with entries matching the onchain agent. If the endpoint domain is the same domain serving the agent's primary registration file, this check is redundant.
 
 ## Update Flow
 
@@ -100,7 +100,7 @@ To update agent metadata after initial registration:
 
 1. Modify the registration JSON.
 2. Re-upload to IPFS (new CID) or update the hosted file.
-3. Call `setAgentURI(agentId, newURI)` on-chain.
+3. Call `setAgentURI(agentId, newURI)` onchain.
 
 With Agent0 SDK:
 
@@ -108,7 +108,7 @@ With Agent0 SDK:
 const agent = await sdk.loadAgent('84532:42');
 agent.updateInfo(undefined, 'Updated description', undefined);
 await agent.setMCP('https://new-mcp.agent.com/');
-await agent.registerIPFS(); // re-uploads and updates on-chain
+await agent.registerIPFS(); // re-uploads and updates onchain
 ```
 
 ## Transfer Flow

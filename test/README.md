@@ -24,7 +24,7 @@ The `full-flow` command runs a 4-step agent lifecycle:
 
 1. **Create Wallet** — Generates a new Ethereum wallet. The private key is stored in an encrypted V3 JSON keystore file (`agent-keystore.json`). Only the public address is written to `MEMORY.md`.
 
-2. **Mock Registration** — Simulates on-chain registration by writing mock agent identity data (Agent ID, Registry address, Chain ID) to `MEMORY.md`. No actual transaction is made.
+2. **Mock Registration** — Simulates onchain registration by writing mock agent identity data (Agent ID, Registry address, Chain ID) to `MEMORY.md`. No actual transaction is made.
 
 3. **SIWA Sign-In** — The full authentication round-trip:
    - Agent requests a nonce from the server
@@ -63,9 +63,9 @@ This removes `agent-keystore.json` and `MEMORY.md`, allowing you to re-run the f
 
 ## Live Mode
 
-By default, the server runs in **offline mode** — it verifies SIWA signatures cryptographically but skips the on-chain `ownerOf()` check. This requires no RPC connection.
+By default, the server runs in **offline mode** — it verifies SIWA signatures cryptographically but skips the onchain `ownerOf()` check. This requires no RPC connection.
 
-For real on-chain verification against a deployed Identity Registry:
+For real onchain verification against a deployed Identity Registry:
 
 ```bash
 export RPC_URL=https://sepolia.base.org

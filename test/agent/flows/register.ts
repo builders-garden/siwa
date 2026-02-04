@@ -80,7 +80,7 @@ async function registerMock(): Promise<void> {
   console.log(chalk.dim(`   Agent ID:       ${config.mockAgentId}`));
   console.log(chalk.dim(`   Agent Registry: ${config.mockAgentRegistry}`));
   console.log(chalk.dim(`   Chain ID:       ${config.mockChainId}`));
-  console.log(chalk.yellow(`   \u{2139}\u{FE0F}  This is a mock \u{2014} no on-chain transaction was made.`));
+  console.log(chalk.yellow(`   \u{2139}\u{FE0F}  This is a mock \u{2014} no onchain transaction was made.`));
   console.log(chalk.yellow(`   \u{2139}\u{FE0F}  Use --live with RPC_URL for real registration.`));
 }
 
@@ -154,7 +154,7 @@ async function registerLive(): Promise<void> {
     console.log(chalk.dim(`   Encoded as base64 data URI`));
   }
 
-  // Register on-chain
+  // Register onchain
   const registry = new ethers.Contract(registryAddress, IDENTITY_REGISTRY_ABI, signer);
   console.log(chalk.cyan(`\u{1F310} Registering on chain ${chainId}...`));
 
@@ -193,7 +193,7 @@ async function registerLive(): Promise<void> {
 
         appendToMemorySection('Notes', `- Registered via tx \`${tx.hash}\` on block ${receipt.blockNumber}`, config.memoryPath);
 
-        console.log(chalk.green.bold(`\u{2705} On-chain registration complete`));
+        console.log(chalk.green.bold(`\u{2705} Onchain registration complete`));
         console.log(chalk.dim(`   Agent ID:       ${agentId}`));
         console.log(chalk.dim(`   Agent Registry: ${agentRegistry}`));
         console.log(chalk.dim(`   Chain ID:       ${chainId}`));

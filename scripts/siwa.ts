@@ -211,13 +211,13 @@ export async function signSIWAMessageUnsafe(
  * 4. Domain matches expected domain
  * 5. Nonce matches (caller must validate against their nonce store)
  * 6. Time window (expirationTime / notBefore)
- * 7. On-chain: ownerOf(agentId) === recovered address
+ * 7. Onchain: ownerOf(agentId) === recovered address
  *
  * @param message    Full SIWA message string
  * @param signature  EIP-191 signature hex string
  * @param expectedDomain  The server's domain (for domain binding)
  * @param nonceValid  Callback that returns true if the nonce is valid and unconsumed
- * @param provider   ethers Provider for on-chain verification
+ * @param provider   ethers Provider for onchain verification
  */
 export async function verifySIWA(
   message: string,
@@ -258,7 +258,7 @@ export async function verifySIWA(
       return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Message not yet valid (notBefore)' };
     }
 
-    // 7. On-chain ownership — extract registry address from agentRegistry string
+    // 7. Onchain ownership — extract registry address from agentRegistry string
     const registryParts = fields.agentRegistry.split(':');
     if (registryParts.length !== 3 || registryParts[0] !== 'eip155') {
       return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Invalid agentRegistry format' };
