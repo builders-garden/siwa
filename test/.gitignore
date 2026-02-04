@@ -1,0 +1,4 @@
+.env
+node_modules/
+agent-keystore.json
+MEMORY.md

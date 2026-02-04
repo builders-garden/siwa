@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Keystore files (contain encrypted private keys)
+agent-keystore.json
+*-keystore.json
+
+# Agent state (generated per-agent)
+MEMORY.md
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Lockfiles are kept (pnpm-lock.yaml)
