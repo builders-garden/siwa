@@ -72,4 +72,4 @@ See [`references/security-model.md`](references/security-model.md) for the full 
 - [SKILL.md](SKILL.md) — Full skill documentation and API reference
 - [ERC-8004 specification](https://github.com/builders-garden/ERC-8004)
 - [SIWA protocol spec](references/siwa-spec.md)
-# siwa
+

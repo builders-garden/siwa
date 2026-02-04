@@ -143,7 +143,7 @@ async function requestNonce() {
     const res = await fetch('/siwa/nonce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, agentId: 1, agentRegistry: 'eip155:84532:0x8004AA63c570c570eBF15376c0dB199918BFe9Fb' })
+      body: JSON.stringify({ address, agentId: 1, agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e' })
     });
     const data = await res.json();
     document.getElementById('nonce-response').value = JSON.stringify(data, null, 2);

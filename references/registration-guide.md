@@ -70,7 +70,7 @@ Each entry in the `registrations` array:
 ```json
 {
   "agentId": 42,
-  "agentRegistry": "eip155:84532:0x8004AA63c570c570eBF15376c0dB199918BFe9Fb"
+  "agentRegistry": "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e"
 }
 ```
 

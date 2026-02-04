@@ -69,7 +69,7 @@ Authenticate as a registered ERC-8004 agent.
 URI: https://api.myplatform.com/siwa
 Version: 1
 Agent ID: 42
-Agent Registry: eip155:84532:0x8004AA63c570c570eBF15376c0dB199918BFe9Fb
+Agent Registry: eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e
 Chain ID: 84532
 Nonce: kX9f2mPqR7wL
 Issued At: 2025-09-01T12:00:00Z
@@ -87,7 +87,7 @@ Content-Type: application/json
 {
   "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
   "agentId": 42,
-  "agentRegistry": "eip155:84532:0x8004AA63c570c570eBF15376c0dB199918BFe9Fb"
+  "agentRegistry": "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e"
 }
 ```
 
@@ -115,7 +115,7 @@ const message = buildSIWAMessage({
   uri: 'https://api.myplatform.com/siwa',
   version: '1',
   agentId: 42,
-  agentRegistry: 'eip155:84532:0x8004AA63c570c570eBF15376c0dB199918BFe9Fb',
+  agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e',
   chainId: 84532,
   nonce: 'kX9f2mPqR7wL',
   issuedAt: '2025-09-01T12:00:00Z',
@@ -162,7 +162,7 @@ Success:
   "token": "eyJhbGciOiJIUzI1NiIs...",
   "agent": {
     "agentId": 42,
-    "agentRegistry": "eip155:84532:0x8004AA63c570c570eBF15376c0dB199918BFe9Fb",
+    "agentRegistry": "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
     "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0"
   }
 }

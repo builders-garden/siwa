@@ -38,7 +38,8 @@ const memoryPath = process.argv.includes('--memory')
 
 // Registry addresses per chain
 const REGISTRY_ADDRESSES: Record<number, string> = {
-  84532: '0x8004AA63c570c570eBF15376c0dB199918BFe9Fb',   // Base Sepolia
+  8453: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',    // Base
+  84532: '0x8004A818BFB912233c491871b3d84c89A494BD9e',   // Base Sepolia
   11155111: '0x8004a6090Cd10A7288092483047B097295Fb8847', // ETH Sepolia
   59141: '0x8004aa7C931bCE1233973a0C6A667f73F66282e7',   // Linea Sepolia
   80002: '0x8004ad19E14B9e0654f73353e8a0B600D46C2898',   // Polygon Amoy
