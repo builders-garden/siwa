@@ -1,0 +1,480 @@
+import { Metadata } from "next";
+import { EndpointsSidebar } from "@/components/endpoints-sidebar";
+
+export const metadata: Metadata = {
+  title: "API Endpoints — SIWA",
+  description:
+    "Live SIWA server endpoints you can call to run the full Sign In With Agent authentication flow.",
+};
+
+function CodeBlock({ children }: { children: string }) {
+  return (
+    <pre className="overflow-x-auto rounded-lg border border-border bg-surface p-4 font-mono text-sm leading-relaxed text-muted">
+      <code>{children}</code>
+    </pre>
+  );
+}
+
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-20 pb-16">
+      <h2 className="font-mono text-xl font-semibold text-foreground mb-6">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function SubSection({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div id={id} className="scroll-mt-20 mt-8">
+      <h3 className="font-mono text-base font-semibold text-foreground mb-4">
+        {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+function P({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm leading-relaxed text-muted mb-4">{children}</p>;
+}
+
+function InlineCode({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="rounded bg-surface px-1.5 py-0.5 font-mono text-xs text-accent">
+      {children}
+    </code>
+  );
+}
+
+function MethodBadge({ method }: { method: "GET" | "POST" }) {
+  const color =
+    method === "GET"
+      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+      : "bg-blue-500/10 text-blue-400 border-blue-500/20";
+  return (
+    <span
+      className={`inline-block rounded border px-2 py-0.5 font-mono text-xs font-semibold ${color}`}
+    >
+      {method}
+    </span>
+  );
+}
+
+function EndpointHeader({
+  method,
+  path,
+  auth,
+}: {
+  method: "GET" | "POST";
+  path: string;
+  auth?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-4 flex-wrap">
+      <MethodBadge method={method} />
+      <code className="font-mono text-sm text-foreground">{path}</code>
+      {auth && (
+        <span className="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-xs text-amber-400">
+          Bearer token
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Table({
+  headers,
+  rows,
+}: {
+  headers: string[];
+  rows: string[][];
+}) {
+  return (
+    <div className="overflow-x-auto mb-4">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border">
+            {headers.map((h) => (
+              <th
+                key={h}
+                className="py-2 pr-4 text-left font-mono text-xs font-medium text-dim"
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="border-b border-border/50">
+              {row.map((cell, j) => (
+                <td key={j} className="py-2 pr-4 text-muted font-mono text-xs">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default function EndpointsPage() {
+  return (
+    <div className="mx-auto flex max-w-6xl px-6 py-12">
+      <EndpointsSidebar />
+
+      <article className="min-w-0 flex-1 pl-0 md:pl-12">
+        <h1 className="font-mono text-2xl font-bold text-foreground mb-2">
+          API Endpoints
+        </h1>
+        <p className="text-sm text-dim mb-8">
+          SIWA Server — HTTP endpoints for the full authentication flow
+        </p>
+
+        <div className="mb-12 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-5 py-4">
+          <p className="text-sm text-muted leading-relaxed">
+            <span className="font-mono font-semibold text-emerald-400">Live</span>{" "}
+            — These endpoints are running on this website right now. You can call them directly from your terminal or agent to try the full SIWA authentication flow. No setup required.
+          </p>
+        </div>
+
+        {/* Overview */}
+        <Section id="overview" title="Overview">
+          <P>
+            The SIWA server implements a challenge-response authentication flow. An agent requests a nonce, signs a structured message, and submits it for verification. On success, the server returns a JWT session token for subsequent authenticated requests.
+          </P>
+
+          <SubSection id="base-url" title="Base URL">
+            <CodeBlock>{`https://siwa.builders.garden`}</CodeBlock>
+            <P>
+              All endpoints accept and return <InlineCode>application/json</InlineCode>. CORS is enabled for all origins. You can also run a local instance with the{" "}
+              <a
+                href="https://github.com/builders-garden/siwa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                siwa-testing
+              </a>{" "}
+              package.
+            </P>
+          </SubSection>
+
+          <SubSection id="auth-flow" title="Authentication Flow">
+            <div className="rounded-lg border border-border bg-surface p-5 mb-4">
+              <div className="space-y-4 font-mono text-sm">
+                <div className="flex items-start gap-3">
+                  <span className="text-accent font-semibold shrink-0">1.</span>
+                  <div>
+                    <span className="text-foreground">Agent</span>
+                    <span className="text-dim mx-2">&rarr;</span>
+                    <span className="inline-block rounded border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-xs text-blue-400 mr-2">POST</span>
+                    <span className="text-muted">/api/siwa/nonce</span>
+                    <span className="text-dim mx-2">&rarr;</span>
+                    <span className="text-foreground">Server returns nonce + timestamps</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-accent font-semibold shrink-0">2.</span>
+                  <div>
+                    <span className="text-foreground">Agent builds SIWA message and signs via EIP-191</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-accent font-semibold shrink-0">3.</span>
+                  <div>
+                    <span className="text-foreground">Agent</span>
+                    <span className="text-dim mx-2">&rarr;</span>
+                    <span className="inline-block rounded border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-xs text-blue-400 mr-2">POST</span>
+                    <span className="text-muted">/api/siwa/verify</span>
+                    <span className="text-dim mx-2">&rarr;</span>
+                    <span className="text-foreground">Server returns JWT token</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-accent font-semibold shrink-0">4.</span>
+                  <div>
+                    <span className="text-foreground">Agent uses</span>
+                    <span className="mx-1 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-400">Bearer token</span>
+                    <span className="text-foreground">for protected endpoints</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </SubSection>
+        </Section>
+
+        {/* Authentication Endpoints */}
+        <Section id="authentication" title="Authentication Endpoints">
+          <SubSection id="post-siwa-nonce" title="Request Nonce">
+            <EndpointHeader method="POST" path="/api/siwa/nonce" />
+            <P>
+              Request a cryptographic nonce to include in the SIWA message. Nonces are single-use and expire after 5 minutes.
+            </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Request Body</h4>
+            <Table
+              headers={["Field", "Type", "Required", "Description"]}
+              rows={[
+                ["address", "string", "Yes", "Agent wallet address (EIP-55 checksummed)"],
+                ["agentId", "number", "No", "ERC-8004 agent token ID"],
+                ["agentRegistry", "string", "No", "Registry ref (e.g. eip155:84532:0x8004...)"],
+              ]}
+            />
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
+            <CodeBlock>{`{
+  "nonce": "a1b2c3d4e5f6g7h8",
+  "issuedAt": "2026-02-05T12:00:00.000Z",
+  "expirationTime": "2026-02-05T12:05:00.000Z",
+  "domain": "siwa.builders.garden",
+  "uri": "https://siwa.builders.garden/api/siwa/verify",
+  "chainId": 84532
+}`}</CodeBlock>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 400</h4>
+            <CodeBlock>{`{ "error": "Missing address" }`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="post-siwa-verify" title="Verify Signature">
+            <EndpointHeader method="POST" path="/api/siwa/verify" />
+            <P>
+              Submit the signed SIWA message for verification. On success, the server validates the signature, checks nonce freshness, verifies domain binding, and returns a JWT session token (1 hour expiry).
+            </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Request Body</h4>
+            <Table
+              headers={["Field", "Type", "Required", "Description"]}
+              rows={[
+                ["message", "string", "Yes", "Full SIWA message (plaintext)"],
+                ["signature", "string", "Yes", "EIP-191 signature (hex, 0x-prefixed)"],
+              ]}
+            />
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
+            <CodeBlock>{`{
+  "success": true,
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+  "agentId": 42,
+  "agentRegistry": "eip155:84532:0x8004A818...",
+  "verified": "offline",
+  "expiresAt": "2026-02-05T13:00:00.000Z"
+}`}</CodeBlock>
+            <P>
+              The <InlineCode>verified</InlineCode> field indicates the verification mode:{" "}
+              <InlineCode>offline</InlineCode> (signature only) or{" "}
+              <InlineCode>onchain</InlineCode> (signature + ERC-721 ownership check via RPC).
+            </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 400</h4>
+            <CodeBlock>{`{ "success": false, "error": "Missing message or signature" }`}</CodeBlock>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 401</h4>
+            <CodeBlock>{`{ "success": false, "error": "Signature mismatch" }`}</CodeBlock>
+            <P>
+              Other possible errors: <InlineCode>Invalid nonce</InlineCode>,{" "}
+              <InlineCode>Message expired</InlineCode>,{" "}
+              <InlineCode>Domain mismatch</InlineCode>,{" "}
+              <InlineCode>Signer does not own agent NFT</InlineCode> (onchain mode).
+            </P>
+          </SubSection>
+        </Section>
+
+        {/* Protected Endpoints */}
+        <Section id="protected" title="Protected Endpoints">
+          <P>
+            These endpoints require a valid JWT token in the <InlineCode>Authorization</InlineCode> header.
+            Get a token by completing the nonce + verify flow above.
+          </P>
+          <CodeBlock>{`Authorization: Bearer <token>`}</CodeBlock>
+
+          <SubSection id="get-api-protected" title="Test Auth">
+            <EndpointHeader method="GET" path="/api/protected" auth />
+            <P>
+              Simple endpoint to verify your session is working. Returns the authenticated agent&apos;s identity.
+            </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
+            <CodeBlock>{`{
+  "message": "Hello Agent #42!",
+  "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+  "agentId": 42,
+  "timestamp": "2026-02-05T12:01:00.000Z"
+}`}</CodeBlock>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 401</h4>
+            <CodeBlock>{`{ "error": "Unauthorized" }`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="post-api-agent-action" title="Agent Action">
+            <EndpointHeader method="POST" path="/api/agent-action" auth />
+            <P>
+              Submit an action as an authenticated agent. The server echoes the request and identifies the agent.
+            </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Request Body</h4>
+            <Table
+              headers={["Field", "Type", "Required", "Description"]}
+              rows={[
+                ["action", "string", "Yes", "Action identifier"],
+                ["data", "object", "No", "Arbitrary action payload"],
+              ]}
+            />
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
+            <CodeBlock>{`{
+  "received": {
+    "action": "transfer",
+    "data": { "to": "0xabc...", "amount": "1.0" }
+  },
+  "processedBy": "siwa-server",
+  "agent": {
+    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+    "agentId": 42
+  },
+  "timestamp": "2026-02-05T12:02:00.000Z"
+}`}</CodeBlock>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 401</h4>
+            <CodeBlock>{`{ "error": "Unauthorized" }`}</CodeBlock>
+          </SubSection>
+        </Section>
+
+        {/* Try It */}
+        <Section id="try-it" title="Try It">
+          <P>
+            Run the full SIWA auth flow from your terminal. These endpoints are live — you can call them right now.
+          </P>
+
+          <SubSection id="try-curl" title="Full Flow (curl)">
+            <P>
+              <strong className="text-foreground">Step 1</strong> — Request a nonce:
+            </P>
+            <CodeBlock>{`curl -s -X POST https://siwa.builders.garden/api/siwa/nonce \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+    "agentId": 42,
+    "agentRegistry": "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e"
+  }'`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 2</strong> — Build and sign the SIWA message using the nonce from step 1. Use the SDK or any EIP-191 signer:
+            </P>
+            <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
+
+const { message, signature } = await signSIWAMessage({
+  domain: 'siwa.builders.garden',
+  address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0',
+  statement: 'Authenticate as a registered ERC-8004 agent.',
+  uri: 'https://siwa.builders.garden/api/siwa/verify',
+  agentId: 42,
+  agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e',
+  chainId: 84532,
+  nonce: '<nonce-from-step-1>',
+  issuedAt: '<issuedAt-from-step-1>',
+  expirationTime: '<expirationTime-from-step-1>'
+});`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 3</strong> — Submit message + signature for verification:
+            </P>
+            <CodeBlock>{`curl -s -X POST https://siwa.builders.garden/api/siwa/verify \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "message": "<siwa-message-from-step-2>",
+    "signature": "<signature-from-step-2>"
+  }'`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 4</strong> — Use the JWT token for authenticated requests:
+            </P>
+            <CodeBlock>{`curl -s https://siwa.builders.garden/api/protected \\
+  -H "Authorization: Bearer <token-from-step-3>"`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 5</strong> — Submit an agent action:
+            </P>
+            <CodeBlock>{`curl -s -X POST https://siwa.builders.garden/api/agent-action \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <token-from-step-3>" \\
+  -d '{
+    "action": "ping",
+    "data": { "hello": "world" }
+  }'`}</CodeBlock>
+          </SubSection>
+        </Section>
+
+        {/* SIWA Message Format Reference */}
+        <div className="rounded-lg border border-border bg-surface p-5 mt-4">
+          <h4 className="font-mono text-sm font-semibold text-foreground mb-3">
+            SIWA Message Format
+          </h4>
+          <pre className="overflow-x-auto font-mono text-xs leading-relaxed text-muted">
+            <code>{`{domain} wants you to sign in with your Agent account:
+{address}
+
+{statement}
+
+URI: {uri}
+Version: 1
+Agent ID: {agentId}
+Agent Registry: {agentRegistry}
+Chain ID: {chainId}
+Nonce: {nonce}
+Issued At: {issuedAt}
+Expiration Time: {expirationTime}`}</code>
+          </pre>
+        </div>
+
+        {/* Cross-references */}
+        <div className="mt-12 grid gap-4 sm:grid-cols-2">
+          <a
+            href="/docs"
+            className="rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+          >
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
+              Documentation
+            </h4>
+            <p className="text-xs text-muted">
+              SDK reference, protocol spec, security model, and contract addresses.
+            </p>
+          </a>
+          <a
+            href="/docs/deploy"
+            className="rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+          >
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
+              Deploy to Railway
+            </h4>
+            <p className="text-xs text-muted">
+              Deploy your own SIWA server and keyring proxy with one Dockerfile.
+            </p>
+          </a>
+        </div>
+      </article>
+    </div>
+  );
+}
