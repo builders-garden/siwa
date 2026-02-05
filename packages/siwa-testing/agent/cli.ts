@@ -5,8 +5,8 @@ import { registerFlow } from './flows/register.js';
 import { signInFlow, callApiFlow } from './flows/sign-in.js';
 import { testKeystoreFlow } from './flows/test-keystore.js';
 import { testProxyFlow } from './flows/test-proxy.js';
-import { readMemory, hasWalletRecord, isRegistered } from 'siwa/memory';
-import { hasWallet, getAddress } from 'siwa/keystore';
+import { readMemory, hasWalletRecord, isRegistered } from '@buildersgarden/siwa/memory';
+import { hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
 import { config, getKeystoreConfig } from './config.js';
 
 const command = process.argv[2];

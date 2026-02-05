@@ -3,11 +3,10 @@
  *
  * Secure private key storage abstraction for ERC-8004 agents.
  *
- * Four backends, in order of preference:
+ * Three backends, in order of preference:
  *   0. Keyring Proxy (via HMAC-authenticated HTTP) — key never enters agent process
- *   1. OS Keychain (via `keytar`) — macOS Keychain, Windows Credential Manager, Linux libsecret
- *   2. Ethereum V3 Encrypted JSON Keystore (via ethers.js) — password-encrypted file on disk
- *   3. Environment variable fallback (AGENT_PRIVATE_KEY) — least secure, for CI/testing only
+ *   1. Ethereum V3 Encrypted JSON Keystore (via ethers.js) — password-encrypted file on disk
+ *   2. Environment variable fallback (AGENT_PRIVATE_KEY) — least secure, for CI/testing only
  *
  * The private key NEVER leaves this module as a return value.
  * External code interacts only through:
@@ -28,10 +27,9 @@
  *
  * Dependencies:
  *   npm install ethers
- *   npm install keytar        (optional, for OS keychain backend)
  *
  * Configuration (via env vars or passed options):
- *   KEYSTORE_BACKEND      — "os-keychain" | "encrypted-file" | "env" | "proxy" (auto-detected if omitted)
+ *   KEYSTORE_BACKEND      — "encrypted-file" | "env" | "proxy" (auto-detected if omitted)
  *   KEYSTORE_PASSWORD     — Password for encrypted-file backend (prompted interactively if omitted)
  *   KEYSTORE_PATH         — Path to encrypted keystore file (default: ./agent-keystore.json)
  *   AGENT_PRIVATE_KEY     — Fallback for env backend only
@@ -47,13 +45,12 @@ import { computeHmac } from './proxy-auth.js';
 // Types
 // ---------------------------------------------------------------------------
 
-export type KeystoreBackend = 'os-keychain' | 'encrypted-file' | 'env' | 'proxy';
+export type KeystoreBackend = 'encrypted-file' | 'env' | 'proxy';
 
 export interface KeystoreConfig {
   backend?: KeystoreBackend;
   keystorePath?: string;
   password?: string;             // For encrypted-file backend
-  serviceName?: string;          // For os-keychain backend (default: 'erc-8004-agent')
   proxyUrl?: string;             // For proxy backend — keyring proxy server URL
   proxySecret?: string;          // For proxy backend — HMAC shared secret
 }
@@ -88,8 +85,6 @@ export interface SignedAuthorization {
 // Constants
 // ---------------------------------------------------------------------------
 
-const SERVICE_NAME = 'erc-8004-agent';
-const ACCOUNT_NAME = 'agent-private-key';
 const DEFAULT_KEYSTORE_PATH = './agent-keystore.json';
 
 // ---------------------------------------------------------------------------
@@ -132,59 +127,20 @@ async function proxyRequest(
 // Backend detection
 // ---------------------------------------------------------------------------
 
-let _keytarModule: any = null;
-
-async function tryLoadKeytar(): Promise<any | null> {
-  if (_keytarModule !== null) return _keytarModule;
-  try {
-    _keytarModule = await import('keytar');
-    return _keytarModule;
-  } catch {
-    _keytarModule = false;
-    return null;
-  }
-}
-
 export async function detectBackend(): Promise<KeystoreBackend> {
   // 0. Proxy backend (if URL is set)
   if (process.env.KEYRING_PROXY_URL) return 'proxy';
 
-  // 1. Try OS keychain
-  const keytar = await tryLoadKeytar();
-  if (keytar) return 'os-keychain';
-
-  // 2. Check for existing encrypted keystore file
+  // 1. Check for existing encrypted keystore file
   if (fs.existsSync(process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH)) {
     return 'encrypted-file';
   }
 
-  // 3. Check for env var
+  // 2. Check for env var
   if (process.env.AGENT_PRIVATE_KEY) return 'env';
 
-  // 4. Default to encrypted-file (will be created on first use)
+  // 3. Default to encrypted-file (will be created on first use)
   return 'encrypted-file';
-}
-
-// ---------------------------------------------------------------------------
-// OS Keychain backend
-// ---------------------------------------------------------------------------
-
-async function keychainStore(privateKey: string, service: string): Promise<void> {
-  const keytar = await tryLoadKeytar();
-  if (!keytar) throw new Error('keytar not available');
-  await keytar.setPassword(service, ACCOUNT_NAME, privateKey);
-}
-
-async function keychainLoad(service: string): Promise<string | null> {
-  const keytar = await tryLoadKeytar();
-  if (!keytar) return null;
-  return await keytar.getPassword(service, ACCOUNT_NAME);
-}
-
-async function keychainDelete(service: string): Promise<boolean> {
-  const keytar = await tryLoadKeytar();
-  if (!keytar) return false;
-  return await keytar.deletePassword(service, ACCOUNT_NAME);
 }
 
 // ---------------------------------------------------------------------------
@@ -246,7 +202,6 @@ function deriveMachinePassword(): string {
  */
 export async function createWallet(config: KeystoreConfig = {}): Promise<WalletInfo> {
   const backend = config.backend || await detectBackend();
-  const service = config.serviceName || SERVICE_NAME;
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
   if (backend === 'proxy') {
@@ -259,10 +214,6 @@ export async function createWallet(config: KeystoreConfig = {}): Promise<WalletI
   const address = wallet.address;
 
   switch (backend) {
-    case 'os-keychain':
-      await keychainStore(privateKey, service);
-      break;
-
     case 'encrypted-file': {
       const password = config.password || process.env.KEYSTORE_PASSWORD || deriveMachinePassword();
       await encryptedFileStore(privateKey, address, password, keystorePath);
@@ -300,17 +251,12 @@ export async function importWallet(
     throw new Error('importWallet() is not supported via proxy. Import the wallet on the proxy server directly.');
   }
 
-  const service = config.serviceName || SERVICE_NAME;
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
   const wallet = new ethers.Wallet(privateKey);
   const address = wallet.address;
 
   switch (backend) {
-    case 'os-keychain':
-      await keychainStore(privateKey, service);
-      break;
-
     case 'encrypted-file': {
       const password = config.password || process.env.KEYSTORE_PASSWORD || deriveMachinePassword();
       await encryptedFileStore(privateKey, address, password, keystorePath);
@@ -339,12 +285,9 @@ export async function hasWallet(config: KeystoreConfig = {}): Promise<boolean> {
     return data.hasWallet;
   }
 
-  const service = config.serviceName || SERVICE_NAME;
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
   switch (backend) {
-    case 'os-keychain':
-      return (await keychainLoad(service)) !== null;
     case 'encrypted-file':
       return encryptedFileExists(keystorePath);
     case 'env':
@@ -488,12 +431,9 @@ export async function deleteWallet(config: KeystoreConfig = {}): Promise<boolean
     throw new Error('deleteWallet() is not supported via proxy. Delete the wallet on the proxy server directly.');
   }
 
-  const service = config.serviceName || SERVICE_NAME;
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
   switch (backend) {
-    case 'os-keychain':
-      return await keychainDelete(service);
     case 'encrypted-file':
       if (fs.existsSync(keystorePath)) {
         fs.unlinkSync(keystorePath);
@@ -512,16 +452,11 @@ export async function deleteWallet(config: KeystoreConfig = {}): Promise<boolean
 
 async function _loadWalletInternal(config: KeystoreConfig = {}): Promise<ethers.Wallet | null> {
   const backend = config.backend || await detectBackend();
-  const service = config.serviceName || SERVICE_NAME;
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
   let privateKey: string | null = null;
 
   switch (backend) {
-    case 'os-keychain':
-      privateKey = await keychainLoad(service);
-      break;
-
     case 'encrypted-file': {
       const password = config.password || process.env.KEYSTORE_PASSWORD || deriveMachinePassword();
       privateKey = await encryptedFileLoad(password, keystorePath);

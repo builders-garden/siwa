@@ -137,15 +137,15 @@ export default function DocsPage() {
           </P>
 
           <SubSection id="installation" title="Installation">
-            <CodeBlock>{`npm install siwa ethers`}</CodeBlock>
+            <CodeBlock>{`npm install @buildersgarden/siwa ethers`}</CodeBlock>
             <P>
-              The <InlineCode>siwa</InlineCode> package exposes four modules via package exports:
+              The <InlineCode>@buildersgarden/siwa</InlineCode> package exposes four modules via package exports:
             </P>
-            <CodeBlock>{`import { createWallet, signMessage, getAddress } from 'siwa/keystore';
-import { signSIWAMessage, verifySIWA } from 'siwa/siwa';
-import { getAgent, getReputation } from 'siwa/registry';
-import { readMemory, writeMemoryField } from 'siwa/memory';
-import { computeHMAC } from 'siwa/proxy-auth';`}</CodeBlock>
+            <CodeBlock>{`import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
+import { signSIWAMessage, verifySIWA } from '@buildersgarden/siwa/siwa';
+import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
+import { readMemory, writeMemoryField } from '@buildersgarden/siwa/memory';
+import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
           </SubSection>
 
           <SubSection id="quick-start" title="Quick Start">
@@ -165,8 +165,8 @@ pnpm run dev`}</CodeBlock>
             <P>
               Register an agent by creating a wallet, building a registration file, and calling the Identity Registry contract.
             </P>
-            <CodeBlock>{`import { createWallet, signTransaction, getAddress } from 'siwa/keystore';
-import { writeMemoryField } from 'siwa/memory';
+            <CodeBlock>{`import { createWallet, signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
+import { writeMemoryField } from '@buildersgarden/siwa/memory';
 
 // 1. Create wallet (key goes to proxy, never returned)
 const info = await createWallet();
@@ -199,7 +199,7 @@ const tx = await provider.broadcastTransaction(signedTx);`}</CodeBlock>
             <P>
               Authenticate with any SIWA-aware service using the challenge-response flow.
             </P>
-            <CodeBlock>{`import { signSIWAMessage } from 'siwa/siwa';
+            <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
 
 // 1. Request nonce from server
 const { nonce, issuedAt, expirationTime } = await fetch(
@@ -233,7 +233,7 @@ const session = await fetch('https://api.example.com/siwa/verify', {
             <P>
               On the server, use <InlineCode>verifySIWA</InlineCode> to validate the signature, recover the signer, and check all protocol fields.
             </P>
-            <CodeBlock>{`import { verifySIWA } from 'siwa/siwa';
+            <CodeBlock>{`import { verifySIWA } from '@buildersgarden/siwa/siwa';
 
 // In your /siwa/verify endpoint handler:
 const { message, signature } = req.body;
@@ -264,7 +264,7 @@ const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
 
         {/* API Reference */}
         <Section id="api" title="API Reference">
-          <SubSection id="api-keystore" title="siwa/keystore">
+          <SubSection id="api-keystore" title="@buildersgarden/siwa/keystore">
             <P>
               Secure key storage abstraction. None of these functions return the private key.
             </P>
@@ -284,7 +284,7 @@ const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
             </P>
           </SubSection>
 
-          <SubSection id="api-siwa" title="siwa/siwa">
+          <SubSection id="api-siwa" title="@buildersgarden/siwa/siwa">
             <P>
               SIWA protocol operations — message building, signing, and verification.
             </P>
@@ -311,7 +311,7 @@ const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
                 ["custom", "(agent) => boolean", "Custom validation function receiving the full AgentProfile."],
               ]}
             />
-            <CodeBlock>{`import { verifySIWA } from 'siwa/siwa';
+            <CodeBlock>{`import { verifySIWA } from '@buildersgarden/siwa/siwa';
 
 const result = await verifySIWA(
   message,
@@ -335,7 +335,7 @@ if (result.valid) {
 }`}</CodeBlock>
           </SubSection>
 
-          <SubSection id="api-registry" title="siwa/registry">
+          <SubSection id="api-registry" title="@buildersgarden/siwa/registry">
             <P>
               Read agent profiles and reputation from on-chain registries.
             </P>
@@ -349,7 +349,7 @@ if (result.valid) {
             <P>
               <InlineCode>getAgent</InlineCode> fetches and parses the agent&apos;s metadata JSON from its <InlineCode>tokenURI</InlineCode>. Supported URI schemes: <InlineCode>ipfs://</InlineCode>, <InlineCode>data:application/json;base64,</InlineCode>, and <InlineCode>https://</InlineCode>.
             </P>
-            <CodeBlock>{`import { getAgent, getReputation } from 'siwa/registry';
+            <CodeBlock>{`import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
 
 const agent = await getAgent(42, {
   registryAddress: '0x8004A169...a432',
@@ -388,7 +388,7 @@ const rep = await getReputation(42, {
             />
           </SubSection>
 
-          <SubSection id="api-memory" title="siwa/memory">
+          <SubSection id="api-memory" title="@buildersgarden/siwa/memory">
             <P>
               Helpers for reading and writing the agent&apos;s public identity state in MEMORY.md.
             </P>
@@ -405,7 +405,7 @@ const rep = await getReputation(42, {
             />
           </SubSection>
 
-          <SubSection id="api-proxy-auth" title="siwa/proxy-auth">
+          <SubSection id="api-proxy-auth" title="@buildersgarden/siwa/proxy-auth">
             <P>
               HMAC-SHA256 authentication utilities for the keyring proxy transport.
             </P>

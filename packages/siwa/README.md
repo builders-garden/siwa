@@ -4,7 +4,7 @@ A Claude Code skill for registering AI agents on the [ERC-8004 (Trustless Agents
 
 ## What it does
 
-- **Create Wallet** — Generate an Ethereum wallet with secure key storage (OS keychain, encrypted V3 file, or env var)
+- **Create Wallet** — Generate an Ethereum wallet with secure key storage (encrypted V3 file, keyring proxy, or env var)
 - **Register Agent (Sign Up)** — Mint an ERC-721 identity NFT on the ERC-8004 Identity Registry with metadata (endpoints, trust model, services)
 - **Authenticate (Sign In)** — Prove ownership of an onchain agent identity by signing a structured SIWA message; receive a JWT from the relying party
 
@@ -55,10 +55,9 @@ The agent's private key never enters the agent's context window. All cryptograph
 
 | Backend | Storage | Use case |
 |---------|---------|----------|
-| `os-keychain` | macOS Keychain / Windows Credential Manager / libsecret | Default — best security |
-| `encrypted-file` | Ethereum V3 JSON Keystore (AES-128-CTR + scrypt) | Docker, CI, headless environments |
+| `proxy` | HMAC-authenticated HTTP to a keyring proxy server | Production — process isolation, key never enters agent |
+| `encrypted-file` | Ethereum V3 JSON Keystore (AES-128-CTR + scrypt) | Local development, Docker, CI |
 | `env` | `AGENT_PRIVATE_KEY` environment variable | Testing only |
-| `proxy` | HMAC-authenticated HTTP to a keyring proxy server | Process isolation — key never enters agent |
 
 See [`references/security-model.md`](references/security-model.md) for the full threat model.
 

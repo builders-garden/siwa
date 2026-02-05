@@ -4,7 +4,7 @@ import * as path from 'path';
 import { ethers } from 'ethers';
 import {
   createWallet, hasWallet, getAddress, deleteWallet, signMessage,
-} from 'siwa/keystore';
+} from '@buildersgarden/siwa/keystore';
 import { config } from '../config.js';
 
 const TEST_PASSWORD = config.keystorePassword;
