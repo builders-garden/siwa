@@ -99,16 +99,26 @@ hasWallet()              → boolean
 
 > `getSigner()` is **not available** with the proxy backend — use `signMessage()` / `signTransaction()` instead.
 
-### IMPORTANT: Always use the SDK — never call the proxy directly
+### IMPORTANT: Install and use the SDK
 
-**Do NOT make raw HTTP calls to the keyring proxy endpoints.** The proxy uses a specific HMAC-SHA256 authentication protocol (custom headers, precise payload format, 30-second timestamp window) that is handled entirely by the SDK.
+The agent MUST use the `@buildersgarden/siwa` SDK to interact with the keyring proxy. The SDK handles HMAC authentication automatically.
 
-If you call the proxy HTTP endpoints directly (e.g. `POST /create-wallet` with hand-crafted headers), it **will fail** — the HMAC format is strict and not meant to be manually replicated.
+**Step 1 — Install the SDK** (if not already available in your environment):
 
-**Always use the SDK functions:**
+```bash
+npm install @buildersgarden/siwa
+```
+
+**Step 2 — Set environment variables:**
+
+```
+KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
+KEYRING_PROXY_SECRET=<your-shared-secret>
+```
+
+**Step 3 — Use the SDK functions** (never call the proxy HTTP endpoints directly):
 
 ```typescript
-// CORRECT — use the SDK
 import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
 
 const info = await createWallet();           // SDK handles HMAC auth internally
@@ -116,16 +126,117 @@ const { signature } = await signMessage(msg); // SDK handles HMAC auth internall
 const address = await getAddress();           // SDK handles HMAC auth internally
 ```
 
-```typescript
-// WRONG — never do this
-const res = await fetch('https://proxy.example.com/create-wallet', {
-  method: 'POST',
-  headers: { 'Authorization': 'HMAC-SHA256;...' },  // WRONG format
-  body: JSON.stringify({})
-});
+The SDK reads `KEYRING_PROXY_URL` and `KEYRING_PROXY_SECRET` from environment variables and constructs the correct HMAC headers automatically.
+
+### Fallback: Manual HMAC authentication (without SDK)
+
+If you absolutely cannot install the SDK (e.g. non-Node.js environment, restricted runtime), you can call the proxy HTTP endpoints directly using the HMAC protocol described below. **Prefer the SDK whenever possible.**
+
+**Headers required on every request** (except `GET /health`):
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `application/json` |
+| `X-Keyring-Timestamp` | Current time as Unix epoch **milliseconds** (e.g. `1738792800000`) |
+| `X-Keyring-Signature` | HMAC-SHA256 hex digest of the payload string (see below) |
+
+**HMAC payload format** — a single string with four parts separated by newlines (`\n`):
+
+```
+{METHOD}\n{PATH}\n{TIMESTAMP}\n{BODY}
 ```
 
-The SDK reads `KEYRING_PROXY_URL` and `KEYRING_PROXY_SECRET` from environment variables and constructs the correct HMAC headers automatically. You never need to know the proxy's authentication protocol.
+| Part | Value |
+|---|---|
+| `METHOD` | HTTP method, uppercase (always `POST`) |
+| `PATH` | Endpoint path (e.g. `/create-wallet`, `/sign-message`) |
+| `TIMESTAMP` | Same value as the `X-Keyring-Timestamp` header |
+| `BODY` | The raw JSON request body string (e.g. `{}` or `{"message":"hello"}`) |
+
+**Compute the signature:**
+
+```
+HMAC-SHA256(secret, "POST\n/create-wallet\n1738792800000\n{}") → hex digest
+```
+
+**Timestamp window:** The server rejects requests where the timestamp differs from server time by more than **30 seconds**.
+
+**Example — create a wallet (Node.js without SDK):**
+
+```typescript
+import crypto from 'crypto';
+
+const PROXY_URL = process.env.KEYRING_PROXY_URL;
+const SECRET = process.env.KEYRING_PROXY_SECRET;
+
+async function proxyRequest(path: string, body: Record<string, unknown> = {}) {
+  const bodyStr = JSON.stringify(body);
+  const timestamp = Date.now().toString();
+  const payload = `POST\n${path}\n${timestamp}\n${bodyStr}`;
+  const signature = crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
+
+  const res = await fetch(`${PROXY_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Keyring-Timestamp': timestamp,
+      'X-Keyring-Signature': signature,
+    },
+    body: bodyStr,
+  });
+
+  if (!res.ok) throw new Error(`${path} failed (${res.status}): ${await res.text()}`);
+  return res.json();
+}
+
+// Usage
+const wallet = await proxyRequest('/create-wallet');        // { address, backend }
+const addr = await proxyRequest('/get-address');             // { address }
+const sig = await proxyRequest('/sign-message', { message: 'hello' }); // { signature, address }
+```
+
+**Example — create a wallet (Python):**
+
+```python
+import hmac, hashlib, json, time, requests, os
+
+PROXY_URL = os.environ["KEYRING_PROXY_URL"]
+SECRET = os.environ["KEYRING_PROXY_SECRET"]
+
+def proxy_request(path, body=None):
+    if body is None:
+        body = {}
+    body_str = json.dumps(body, separators=(",", ":"))
+    timestamp = str(int(time.time() * 1000))
+    payload = f"POST\n{path}\n{timestamp}\n{body_str}"
+    signature = hmac.new(SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    resp = requests.post(
+        f"{PROXY_URL}{path}",
+        headers={
+            "Content-Type": "application/json",
+            "X-Keyring-Timestamp": timestamp,
+            "X-Keyring-Signature": signature,
+        },
+        data=body_str,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+wallet = proxy_request("/create-wallet")       # {"address": "0x...", "backend": "..."}
+sig = proxy_request("/sign-message", {"message": "hello"})  # {"signature": "0x...", "address": "0x..."}
+```
+
+**Available endpoints:**
+
+| Endpoint | Body | Response |
+|---|---|---|
+| `POST /create-wallet` | `{}` | `{ address, backend }` |
+| `POST /has-wallet` | `{}` | `{ hasWallet: boolean }` |
+| `POST /get-address` | `{}` | `{ address }` |
+| `POST /sign-message` | `{ message: string }` | `{ signature, address }` |
+| `POST /sign-transaction` | `{ tx: { to, data, nonce, chainId, type, maxFeePerGas, ... } }` | `{ signedTx, address }` |
+| `POST /sign-authorization` | `{ auth: { chainId, address, nonce } }` | `{ signedAuthorization }` |
+| `GET /health` | — | `{ status: "ok", backend }` (no auth required) |
 
 ### MEMORY.md: Public Data Only
 

@@ -19,9 +19,19 @@ KEYRING_PROXY_SECRET=<your-shared-secret>
 
 For full deployment instructions (Docker, local dev, OpenClaw gateway): [https://siwa.builders.garden/docs/deploy](https://siwa.builders.garden/docs/deploy)
 
+## Prerequisites: Install the SDK
+
+Before using any capabilities, you MUST install the SIWA SDK in your environment:
+
+```bash
+npm install @buildersgarden/siwa
+```
+
+This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa/siwa` (SIWA authentication), `@buildersgarden/siwa/memory` (MEMORY.md helpers), and `@buildersgarden/siwa/registry` (onchain lookups). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
+
 ## Your Capabilities
 
-You can perform these actions by running commands in the `siwa/packages/siwa-testing` directory:
+You can perform these actions by running commands in the `siwa/packages/siwa-testing` directory, **or** by using the SDK directly in code:
 
 ### 1. Create a Wallet
 Creates an Ethereum wallet. The private key is stored securely in the keyring proxy — you never see it.
@@ -76,7 +86,7 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
 ## Important Notes
 
 - **Private keys are NEVER accessible to you.** All signing is delegated to the keyring proxy over HMAC-authenticated HTTP. This is by design — even if you are compromised, the key cannot be extracted.
-- **NEVER call the keyring proxy HTTP endpoints directly.** Always use the CLI commands listed above or the SDK functions (`createWallet()`, `signMessage()`, etc. from `@buildersgarden/siwa/keystore`). The proxy uses a specific HMAC-SHA256 authentication protocol that the SDK handles internally — hand-crafting HTTP requests to the proxy will fail.
+- **NEVER call the keyring proxy HTTP endpoints directly.** Always use the SDK functions (`createWallet()`, `signMessage()`, etc. from `@buildersgarden/siwa/keystore`) or the CLI commands listed above. The proxy uses a specific HMAC-SHA256 authentication protocol that the SDK handles internally — hand-crafting HTTP requests to the proxy will fail. If you cannot install the SDK, see the "Fallback: Manual HMAC authentication" section in SKILL.md for the exact protocol specification.
 - **MEMORY.md** in `siwa/packages/siwa-testing/` contains your public identity state (address, agentId, registration status). Read it to know your current state.
 - **Proxy backend is auto-detected** from `KEYRING_PROXY_URL` — no need to set `KEYSTORE_BACKEND` manually.
 - If a command fails with "Cannot find module", run `cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm install` first.
