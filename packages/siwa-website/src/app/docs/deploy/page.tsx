@@ -186,7 +186,7 @@ export default function DeployPage() {
               <strong className="text-foreground">4.</strong> Set the port to <InlineCode>3100</InlineCode> in the service&apos;s networking settings.
             </P>
             <P>
-              <strong className="text-foreground">5.</strong> This service should be <strong className="text-foreground">private</strong> — only accessible via Railway&apos;s internal network. Do not assign a public domain.
+              <strong className="text-foreground">5.</strong> If the openclaw-gateway (or your agent) runs in the <strong className="text-foreground">same Railway project</strong>, keep this service private — it&apos;s reachable via internal networking. If your agent or OpenClaw instance runs <strong className="text-foreground">outside Railway</strong>, assign a public domain so it can reach the proxy over the internet.
             </P>
           </SubSection>
 
@@ -279,12 +279,17 @@ curl https://your-keyring-proxy.up.railway.app/health
           <P>
             Point your agent at the deployed keyring-proxy by setting these environment variables:
           </P>
-          <CodeBlock>{`# Agent environment
+          <CodeBlock>{`# Same Railway project — use internal networking
 KEYSTORE_BACKEND=proxy
 KEYRING_PROXY_URL=http://keyring-proxy.railway.internal:3100
+KEYRING_PROXY_SECRET=<your-shared-secret>
+
+# External agent / existing OpenClaw — use the public domain
+KEYSTORE_BACKEND=proxy
+KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
 KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
           <P>
-            If your agent runs inside the same Railway project (e.g. as the openclaw-gateway), it reaches the proxy via internal networking. If it runs externally, you&apos;ll need to expose the keyring-proxy on a public domain — but this is not recommended for production. Instead, run the agent within the same Railway project.
+            If your agent or OpenClaw instance runs inside the same Railway project, it reaches the proxy via internal networking. If it runs externally (e.g. an existing OpenClaw container or a local agent), assign a public domain to the keyring-proxy and use that URL instead. The HMAC secret ensures only authorized clients can request signatures.
           </P>
           <P>
             For the full authentication flow, see the{" "}
