@@ -4,6 +4,7 @@ import { createWalletFlow } from './flows/create-wallet.js';
 import { registerFlow } from './flows/register.js';
 import { signInFlow, callApiFlow } from './flows/sign-in.js';
 import { testKeystoreFlow } from './flows/test-keystore.js';
+import { testProxyFlow } from './flows/test-proxy.js';
 import { readMemory, hasWalletRecord, isRegistered } from '../../scripts/memory.js';
 import { hasWallet, getAddress } from '../../scripts/keystore.js';
 import { config, getKeystoreConfig } from './config.js';
@@ -27,6 +28,7 @@ function printUsage(): void {
   console.log('  full-flow      Run all steps sequentially');
   console.log('  status         Print current MEMORY.md state + keystore status');
   console.log('  test-keystore  Run keystore encryption/decryption tests');
+  console.log('  test-proxy     Run keyring proxy tests (requires running proxy server)');
   console.log('');
 }
 
@@ -156,6 +158,11 @@ async function main(): Promise<void> {
         break;
       case 'test-keystore': {
         const ok = await testKeystoreFlow();
+        if (!ok) process.exit(1);
+        break;
+      }
+      case 'test-proxy': {
+        const ok = await testProxyFlow();
         if (!ok) process.exit(1);
         break;
       }

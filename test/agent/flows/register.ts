@@ -1,12 +1,12 @@
 import chalk from 'chalk';
 import * as fs from 'fs';
 import { ethers } from 'ethers';
-import { hasWallet, getSigner } from '../../../scripts/keystore.js';
+import { hasWallet, getSigner, getAddress, signTransaction, type KeystoreConfig } from '../../../scripts/keystore.js';
 import {
   isRegistered, readMemory, writeMemoryField, appendToMemorySection,
 } from '../../../scripts/memory.js';
 import {
-  config, getKeystoreConfig, isLiveMode, REGISTRY_ADDRESSES, RPC_ENDPOINTS, txUrl, addressUrl,
+  config, getKeystoreConfig, isLiveMode, REGISTRY_ADDRESSES, RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, txUrl, addressUrl,
 } from '../config.js';
 
 const IDENTITY_REGISTRY_ABI = [
@@ -100,10 +100,13 @@ async function registerLive(): Promise<void> {
     process.exit(1);
   }
 
-  // Connect provider and check balance
+  // Connect provider and resolve address
   const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = await getSigner(provider, kc);
-  const address = await signer.getAddress();
+  const address = await getAddress(kc);
+  if (!address) {
+    console.log(chalk.red(`\u{274C} Could not resolve wallet address.`));
+    process.exit(1);
+  }
 
   console.log(chalk.cyan(`\u{1F310} Connecting to chain ${chainId} via ${rpcUrl}`));
   console.log(chalk.dim(`   Wallet:  ${address}`));
@@ -114,11 +117,21 @@ async function registerLive(): Promise<void> {
   console.log(chalk.dim(`   Balance: ${balanceEth} ETH`));
 
   if (balance === 0n) {
-    console.log(chalk.red(`\u{274C} Wallet has no ETH. Fund it with testnet ETH first.`));
-    console.log(chalk.yellow(`   Faucets for chain ${chainId}:`));
-    if (chainId === 84532) console.log(chalk.dim(`   https://www.alchemy.com/faucets/base-sepolia`));
-    if (chainId === 11155111) console.log(chalk.dim(`   https://www.alchemy.com/faucets/ethereum-sepolia`));
-    if (chainId === 80002) console.log(chalk.dim(`   https://faucet.polygon.technology/`));
+    const chainName = CHAIN_NAMES[chainId] || `Chain ${chainId}`;
+    const faucetUrl = FAUCETS[chainId];
+    console.log(chalk.red(`\u{274C} Wallet has no ETH — cannot send transactions.`));
+    console.log('');
+    console.log(chalk.yellow(`   Please fund this wallet before registering:`));
+    console.log('');
+    console.log(chalk.white(`   Address:  ${address}`));
+    console.log(chalk.white(`   Chain:    ${chainName} (Chain ID: ${chainId})`));
+    console.log(chalk.dim(`   Explorer: ${addressUrl(chainId, address)}`));
+    if (faucetUrl) {
+      console.log('');
+      console.log(chalk.yellow(`   Faucet:   ${faucetUrl}`));
+    }
+    console.log('');
+    console.log(chalk.dim(`   After funding, re-run this command to continue registration.`));
     process.exit(1);
   }
 
@@ -155,22 +168,66 @@ async function registerLive(): Promise<void> {
   }
 
   // Register onchain
-  const registry = new ethers.Contract(registryAddress, IDENTITY_REGISTRY_ABI, signer);
   console.log(chalk.cyan(`\u{1F310} Registering on chain ${chainId}...`));
+  console.log(chalk.dim(`   Registry:  ${registryAddress}`));
+  console.log(chalk.dim(`   From:      ${address}`));
+  console.log(chalk.dim(`   AgentURI:  ${agentURI.slice(0, 80)}...`));
 
-  const tx = await registry.register(agentURI);
-  console.log(chalk.dim(`   Tx hash: ${tx.hash}`));
-  console.log(chalk.cyan(`   ${txUrl(chainId, tx.hash)}`));
-  console.log(chalk.dim(`   Waiting for confirmation...`));
+  let receipt: ethers.TransactionReceipt;
+  let txHash: string;
 
-  const receipt = await tx.wait();
+  if (kc.backend === 'proxy') {
+    // Proxy path: build + sign tx via proxy, then broadcast raw
+    const iface = new ethers.Interface(IDENTITY_REGISTRY_ABI);
+    const data = iface.encodeFunctionData('register', [agentURI]);
+    const nonce = await provider.getTransactionCount(address);
+    const feeData = await provider.getFeeData();
+
+    const gasEstimate = await provider.estimateGas({ to: registryAddress, data, from: address });
+    const gasLimit = gasEstimate * 120n / 100n; // 20% buffer
+
+    const txReq: ethers.TransactionLike = {
+      to: registryAddress,
+      data,
+      nonce,
+      chainId,
+      type: 2,
+      maxFeePerGas: feeData.maxFeePerGas,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+      gasLimit,
+    };
+
+    console.log(chalk.dim(`   Nonce:     ${nonce}`));
+    console.log(chalk.dim(`   GasLimit:  ${txReq.gasLimit}`));
+    console.log(chalk.dim(`   MaxFee:    ${feeData.maxFeePerGas} wei`));
+    console.log(chalk.dim(`   register(agentURI) where agentURI =`));
+    console.log(chalk.dim(`   ${agentURI}`));
+
+    const { signedTx } = await signTransaction(txReq, kc);
+    const txResponse = await provider.broadcastTransaction(signedTx);
+    txHash = txResponse.hash;
+    console.log(chalk.dim(`   Tx hash: ${txHash}`));
+    console.log(chalk.cyan(`   ${txUrl(chainId, txHash)}`));
+    console.log(chalk.dim(`   Waiting for confirmation...`));
+    receipt = (await txResponse.wait())!;
+  } else {
+    // Direct signer path
+    const signer = await getSigner(provider, kc);
+    const registry = new ethers.Contract(registryAddress, IDENTITY_REGISTRY_ABI, signer);
+    const tx = await registry.register(agentURI);
+    txHash = tx.hash;
+    console.log(chalk.dim(`   Tx hash: ${txHash}`));
+    console.log(chalk.cyan(`   ${txUrl(chainId, txHash)}`));
+    console.log(chalk.dim(`   Waiting for confirmation...`));
+    receipt = (await tx.wait())!;
+  }
   console.log(chalk.dim(`   Confirmed in block ${receipt.blockNumber}`));
 
   // Parse event
-  const iface = new ethers.Interface(IDENTITY_REGISTRY_ABI);
+  const eventIface = new ethers.Interface(IDENTITY_REGISTRY_ABI);
   for (const log of receipt.logs) {
     try {
-      const parsed = iface.parseLog({ topics: log.topics as string[], data: log.data });
+      const parsed = eventIface.parseLog({ topics: log.topics as string[], data: log.data });
       if (parsed?.name === 'Registered') {
         const agentId = parsed.args.agentId.toString();
         const agentRegistry = `eip155:${chainId}:${registryAddress}`;
@@ -191,13 +248,13 @@ async function registerLive(): Promise<void> {
           }
         }
 
-        appendToMemorySection('Notes', `- Registered via tx \`${tx.hash}\` on block ${receipt.blockNumber}`, config.memoryPath);
+        appendToMemorySection('Notes', `- Registered via tx \`${txHash}\` on block ${receipt.blockNumber}`, config.memoryPath);
 
         console.log(chalk.green.bold(`\u{2705} Onchain registration complete`));
         console.log(chalk.dim(`   Agent ID:       ${agentId}`));
         console.log(chalk.dim(`   Agent Registry: ${agentRegistry}`));
         console.log(chalk.dim(`   Chain ID:       ${chainId}`));
-        console.log(chalk.cyan(`   Tx:             ${txUrl(chainId, tx.hash)}`));
+        console.log(chalk.cyan(`   Tx:             ${txUrl(chainId, txHash)}`));
         console.log(chalk.cyan(`   8004scan:       https://www.8004scan.io/`));
         return;
       }
@@ -205,5 +262,5 @@ async function registerLive(): Promise<void> {
   }
 
   console.log(chalk.yellow(`\u{26A0}\u{FE0F}  Registration tx succeeded but could not parse Registered event.`));
-  console.log(chalk.cyan(`   Tx: ${txUrl(chainId, tx.hash)}`));
+  console.log(chalk.cyan(`   Tx: ${txUrl(chainId, txHash)}`));
 }

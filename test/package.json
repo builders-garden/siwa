@@ -12,7 +12,10 @@
     "agent:status": "tsx agent/cli.ts status",
     "agent:test-keystore": "tsx agent/cli.ts test-keystore",
     "reset": "bash scripts/reset.sh",
-    "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\""
+    "proxy": "tsx proxy/index.ts",
+    "proxy:test": "KEYSTORE_BACKEND=proxy tsx agent/cli.ts test-proxy",
+    "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\"",
+    "dev:proxy": "concurrently \"pnpm run proxy\" \"pnpm run server\" \"sleep 3 && KEYSTORE_BACKEND=proxy pnpm run agent:flow\""
   },
   "dependencies": {
     "chalk": "^5.3.0",

@@ -1,0 +1,141 @@
+# docker-compose.test.yml
+#
+# Full integration test — 3 containers:
+#
+#   keyring-proxy  (port 3100) — holds encrypted keys, HMAC auth
+#   siwa-server    (port 3000) — SIWA relying-party server
+#   openclaw       (port 18789) — AI agent gateway with SIWA skill mounted
+#
+# Usage:
+#   # 1. Start everything
+#   docker compose -f docker-compose.test.yml up -d --build
+#
+#   # 2. Onboard OpenClaw (first time only)
+#   docker compose -f docker-compose.test.yml run --rm openclaw-cli setup --non-interactive
+#
+#   # 3. Run agent from host against proxy + server
+#   cd test && pnpm run reset
+#   KEYSTORE_BACKEND=proxy pnpm run agent:flow
+#
+#   # 4. Or interact via OpenClaw agent CLI
+#   docker compose -f docker-compose.test.yml run --rm openclaw-cli agent \
+#     --local --message "Create a wallet and sign in with SIWA"
+#
+#   # 5. Tear down
+#   docker compose -f docker-compose.test.yml down
+
+services:
+  # ── Keyring Proxy ──────────────────────────────────────────────────
+  # Security boundary: holds encrypted private keys.
+  # Exposes HMAC-authenticated signing API.
+  keyring-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    environment:
+      - KEYRING_PROXY_SECRET=test-secret-123
+      - KEYRING_PROXY_PORT=3100
+      - KEYSTORE_BACKEND=encrypted-file
+      - KEYSTORE_PASSWORD=test-password-local-only
+    volumes:
+      - keystore-data:/app/test
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3100/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - agent-net
+
+  # ── SIWA Server ────────────────────────────────────────────────────
+  # Relying-party server that issues nonces and verifies SIWA signatures.
+  siwa-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - SERVER_DOMAIN=siwa-server:3000
+      - JWT_SECRET=test-secret-change-in-production
+    command: ["pnpm", "run", "server"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - agent-net
+
+  # ── OpenClaw Gateway ───────────────────────────────────────────────
+  # AI agent gateway with SIWA skill mounted into the workspace.
+  # Agents use keyring-proxy for signing, siwa-server for auth.
+  openclaw-gateway:
+    image: ghcr.io/openclaw/openclaw:latest
+    restart: unless-stopped
+    ports:
+      - "18789:18789"
+    environment:
+      - HOME=/home/node
+      - TERM=xterm-256color
+      # Keyring proxy config — agent uses proxy backend for all signing
+      - KEYSTORE_BACKEND=proxy
+      - KEYRING_PROXY_URL=http://keyring-proxy:3100
+      - KEYRING_PROXY_SECRET=test-secret-123
+      # SIWA server config
+      - SERVER_URL=http://siwa-server:3000
+      - SERVER_DOMAIN=siwa-server:3000
+    volumes:
+      - openclaw-config:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+      # Mount SIWA skill into the workspace so OpenClaw agents can use it
+      - ./:/home/node/.openclaw/workspace/siwa
+    depends_on:
+      keyring-proxy:
+        condition: service_healthy
+      siwa-server:
+        condition: service_healthy
+    command: ["sh", "/home/node/.openclaw/workspace/siwa/scripts/openclaw-entrypoint.sh"]
+    init: true
+    networks:
+      - agent-net
+
+  # ── OpenClaw CLI (run-once helper) ─────────────────────────────────
+  openclaw-cli:
+    image: ghcr.io/openclaw/openclaw:latest
+    profiles: ["cli"]
+    environment:
+      - HOME=/home/node
+      - TERM=xterm-256color
+      - KEYSTORE_BACKEND=proxy
+      - KEYRING_PROXY_URL=http://keyring-proxy:3100
+      - KEYRING_PROXY_SECRET=test-secret-123
+      - SERVER_URL=http://siwa-server:3000
+      - SERVER_DOMAIN=siwa-server:3000
+      - OPENCLAW_GATEWAY_URL=ws://openclaw-gateway:18789
+    volumes:
+      - openclaw-config:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+      - ./:/home/node/.openclaw/workspace/siwa
+    stdin_open: true
+    tty: true
+    init: true
+    entrypoint: ["node", "dist/index.js"]
+    networks:
+      - agent-net
+
+volumes:
+  keystore-data:
+  openclaw-config:
+  openclaw-workspace:
+
+networks:
+  agent-net:
+    driver: bridge

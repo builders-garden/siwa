@@ -12,6 +12,12 @@ export async function createWalletFlow(): Promise<void> {
   // Check if wallet already exists
   if (await hasWallet(kc)) {
     const address = await getAddress(kc);
+    // Ensure MEMORY.md has the address (may have been reset while wallet persists in proxy/keystore)
+    if (address) {
+      writeMemoryField('Address', address, config.memoryPath);
+      writeMemoryField('Keystore Backend', config.keystoreBackend, config.memoryPath);
+      writeMemoryField('Keystore Path', config.keystorePath, config.memoryPath);
+    }
     console.log(chalk.yellow(`\u{1F511} Wallet already exists`));
     console.log(chalk.dim(`   Address:  ${address}`));
     console.log(chalk.dim(`   Backend:  ${config.keystoreBackend}`));

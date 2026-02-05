@@ -58,6 +58,7 @@ The agent's private key never enters the agent's context window. All cryptograph
 | `os-keychain` | macOS Keychain / Windows Credential Manager / libsecret | Default — best security |
 | `encrypted-file` | Ethereum V3 JSON Keystore (AES-128-CTR + scrypt) | Docker, CI, headless environments |
 | `env` | `AGENT_PRIVATE_KEY` environment variable | Testing only |
+| `proxy` | HMAC-authenticated HTTP to a keyring proxy server | Process isolation — key never enters agent |
 
 See [`references/security-model.md`](references/security-model.md) for the full threat model.
 

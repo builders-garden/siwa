@@ -1,0 +1,87 @@
+# docker-compose.proxy.yml
+#
+# Runs the keyring proxy server alongside OpenClaw gateway.
+# The OpenClaw agent uses KEYSTORE_BACKEND=proxy to delegate signing
+# to the keyring-proxy container over the internal Docker network.
+#
+# Usage:
+#   # 1. Copy .env.example to .env and fill in secrets
+#   cp .env.proxy.example .env
+#
+#   # 2. Build and start
+#   docker compose -f docker-compose.proxy.yml up -d
+#
+#   # 3. Onboard OpenClaw (first time only)
+#   docker compose -f docker-compose.proxy.yml run --rm openclaw-cli onboard
+
+services:
+  # ── Keyring Proxy ──────────────────────────────────────────────────
+  # Holds the private key in encrypted-file backend.
+  # Exposes HMAC-authenticated signing API on port 3100.
+  keyring-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    restart: unless-stopped
+    ports:
+      - "${KEYRING_PROXY_PORT:-3100}:3100"
+    environment:
+      - KEYRING_PROXY_SECRET=${KEYRING_PROXY_SECRET}
+      - KEYRING_PROXY_PORT=3100
+      - KEYSTORE_BACKEND=encrypted-file
+      - KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}
+    volumes:
+      - keystore-data:/app/test
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3100/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - agent-net
+
+  # ── OpenClaw Gateway ───────────────────────────────────────────────
+  # AI agent gateway that routes chat messages to agents.
+  # Agents use the keyring proxy for all signing operations.
+  openclaw-gateway:
+    image: openclaw:local
+    restart: unless-stopped
+    ports:
+      - "${OPENCLAW_PORT:-18789}:18789"
+    environment:
+      - KEYSTORE_BACKEND=proxy
+      - KEYRING_PROXY_URL=http://keyring-proxy:3100
+      - KEYRING_PROXY_SECRET=${KEYRING_PROXY_SECRET}
+    volumes:
+      - openclaw-home:/home/node
+      - openclaw-config:/home/node/.openclaw
+    depends_on:
+      keyring-proxy:
+        condition: service_healthy
+    networks:
+      - agent-net
+
+  # ── OpenClaw CLI (run-once helper) ─────────────────────────────────
+  openclaw-cli:
+    image: openclaw:local
+    profiles: ["cli"]
+    environment:
+      - KEYSTORE_BACKEND=proxy
+      - KEYRING_PROXY_URL=http://keyring-proxy:3100
+      - KEYRING_PROXY_SECRET=${KEYRING_PROXY_SECRET}
+    volumes:
+      - openclaw-home:/home/node
+      - openclaw-config:/home/node/.openclaw
+    networks:
+      - agent-net
+    entrypoint: ["node", "dist/index.js"]
+
+volumes:
+  keystore-data:
+  openclaw-home:
+  openclaw-config:
+
+networks:
+  agent-net:
+    driver: bridge

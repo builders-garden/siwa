@@ -45,6 +45,7 @@ All secret material is managed by `scripts/keystore.ts`, which provides three st
 | **`os-keychain`** | macOS Keychain / Windows Credential Manager / Linux libsecret | Default — best security |
 | **`encrypted-file`** | Ethereum V3 JSON Keystore (AES-128-CTR + scrypt) | Docker, CI, or when `keytar` unavailable |
 | **`env`** | `AGENT_PRIVATE_KEY` env var | Testing only |
+| **`proxy`** | HMAC-authenticated HTTP to a keyring proxy server | Process isolation — key never enters agent |
 
 The keystore module exposes ONLY these operations:
 
@@ -52,7 +53,7 @@ The keystore module exposes ONLY these operations:
 createWallet()        → { address, backend }     // Creates key, returns ONLY address
 signMessage(msg)      → { signature, address }   // Loads key, signs, discards key
 signTransaction(tx)   → { signedTx, address }    // Same pattern
-getSigner(provider)   → ethers.Wallet            // For contract calls; use in narrow scope
+getSigner(provider)   → ethers.Wallet            // For contract calls; use in narrow scope (not available with proxy backend)
 getAddress()          → string                    // Public address only
 hasWallet()           → boolean
 ```

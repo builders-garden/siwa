@@ -20,6 +20,21 @@ export const RPC_ENDPOINTS: Record<number, string> = {
   80002: 'https://rpc-amoy.polygon.technology',
 };
 
+export const CHAIN_NAMES: Record<number, string> = {
+  8453: 'Base',
+  84532: 'Base Sepolia',
+  11155111: 'Ethereum Sepolia',
+  59141: 'Linea Sepolia',
+  80002: 'Polygon Amoy',
+};
+
+export const FAUCETS: Record<number, string> = {
+  84532: 'https://www.alchemy.com/faucets/base-sepolia',
+  11155111: 'https://www.alchemy.com/faucets/ethereum-sepolia',
+  59141: 'https://faucets.chain.link/linea-sepolia',
+  80002: 'https://faucet.polygon.technology/',
+};
+
 export const BLOCK_EXPLORERS: Record<number, string> = {
   8453: 'https://basescan.org',
   84532: 'https://sepolia.basescan.org',
@@ -45,6 +60,8 @@ export const config = {
   keystorePath: process.env.KEYSTORE_PATH || path.resolve(projectRoot, 'agent-keystore.json'),
   keystorePassword: process.env.KEYSTORE_PASSWORD || 'test-password-local-only',
   keystoreBackend: (process.env.KEYSTORE_BACKEND || 'encrypted-file') as KeystoreBackend,
+  keyringProxyUrl: process.env.KEYRING_PROXY_URL || '',
+  keyringProxySecret: process.env.KEYRING_PROXY_SECRET || '',
   templatePath: path.resolve(projectRoot, '..', 'assets', 'MEMORY.md.template'),
   registrationFile: process.env.REGISTRATION_FILE || path.resolve(projectRoot, '..', 'assets', 'registration-template.json'),
 
@@ -65,6 +82,8 @@ export function getKeystoreConfig() {
     backend: config.keystoreBackend,
     keystorePath: config.keystorePath,
     password: config.keystorePassword,
+    proxyUrl: config.keyringProxyUrl || undefined,
+    proxySecret: config.keyringProxySecret || undefined,
   };
 }
 

@@ -3,7 +3,8 @@
  *
  * Secure private key storage abstraction for ERC-8004 agents.
  *
- * Three backends, in order of preference:
+ * Four backends, in order of preference:
+ *   0. Keyring Proxy (via HMAC-authenticated HTTP) — key never enters agent process
  *   1. OS Keychain (via `keytar`) — macOS Keychain, Windows Credential Manager, Linux libsecret
  *   2. Ethereum V3 Encrypted JSON Keystore (via ethers.js) — password-encrypted file on disk
  *   3. Environment variable fallback (AGENT_PRIVATE_KEY) — least secure, for CI/testing only
@@ -30,7 +31,7 @@
  *   npm install keytar        (optional, for OS keychain backend)
  *
  * Configuration (via env vars or passed options):
- *   KEYSTORE_BACKEND      — "os-keychain" | "encrypted-file" | "env" (auto-detected if omitted)
+ *   KEYSTORE_BACKEND      — "os-keychain" | "encrypted-file" | "env" | "proxy" (auto-detected if omitted)
  *   KEYSTORE_PASSWORD     — Password for encrypted-file backend (prompted interactively if omitted)
  *   KEYSTORE_PATH         — Path to encrypted keystore file (default: ./agent-keystore.json)
  *   AGENT_PRIVATE_KEY     — Fallback for env backend only
@@ -40,18 +41,21 @@ import { ethers } from 'ethers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { computeHmac } from './proxy-auth.js';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type KeystoreBackend = 'os-keychain' | 'encrypted-file' | 'env';
+export type KeystoreBackend = 'os-keychain' | 'encrypted-file' | 'env' | 'proxy';
 
 export interface KeystoreConfig {
   backend?: KeystoreBackend;
   keystorePath?: string;
   password?: string;             // For encrypted-file backend
   serviceName?: string;          // For os-keychain backend (default: 'erc-8004-agent')
+  proxyUrl?: string;             // For proxy backend — keyring proxy server URL
+  proxySecret?: string;          // For proxy backend — HMAC shared secret
 }
 
 export interface WalletInfo {
@@ -89,6 +93,42 @@ const ACCOUNT_NAME = 'agent-private-key';
 const DEFAULT_KEYSTORE_PATH = './agent-keystore.json';
 
 // ---------------------------------------------------------------------------
+// Proxy backend — HMAC-authenticated HTTP to a keyring proxy server
+// ---------------------------------------------------------------------------
+
+async function proxyRequest(
+  config: KeystoreConfig,
+  endpoint: string,
+  body: Record<string, unknown> = {},
+): Promise<any> {
+  const url = config.proxyUrl || process.env.KEYRING_PROXY_URL;
+  const secret = config.proxySecret || process.env.KEYRING_PROXY_SECRET;
+  if (!url) throw new Error('Proxy backend requires KEYRING_PROXY_URL or config.proxyUrl');
+  if (!secret) throw new Error('Proxy backend requires KEYRING_PROXY_SECRET or config.proxySecret');
+
+  const bodyStr = JSON.stringify(body, (_key, value) =>
+    typeof value === 'bigint' ? '0x' + value.toString(16) : value
+  );
+  const hmacHeaders = computeHmac(secret, 'POST', endpoint, bodyStr);
+
+  const res = await fetch(`${url}${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...hmacHeaders,
+    },
+    body: bodyStr,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Proxy ${endpoint} failed (${res.status}): ${text}`);
+  }
+
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
 // Backend detection
 // ---------------------------------------------------------------------------
 
@@ -106,6 +146,9 @@ async function tryLoadKeytar(): Promise<any | null> {
 }
 
 export async function detectBackend(): Promise<KeystoreBackend> {
+  // 0. Proxy backend (if URL is set)
+  if (process.env.KEYRING_PROXY_URL) return 'proxy';
+
   // 1. Try OS keychain
   const keytar = await tryLoadKeytar();
   if (keytar) return 'os-keychain';
@@ -206,6 +249,11 @@ export async function createWallet(config: KeystoreConfig = {}): Promise<WalletI
   const service = config.serviceName || SERVICE_NAME;
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
+  if (backend === 'proxy') {
+    const data = await proxyRequest(config, '/create-wallet');
+    return { address: data.address, backend, keystorePath: undefined };
+  }
+
   const wallet = ethers.Wallet.createRandom();
   const privateKey = wallet.privateKey;
   const address = wallet.address;
@@ -248,6 +296,10 @@ export async function importWallet(
   config: KeystoreConfig = {}
 ): Promise<WalletInfo> {
   const backend = config.backend || await detectBackend();
+  if (backend === 'proxy') {
+    throw new Error('importWallet() is not supported via proxy. Import the wallet on the proxy server directly.');
+  }
+
   const service = config.serviceName || SERVICE_NAME;
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
@@ -282,6 +334,11 @@ export async function importWallet(
  */
 export async function hasWallet(config: KeystoreConfig = {}): Promise<boolean> {
   const backend = config.backend || await detectBackend();
+  if (backend === 'proxy') {
+    const data = await proxyRequest(config, '/has-wallet');
+    return data.hasWallet;
+  }
+
   const service = config.serviceName || SERVICE_NAME;
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
@@ -299,6 +356,12 @@ export async function hasWallet(config: KeystoreConfig = {}): Promise<boolean> {
  * Get the wallet's public address (no private key exposed).
  */
 export async function getAddress(config: KeystoreConfig = {}): Promise<string | null> {
+  const backend = config.backend || await detectBackend();
+  if (backend === 'proxy') {
+    const data = await proxyRequest(config, '/get-address');
+    return data.address;
+  }
+
   const wallet = await _loadWalletInternal(config);
   if (!wallet) return null;
   const address = wallet.address;
@@ -315,6 +378,12 @@ export async function signMessage(
   message: string,
   config: KeystoreConfig = {}
 ): Promise<SignResult> {
+  const backend = config.backend || await detectBackend();
+  if (backend === 'proxy') {
+    const data = await proxyRequest(config, '/sign-message', { message });
+    return { signature: data.signature, address: data.address };
+  }
+
   const wallet = await _loadWalletInternal(config);
   if (!wallet) throw new Error('No wallet found. Run createWallet() first.');
 
@@ -333,6 +402,12 @@ export async function signTransaction(
   tx: ethers.TransactionRequest,
   config: KeystoreConfig = {}
 ): Promise<{ signedTx: string; address: string }> {
+  const backend = config.backend || await detectBackend();
+  if (backend === 'proxy') {
+    const data = await proxyRequest(config, '/sign-transaction', { tx: tx as Record<string, unknown> });
+    return { signedTx: data.signedTx, address: data.address };
+  }
+
   const wallet = await _loadWalletInternal(config);
   if (!wallet) throw new Error('No wallet found. Run createWallet() first.');
 
@@ -356,6 +431,12 @@ export async function signAuthorization(
   auth: AuthorizationRequest,
   config: KeystoreConfig = {}
 ): Promise<SignedAuthorization> {
+  const backend = config.backend || await detectBackend();
+  if (backend === 'proxy') {
+    const data = await proxyRequest(config, '/sign-authorization', { auth });
+    return data as SignedAuthorization;
+  }
+
   const wallet = await _loadWalletInternal(config);
   if (!wallet) throw new Error('No wallet found. Run createWallet() first.');
 
@@ -387,6 +468,11 @@ export async function getSigner(
   provider: ethers.Provider,
   config: KeystoreConfig = {}
 ): Promise<ethers.Wallet> {
+  const backend = config.backend || await detectBackend();
+  if (backend === 'proxy') {
+    throw new Error('getSigner() is not supported via proxy. The private key cannot be serialized over HTTP. Use signMessage() or signTransaction() instead.');
+  }
+
   const wallet = await _loadWalletInternal(config);
   if (!wallet) throw new Error('No wallet found. Run createWallet() first.');
   return wallet.connect(provider);
@@ -398,6 +484,10 @@ export async function getSigner(
  */
 export async function deleteWallet(config: KeystoreConfig = {}): Promise<boolean> {
   const backend = config.backend || await detectBackend();
+  if (backend === 'proxy') {
+    throw new Error('deleteWallet() is not supported via proxy. Delete the wallet on the proxy server directly.');
+  }
+
   const service = config.serviceName || SERVICE_NAME;
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
