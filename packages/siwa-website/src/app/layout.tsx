@@ -70,6 +70,7 @@ export default function RootLayout({
             </Link>
             <div className="flex items-center gap-6">
               <NavLink href="/docs">Docs</NavLink>
+              <NavLink href="/docs/deploy">Deploy</NavLink>
               <NavLink
                 href="https://github.com/builders-garden/siwa"
                 external
