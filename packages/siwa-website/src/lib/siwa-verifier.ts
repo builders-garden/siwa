@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { parseSIWAMessage } from "@buildersgarden/siwa/siwa";
+import { parseSIWAMessage } from "@buildersgarden/siwa";
 
 export interface SIWAVerifyResult {
   valid: boolean;
