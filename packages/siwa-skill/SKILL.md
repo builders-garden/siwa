@@ -71,12 +71,11 @@ signMessage("hello")
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `KEYRING_PROXY_URL` | Agent | Proxy server URL (e.g. `http://keyring-proxy:3100`) |
+| `KEYRING_PROXY_URL` | Agent | Proxy server URL — private (e.g. `http://keyring-proxy:3100`) or public |
 | `KEYRING_PROXY_SECRET` | Both | HMAC shared secret |
 | `KEYRING_PROXY_PORT` | Proxy server | Listen port (default: 3100) |
-| `KEYSTORE_BACKEND` | Agent | Must be set to `proxy` |
 
-> **Note**: The proxy server itself stores keys using an AES-encrypted V3 JSON Keystore (scrypt KDF). Other keystore backends (`encrypted-file`, `env`) exist in the codebase for local development without Docker, but the proxy backend is the only one used in production.
+> **Note**: When `KEYRING_PROXY_URL` is set, `KEYSTORE_BACKEND` automatically defaults to `proxy` — no need to set it manually. The proxy server itself stores keys using an AES-encrypted V3 JSON Keystore (scrypt KDF). Other keystore backends (`encrypted-file`, `env`) exist in the codebase for local development without Docker, but the proxy backend is the only one used in production.
 
 ### Keystore API
 
