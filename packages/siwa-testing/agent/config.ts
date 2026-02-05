@@ -1,4 +1,4 @@
-import type { KeystoreBackend } from 'siwa/keystore';
+import type { KeystoreBackend } from '@buildersgarden/siwa/keystore';
 import * as path from 'path';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');

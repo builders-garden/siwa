@@ -18,7 +18,7 @@
     "dev:proxy": "concurrently \"pnpm run proxy\" \"pnpm run server\" \"sleep 3 && KEYSTORE_BACKEND=proxy pnpm run agent:flow\""
   },
   "dependencies": {
-    "siwa": "workspace:*",
+    "@buildersgarden/siwa": "workspace:*",
     "chalk": "^5.3.0",
     "concurrently": "^9.0.0",
     "dotenv": "^17.2.3",

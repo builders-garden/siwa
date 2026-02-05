@@ -35,29 +35,11 @@ For the highest security in production, use a **hardware wallet** or **TEE-based
 
 ## Architecture: Keystore Backends
 
-The `siwa/keystore` module provides four storage backends. In production, the **keyring proxy** is the primary backend — all other backends are used either internally by the proxy server or for local development.
+The `@buildersgarden/siwa/keystore` module provides three storage backends. In production, the **keyring proxy** is the primary backend — all other backends are used either internally by the proxy server or for local development.
 
 ### Keyring Proxy (`proxy`) — Production Default
 
 **The recommended backend. Private key never enters the agent process.** See the "Keyring Proxy" section below for full details.
-
-### OS Keychain (`os-keychain`)
-
-**For local development when proxy is not running.**
-
-Uses the operating system's native credential store:
-
-| OS | Backend | Encryption |
-|---|---|---|
-| macOS | Keychain | AES-256, protected by user login password + Secure Enclave on Apple Silicon |
-| Windows | Credential Manager | DPAPI (Data Protection API), tied to user account |
-| Linux | libsecret / GNOME Keyring | AES-128, unlocked on user login |
-
-**Node.js access**: via [keytar](https://www.npmjs.com/package/keytar) (`npm install keytar`)
-
-**How it resists prompt injection**: The key is stored in an encrypted OS database that is not a file the agent would ever read as text. Even if an injection instructs the agent to "read all files in the project directory," there is no file containing the key.
-
-**Limitations**: Requires `keytar` native module (C++ bindings). Not available in all environments (Docker containers, serverless, CI).
 
 ### Encrypted JSON Keystore (`encrypted-file`)
 
@@ -145,7 +127,7 @@ Use only when the OS keychain and encrypted file are unavailable (e.g., ephemera
 
 The most important architectural decision: **external code never receives the private key.**
 
-The `siwa/keystore` module exposes only these functions:
+The `@buildersgarden/siwa/keystore` module exposes only these functions:
 
 ```
 createWallet()           → { address, backend }           // No key
@@ -185,35 +167,7 @@ The **Private Key** field has been removed entirely.
 
 ## Setup Guide
 
-### Recommended: OS Keychain + Encrypted File backup
-
-```bash
-# Install keytar for OS keychain support
-npm install keytar
-
-# On Linux, also install libsecret:
-# sudo apt-get install libsecret-1-dev
-```
-
-The keystore will auto-detect and use the OS keychain. To also keep an encrypted file backup:
-
-```typescript
-import { createWallet } from 'siwa/keystore';
-
-// Creates wallet in OS keychain
-const info = await createWallet({ backend: 'os-keychain' });
-
-// Also save an encrypted backup
-await importWallet(/* key from backup */, {
-  backend: 'encrypted-file',
-  password: 'strong-passphrase',
-  keystorePath: './backup-keystore.json'
-});
-```
-
-### Fallback: Encrypted File only
-
-If `keytar` is unavailable (Docker, CI, serverless):
+### Recommended: Encrypted File
 
 ```bash
 export KEYSTORE_PASSWORD="your-strong-passphrase"
@@ -243,6 +197,5 @@ To rotate the agent's key while preserving its onchain identity:
 | Package | Required? | Purpose |
 |---|---|---|
 | `ethers` | **Yes** | Wallet operations, V3 keystore encryption, signing |
-| `keytar` | No (recommended) | OS keychain access (macOS Keychain, Windows Credential Manager, Linux libsecret) |
 
 No other dependencies are needed. The encrypted-file backend uses only `ethers` built-in functions.

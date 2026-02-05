@@ -1,17 +1,19 @@
 {
-  "name": "siwa",
-  "version": "0.1.0",
+  "name": "@buildersgarden/siwa",
+  "version": "0.0.1",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./keystore": "./src/keystore.ts",
-    "./siwa": "./src/siwa.ts",
-    "./memory": "./src/memory.ts",
-    "./proxy-auth": "./src/proxy-auth.ts",
-    "./registry": "./src/registry.ts"
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./keystore": { "types": "./dist/keystore.d.ts", "default": "./dist/keystore.js" },
+    "./siwa": { "types": "./dist/siwa.d.ts", "default": "./dist/siwa.js" },
+    "./memory": { "types": "./dist/memory.d.ts", "default": "./dist/memory.js" },
+    "./proxy-auth": { "types": "./dist/proxy-auth.d.ts", "default": "./dist/proxy-auth.js" },
+    "./registry": { "types": "./dist/registry.d.ts", "default": "./dist/registry.js" }
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "publishConfig": { "access": "public" },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist"

@@ -2,8 +2,8 @@ import chalk from 'chalk';
 import { ethers } from 'ethers';
 import {
   hasWallet, getAddress, signMessage, getSigner, createWallet,
-} from 'siwa/keystore';
-import { computeHmac } from 'siwa/proxy-auth';
+} from '@buildersgarden/siwa/keystore';
+import { computeHmac } from '@buildersgarden/siwa/proxy-auth';
 import { config, getKeystoreConfig } from '../config.js';
 
 let passed = 0;

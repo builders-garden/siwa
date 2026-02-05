@@ -76,11 +76,11 @@ signMessage("hello")
 | `KEYRING_PROXY_PORT` | Proxy server | Listen port (default: 3100) |
 | `KEYSTORE_BACKEND` | Agent | Must be set to `proxy` |
 
-> **Note**: The proxy server itself stores keys using an AES-encrypted V3 JSON Keystore (scrypt KDF). Other keystore backends (`os-keychain`, `encrypted-file`, `env`) exist in the codebase for local development without Docker, but the proxy backend is the only one used in production.
+> **Note**: The proxy server itself stores keys using an AES-encrypted V3 JSON Keystore (scrypt KDF). Other keystore backends (`encrypted-file`, `env`) exist in the codebase for local development without Docker, but the proxy backend is the only one used in production.
 
 ### Keystore API
 
-The `siwa/keystore` module exposes ONLY these operations — none return the private key:
+The `@buildersgarden/siwa/keystore` module exposes ONLY these operations — none return the private key:
 
 ```
 createWallet()           → { address, backend }     // Creates key, returns ONLY address
@@ -126,8 +126,8 @@ MEMORY.md stores the agent's public identity state — **never the private key**
 ### Step 0: Check MEMORY.md + Keystore
 
 ```typescript
-import { hasWallet } from 'siwa/keystore';
-import { ensureMemoryExists, hasWalletRecord, isRegistered } from 'siwa/memory';
+import { hasWallet } from '@buildersgarden/siwa/keystore';
+import { ensureMemoryExists, hasWalletRecord, isRegistered } from '@buildersgarden/siwa/memory';
 
 ensureMemoryExists('./MEMORY.md', './assets/MEMORY.md.template');
 
@@ -143,8 +143,8 @@ if (await hasWallet() && hasWalletRecord('./MEMORY.md')) {
 ### Step 1: Create Wallet (key goes to proxy, address goes to MEMORY.md)
 
 ```typescript
-import { createWallet } from 'siwa/keystore';
-import { writeMemoryField } from 'siwa/memory';
+import { createWallet } from '@buildersgarden/siwa/keystore';
+import { writeMemoryField } from '@buildersgarden/siwa/memory';
 
 const info = await createWallet();  // <- key created in proxy, NEVER returned
 
@@ -199,8 +199,8 @@ const agentURI = `data:application/json;base64,${encoded}`;
 With the proxy backend, the agent builds the transaction and delegates signing to the proxy:
 
 ```typescript
-import { signTransaction, getAddress } from 'siwa/keystore';
-import { writeMemoryField } from 'siwa/memory';
+import { signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
+import { writeMemoryField } from '@buildersgarden/siwa/memory';
 
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 const address = await getAddress();
@@ -255,7 +255,7 @@ See [references/contract-addresses.md](references/contract-addresses.md) for dep
 
 ```typescript
 import { SDK } from 'agent0-sdk';
-import { readMemory } from 'siwa/memory';
+import { readMemory } from '@buildersgarden/siwa/memory';
 
 // Note: Agent0 SDK takes a private key string. If using the SDK,
 // you'll need a non-proxy backend or load the key within a narrow scope.
@@ -279,7 +279,7 @@ Full spec: [references/siwa-spec.md](references/siwa-spec.md)
 ### Step 0: Read Public Identity from MEMORY.md
 
 ```typescript
-import { readMemory, isRegistered } from 'siwa/memory';
+import { readMemory, isRegistered } from '@buildersgarden/siwa/memory';
 
 const memory = readMemory('./MEMORY.md');
 if (!isRegistered()) {
@@ -306,7 +306,7 @@ const { nonce, issuedAt, expirationTime } = await nonceRes.json();
 ### Step 2: Sign via Proxy (key never exposed)
 
 ```typescript
-import { signSIWAMessage } from 'siwa/siwa';
+import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
 
 // signSIWAMessage internally calls keystore.signMessage()
 // which delegates to the keyring proxy — the key never enters this process.
@@ -327,7 +327,7 @@ const { message, signature } = await signSIWAMessage({
 ### Step 3: Submit and Persist Session
 
 ```typescript
-import { appendToMemorySection } from 'siwa/memory';
+import { appendToMemorySection } from '@buildersgarden/siwa/memory';
 
 const verifyRes = await fetch('https://api.targetservice.com/siwa/verify', {
   method: 'POST',
@@ -374,10 +374,10 @@ The server MUST:
 5. *(Optional)* Evaluate `SIWAVerifyCriteria` — activity status, required services, trust models, reputation score
 6. Issue session token
 
-`verifySIWA()` in `siwa/siwa` accepts an optional `criteria` parameter (6th argument) to enforce requirements after the ownership check:
+`verifySIWA()` in `@buildersgarden/siwa/siwa` accepts an optional `criteria` parameter (6th argument) to enforce requirements after the ownership check:
 
 ```typescript
-import { verifySIWA } from 'siwa/siwa';
+import { verifySIWA } from '@buildersgarden/siwa/siwa';
 
 const result = await verifySIWA(message, signature, domain, nonceValid, provider, {
   mustBeActive: true,              // agent metadata.active must be true
@@ -422,13 +422,13 @@ See the test server's `verifySIWARequest()` for a full reference implementation.
 - **[references/contract-addresses.md](references/contract-addresses.md)** — Deployed registry addresses per chain, ABI fragments
 - **[references/registration-guide.md](references/registration-guide.md)** — Detailed registration file schema, endpoint types, update flows
 
-## Core Library (`siwa` package)
+## Core Library (`@buildersgarden/siwa` package)
 
-- **`siwa/keystore`** — Secure key storage abstraction with keyring proxy support
-- **`siwa/memory`** — MEMORY.md read/write helpers (public data only)
-- **`siwa/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
-- **`siwa/registry`** — Read agent profiles (`getAgent`) and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
-- **`siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
+- **`@buildersgarden/siwa/keystore`** — Secure key storage abstraction with keyring proxy support
+- **`@buildersgarden/siwa/memory`** — MEMORY.md read/write helpers (public data only)
+- **`@buildersgarden/siwa/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
+- **`@buildersgarden/siwa/registry`** — Read agent profiles (`getAgent`) and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
+- **`@buildersgarden/siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
 
 ## Assets
 

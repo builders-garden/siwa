@@ -18,11 +18,11 @@ const sections = [
     title: "API Reference",
     id: "api",
     children: [
-      { title: "siwa/keystore", id: "api-keystore" },
-      { title: "siwa/siwa", id: "api-siwa" },
-      { title: "siwa/registry", id: "api-registry" },
-      { title: "siwa/memory", id: "api-memory" },
-      { title: "siwa/proxy-auth", id: "api-proxy-auth" },
+      { title: "@buildersgarden/siwa/keystore", id: "api-keystore" },
+      { title: "@buildersgarden/siwa/siwa", id: "api-siwa" },
+      { title: "@buildersgarden/siwa/registry", id: "api-registry" },
+      { title: "@buildersgarden/siwa/memory", id: "api-memory" },
+      { title: "@buildersgarden/siwa/proxy-auth", id: "api-proxy-auth" },
     ],
   },
   {

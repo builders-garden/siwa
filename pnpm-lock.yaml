@@ -26,6 +26,9 @@ importers:
 
   packages/siwa-testing:
     dependencies:
+      '@buildersgarden/siwa':
+        specifier: workspace:*
+        version: link:../siwa
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -44,9 +47,6 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.0
         version: 9.0.3
-      siwa:
-        specifier: workspace:*
-        version: link:../siwa
       tsx:
         specifier: ^4.0.0
         version: 4.21.0

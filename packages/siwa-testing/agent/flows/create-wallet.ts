@@ -1,6 +1,6 @@
 import chalk from 'chalk';
-import { createWallet, hasWallet, getAddress } from 'siwa/keystore';
-import { ensureMemoryExists, writeMemoryField } from 'siwa/memory';
+import { createWallet, hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
+import { ensureMemoryExists, writeMemoryField } from '@buildersgarden/siwa/memory';
 import { config, getKeystoreConfig } from '../config.js';
 
 export async function createWalletFlow(): Promise<void> {
