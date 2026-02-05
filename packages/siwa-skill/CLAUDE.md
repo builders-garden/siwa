@@ -76,6 +76,7 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
 ## Important Notes
 
 - **Private keys are NEVER accessible to you.** All signing is delegated to the keyring proxy over HMAC-authenticated HTTP. This is by design — even if you are compromised, the key cannot be extracted.
+- **NEVER call the keyring proxy HTTP endpoints directly.** Always use the CLI commands listed above or the SDK functions (`createWallet()`, `signMessage()`, etc. from `@buildersgarden/siwa/keystore`). The proxy uses a specific HMAC-SHA256 authentication protocol that the SDK handles internally — hand-crafting HTTP requests to the proxy will fail.
 - **MEMORY.md** in `siwa/packages/siwa-testing/` contains your public identity state (address, agentId, registration status). Read it to know your current state.
 - **Proxy backend is auto-detected** from `KEYRING_PROXY_URL` — no need to set `KEYSTORE_BACKEND` manually.
 - If a command fails with "Cannot find module", run `cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm install` first.
