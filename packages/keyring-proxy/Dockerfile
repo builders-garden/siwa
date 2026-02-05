@@ -8,10 +8,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-COPY package.json ./
+COPY packages/keyring-proxy/package.json ./
 RUN pnpm install --frozen-lockfile || pnpm install
 
-COPY src/ src/
+COPY packages/keyring-proxy/src/ src/
 
 ENV KEYRING_PROXY_PORT=3100
 ENV KEYSTORE_BACKEND=encrypted-file
