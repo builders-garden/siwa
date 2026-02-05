@@ -94,7 +94,8 @@ The agent delegates all signing to a separate **keyring proxy server** over HMAC
 
 ```
 Agent Process                     Keyring Proxy Server (port 3100)
-(KEYSTORE_BACKEND=proxy)          (KEYSTORE_BACKEND=encrypted-file)
+(auto-detected from               (encrypted-file or env backend)
+ KEYRING_PROXY_URL)
 
 signMessage("hello")
   |
@@ -175,11 +176,11 @@ export KEYSTORE_PASSWORD="your-strong-passphrase"
 
 The keystore will auto-detect the encrypted-file backend and use the password to encrypt/decrypt.
 
-### CI/Testing: Environment Variable
+### CI/Testing or Existing Wallet: Environment Variable
 
 ```bash
 export AGENT_PRIVATE_KEY="0xabc123..."
-export KEYSTORE_BACKEND="env"
+# KEYSTORE_BACKEND auto-detects to "env" when AGENT_PRIVATE_KEY is set
 ```
 
 ## Key Rotation

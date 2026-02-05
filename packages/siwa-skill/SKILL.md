@@ -42,7 +42,8 @@ All signing is delegated to a **keyring proxy server** — a separate process th
 
 ```
 Agent Process                     Keyring Proxy Server (port 3100)
-(KEYSTORE_BACKEND=proxy)          (holds encrypted private key)
+(auto-detected from               (holds encrypted private key)
+ KEYRING_PROXY_URL)
 
 createWallet()
   |
@@ -74,8 +75,12 @@ signMessage("hello")
 | `KEYRING_PROXY_URL` | Agent | Proxy server URL — private (e.g. `http://keyring-proxy:3100`) or public |
 | `KEYRING_PROXY_SECRET` | Both | HMAC shared secret |
 | `KEYRING_PROXY_PORT` | Proxy server | Listen port (default: 3100) |
+| `AGENT_PRIVATE_KEY` | Proxy server | Hex-encoded private key (0x...) — use an existing wallet instead of generating one |
+| `KEYSTORE_PASSWORD` | Proxy server | Password for the encrypted-file keystore (not needed with `AGENT_PRIVATE_KEY`) |
 
-> **Note**: When `KEYRING_PROXY_URL` is set, `KEYSTORE_BACKEND` automatically defaults to `proxy` — no need to set it manually. The proxy server itself stores keys using an AES-encrypted V3 JSON Keystore (scrypt KDF). Other keystore backends (`encrypted-file`, `env`) exist in the codebase for local development without Docker, but the proxy backend is the only one used in production.
+> **Auto-detection**: When `KEYRING_PROXY_URL` is set, `KEYSTORE_BACKEND` automatically defaults to `proxy` — no need to set it manually. When `AGENT_PRIVATE_KEY` is set on the proxy server, `KEYSTORE_BACKEND` defaults to `env`.
+>
+> The proxy server stores keys using an AES-encrypted V3 JSON Keystore (scrypt KDF) by default. To use an existing wallet instead, set `AGENT_PRIVATE_KEY` on the proxy server — the key is held in memory at runtime (no encrypted file needed).
 
 ### Keystore API
 
