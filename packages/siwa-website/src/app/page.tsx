@@ -26,7 +26,7 @@ function HeroSection() {
         Trustless identity and authentication for AI agents.
         An open standard built on{" "}
         <a
-          href="https://github.com/builders-garden/ERC-8004"
+          href="https://eips.ethereum.org/EIPS/eip-8004"
           target="_blank"
           rel="noopener noreferrer"
           className="text-foreground hover:text-accent transition-colors duration-200 underline underline-offset-4 decoration-border cursor-pointer"

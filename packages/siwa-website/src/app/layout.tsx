@@ -77,7 +77,7 @@ export default function RootLayout({
                 GitHub
               </NavLink>
               <NavLink
-                href="https://github.com/builders-garden/ERC-8004"
+                href="https://eips.ethereum.org/EIPS/eip-8004"
                 external
               >
                 ERC-8004
@@ -93,7 +93,7 @@ export default function RootLayout({
             SIWA{" "}
             <span className="text-border mx-2">/</span>{" "}
             <a
-              href="https://github.com/builders-garden/ERC-8004"
+              href="https://eips.ethereum.org/EIPS/eip-8004"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-muted transition-colors duration-200 cursor-pointer"
