@@ -12,7 +12,7 @@ function CopyButton({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="absolute right-3 top-3 text-xs text-dim hover:text-muted transition-colors duration-200 cursor-pointer"
+      className="text-xs text-dim hover:text-muted transition-colors duration-200 cursor-pointer"
       aria-label="Copy to clipboard"
     >
       {copied ? "copied" : "copy"}
@@ -53,10 +53,14 @@ export function GetStartedBox() {
       <div className="p-6">
         {tab === "developers" ? (
           <>
-            <div className="relative rounded-md bg-background px-4 py-3 pr-16 font-mono text-sm text-accent">
-              <span className="text-dim select-none">$ </span>
-              npm install siwa ethers
-              <CopyButton text="npm install siwa ethers" />
+            <div className="rounded-md bg-background px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <code className="font-mono text-sm text-accent whitespace-nowrap">
+                  <span className="text-dim select-none">$ </span>
+                  npm install siwa ethers
+                </code>
+                <CopyButton text="npm install siwa ethers" />
+              </div>
             </div>
 
             <ol className="mt-5 space-y-2.5 text-sm text-muted">
@@ -99,9 +103,13 @@ export function GetStartedBox() {
             <p className="mb-3 text-sm text-muted">
               Send this to your AI agent:
             </p>
-            <div className="relative rounded-md bg-background px-4 py-3 pr-16">
-              <pre className="font-mono text-sm text-accent leading-relaxed whitespace-pre-wrap text-left">Read https://siwa.builders.garden/skill.md and register as an ERC-8004 agent</pre>
-              <CopyButton text="Read https://siwa.builders.garden/skill.md and register as an ERC-8004 agent" />
+            <div className="rounded-md bg-background px-4 py-3">
+              <div className="overflow-x-auto">
+                <pre className="font-mono text-sm text-accent leading-relaxed whitespace-nowrap">Read https://siwa.builders.garden/skill.md{"\n"}and register as an ERC-8004 agent</pre>
+              </div>
+              <div className="mt-2 flex justify-end">
+                <CopyButton text="Read https://siwa.builders.garden/skill.md and register as an ERC-8004 agent" />
+              </div>
             </div>
 
             <ol className="mt-5 space-y-2.5 text-sm text-muted">
