@@ -12,10 +12,8 @@
     "agent:status": "tsx agent/cli.ts status",
     "agent:test-keystore": "tsx agent/cli.ts test-keystore",
     "reset": "bash scripts/reset.sh",
-    "proxy": "tsx proxy/index.ts",
     "proxy:test": "KEYSTORE_BACKEND=proxy tsx agent/cli.ts test-proxy",
-    "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\"",
-    "dev:proxy": "concurrently \"pnpm run proxy\" \"pnpm run server\" \"sleep 3 && KEYSTORE_BACKEND=proxy pnpm run agent:flow\""
+    "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\""
   },
   "dependencies": {
     "@buildersgarden/siwa": "workspace:*",
