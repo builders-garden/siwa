@@ -270,8 +270,9 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
               headers={["Variable", "Required", "Description"]}
               rows={[
                 ["KEYRING_PROXY_SECRET", "Yes", "Shared HMAC secret. Must match openclaw-gateway (if deployed)."],
-                ["KEYSTORE_BACKEND", "No", "Defaults to encrypted-file."],
-                ["KEYSTORE_PASSWORD", "Yes", "Password for the encrypted-file keystore."],
+                ["KEYSTORE_BACKEND", "No", "Defaults to encrypted-file. Set to env to use AGENT_PRIVATE_KEY."],
+                ["KEYSTORE_PASSWORD", "Conditional", "Required when KEYSTORE_BACKEND=encrypted-file."],
+                ["AGENT_PRIVATE_KEY", "Conditional", "Required when KEYSTORE_BACKEND=env. Hex-encoded private key (0x...)."],
                 ["KEYRING_PROXY_PORT", "No", "Defaults to 3100."],
               ]}
             />
@@ -290,6 +291,27 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
               Use Railway&apos;s shared variables to keep <InlineCode>KEYRING_PROXY_SECRET</InlineCode> in sync between both services.
             </P>
           </SubSection>
+        </Section>
+
+        {/* Use an Existing Wallet */}
+        <Section id="existing-wallet" title="Use an Existing Wallet">
+          <P>
+            By default the keyring proxy generates and manages its own encrypted keystore. If you already have a wallet you want to use, you can pass the private key directly via environment variable instead.
+          </P>
+          <P>
+            Set these two variables on your keyring-proxy service:
+          </P>
+          <CodeBlock>{`KEYSTORE_BACKEND=env
+AGENT_PRIVATE_KEY=0x<your-private-key>`}</CodeBlock>
+          <P>
+            When <InlineCode>AGENT_PRIVATE_KEY</InlineCode> is set, the proxy automatically uses the <InlineCode>env</InlineCode> backend — you can omit <InlineCode>KEYSTORE_BACKEND</InlineCode> entirely. No <InlineCode>KEYSTORE_PASSWORD</InlineCode> is needed in this mode.
+          </P>
+          <P>
+            This is useful when you want to plug in an existing wallet (e.g. one that already holds funds or is registered onchain) without going through the encrypted-file keystore flow.
+          </P>
+          <P>
+            <strong className="text-foreground">Security note:</strong> the private key is held in memory at runtime. Make sure Railway&apos;s variable storage meets your security requirements. For higher security, prefer <InlineCode>encrypted-file</InlineCode> with a strong <InlineCode>KEYSTORE_PASSWORD</InlineCode>.
+          </P>
         </Section>
 
         {/* Verify Deployment */}

@@ -32,6 +32,11 @@ const sections = [
     ],
   },
   {
+    title: "Existing Wallet",
+    id: "existing-wallet",
+    children: [],
+  },
+  {
     title: "Verify Deployment",
     id: "verify",
     children: [
