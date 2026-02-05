@@ -99,6 +99,34 @@ hasWallet()              → boolean
 
 > `getSigner()` is **not available** with the proxy backend — use `signMessage()` / `signTransaction()` instead.
 
+### IMPORTANT: Always use the SDK — never call the proxy directly
+
+**Do NOT make raw HTTP calls to the keyring proxy endpoints.** The proxy uses a specific HMAC-SHA256 authentication protocol (custom headers, precise payload format, 30-second timestamp window) that is handled entirely by the SDK.
+
+If you call the proxy HTTP endpoints directly (e.g. `POST /create-wallet` with hand-crafted headers), it **will fail** — the HMAC format is strict and not meant to be manually replicated.
+
+**Always use the SDK functions:**
+
+```typescript
+// CORRECT — use the SDK
+import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
+
+const info = await createWallet();           // SDK handles HMAC auth internally
+const { signature } = await signMessage(msg); // SDK handles HMAC auth internally
+const address = await getAddress();           // SDK handles HMAC auth internally
+```
+
+```typescript
+// WRONG — never do this
+const res = await fetch('https://proxy.example.com/create-wallet', {
+  method: 'POST',
+  headers: { 'Authorization': 'HMAC-SHA256;...' },  // WRONG format
+  body: JSON.stringify({})
+});
+```
+
+The SDK reads `KEYRING_PROXY_URL` and `KEYRING_PROXY_SECRET` from environment variables and constructs the correct HMAC headers automatically. You never need to know the proxy's authentication protocol.
+
 ### MEMORY.md: Public Data Only
 
 MEMORY.md stores the agent's public identity state — **never the private key**:
