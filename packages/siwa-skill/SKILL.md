@@ -371,9 +371,27 @@ The server MUST:
 2. Match recovered address to message address
 3. Validate domain binding, nonce, time window
 4. **Call `ownerOf(agentId)` onchain** to confirm signer owns the agent NFT
-5. Issue session token
+5. *(Optional)* Evaluate `SIWAVerifyCriteria` — activity status, required services, trust models, reputation score
+6. Issue session token
 
-See the `verifySIWA()` implementation in `siwa/siwa` and the test server's `verifySIWARequest()` for reference.
+`verifySIWA()` in `siwa/siwa` accepts an optional `criteria` parameter (6th argument) to enforce requirements after the ownership check:
+
+```typescript
+import { verifySIWA } from 'siwa/siwa';
+
+const result = await verifySIWA(message, signature, domain, nonceValid, provider, {
+  mustBeActive: true,              // agent metadata.active must be true
+  requiredServices: ['MCP'],       // ServiceType values from ERC-8004
+  requiredTrust: ['reputation'],   // TrustModel values from ERC-8004
+  minScore: 0.5,                   // minimum reputation score
+  minFeedbackCount: 10,            // minimum feedback count
+  reputationRegistryAddress: '0x8004BAa1...9b63',
+});
+
+// result.agent contains the full AgentProfile when criteria are provided
+```
+
+See the test server's `verifySIWARequest()` for a full reference implementation.
 
 | Endpoint | Method | Description |
 |---|---|---|
@@ -408,7 +426,8 @@ See the `verifySIWA()` implementation in `siwa/siwa` and the test server's `veri
 
 - **`siwa/keystore`** — Secure key storage abstraction with keyring proxy support
 - **`siwa/memory`** — MEMORY.md read/write helpers (public data only)
-- **`siwa/siwa`** — SIWA message building, signing (via keystore), and server-side verification
+- **`siwa/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
+- **`siwa/registry`** — Read agent profiles (`getAgent`) and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
 - **`siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
 
 ## Assets

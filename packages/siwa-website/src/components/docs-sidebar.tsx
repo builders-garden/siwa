@@ -11,6 +11,7 @@ const sections = [
       { title: "Quick Start", id: "quick-start" },
       { title: "Sign Up", id: "sign-up" },
       { title: "Sign In", id: "sign-in" },
+      { title: "Server Verification", id: "verify" },
     ],
   },
   {
@@ -19,6 +20,7 @@ const sections = [
     children: [
       { title: "siwa/keystore", id: "api-keystore" },
       { title: "siwa/siwa", id: "api-siwa" },
+      { title: "siwa/registry", id: "api-registry" },
       { title: "siwa/memory", id: "api-memory" },
       { title: "siwa/proxy-auth", id: "api-proxy-auth" },
     ],

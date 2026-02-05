@@ -10,6 +10,7 @@
 
 import { ethers } from 'ethers';
 import * as crypto from 'crypto';
+import { AgentProfile, getAgent, getReputation, ServiceType, TrustModel } from './registry.js';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -36,6 +37,17 @@ export interface SIWAVerificationResult {
   agentRegistry: string;
   chainId: number;
   error?: string;
+  agent?: AgentProfile;
+}
+
+export interface SIWAVerifyCriteria {
+  minScore?: number;
+  minFeedbackCount?: number;
+  reputationRegistryAddress?: string;
+  requiredServices?: (ServiceType | (string & {}))[];
+  mustBeActive?: boolean;
+  requiredTrust?: (TrustModel | (string & {}))[];
+  custom?: (agent: AgentProfile) => boolean | Promise<boolean>;
 }
 
 // ─── Message Construction ────────────────────────────────────────────
@@ -218,13 +230,15 @@ export async function signSIWAMessageUnsafe(
  * @param expectedDomain  The server's domain (for domain binding)
  * @param nonceValid  Callback that returns true if the nonce is valid and unconsumed
  * @param provider   ethers Provider for onchain verification
+ * @param criteria   Optional criteria to validate agent profile/reputation after ownership check
  */
 export async function verifySIWA(
   message: string,
   signature: string,
   expectedDomain: string,
   nonceValid: (nonce: string) => boolean | Promise<boolean>,
-  provider: ethers.Provider
+  provider: ethers.Provider,
+  criteria?: SIWAVerifyCriteria
 ): Promise<SIWAVerificationResult> {
   try {
     // 1. Parse
@@ -295,7 +309,72 @@ export async function verifySIWA(
       }
     }
 
-    return { valid: true, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId };
+    // 8. Criteria checks (optional)
+    const baseResult: SIWAVerificationResult = {
+      valid: true,
+      address: recovered,
+      agentId: fields.agentId,
+      agentRegistry: fields.agentRegistry,
+      chainId: fields.chainId,
+    };
+
+    if (!criteria) return baseResult;
+
+    const agent = await getAgent(fields.agentId, {
+      registryAddress: registryAddress,
+      provider,
+      fetchMetadata: true,
+    });
+    baseResult.agent = agent;
+
+    if (criteria.mustBeActive) {
+      if (!agent.metadata?.active) {
+        return { ...baseResult, valid: false, error: 'Agent is not active' };
+      }
+    }
+
+    if (criteria.requiredServices && criteria.requiredServices.length > 0) {
+      const serviceNames = (agent.metadata?.services ?? []).map(s => s.name);
+      for (const required of criteria.requiredServices) {
+        if (!serviceNames.includes(required)) {
+          return { ...baseResult, valid: false, error: `Agent missing required service: ${required}` };
+        }
+      }
+    }
+
+    if (criteria.requiredTrust && criteria.requiredTrust.length > 0) {
+      const supported = agent.metadata?.supportedTrust ?? [];
+      for (const required of criteria.requiredTrust) {
+        if (!supported.includes(required)) {
+          return { ...baseResult, valid: false, error: `Agent missing required trust model: ${required}` };
+        }
+      }
+    }
+
+    if (criteria.minScore !== undefined || criteria.minFeedbackCount !== undefined) {
+      if (!criteria.reputationRegistryAddress) {
+        return { ...baseResult, valid: false, error: 'reputationRegistryAddress is required for reputation criteria' };
+      }
+      const rep = await getReputation(fields.agentId, {
+        reputationRegistryAddress: criteria.reputationRegistryAddress,
+        provider,
+      });
+      if (criteria.minFeedbackCount !== undefined && rep.count < criteria.minFeedbackCount) {
+        return { ...baseResult, valid: false, error: `Agent feedback count ${rep.count} below minimum ${criteria.minFeedbackCount}` };
+      }
+      if (criteria.minScore !== undefined && rep.score < criteria.minScore) {
+        return { ...baseResult, valid: false, error: `Agent reputation score ${rep.score} below minimum ${criteria.minScore}` };
+      }
+    }
+
+    if (criteria.custom) {
+      const passed = await criteria.custom(agent);
+      if (!passed) {
+        return { ...baseResult, valid: false, error: 'Agent failed custom criteria check' };
+      }
+    }
+
+    return baseResult;
 
   } catch (err: any) {
     return { valid: false, address: '', agentId: 0, agentRegistry: '', chainId: 0, error: err.message || 'Verification failed' };
