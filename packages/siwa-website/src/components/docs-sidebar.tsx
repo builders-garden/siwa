@@ -19,7 +19,7 @@ const sections = [
     id: "api",
     children: [
       { title: "@buildersgarden/siwa/keystore", id: "api-keystore" },
-      { title: "@buildersgarden/siwa/siwa", id: "api-siwa" },
+      { title: "@buildersgarden/siwa", id: "api-siwa" },
       { title: "@buildersgarden/siwa/registry", id: "api-registry" },
       { title: "@buildersgarden/siwa/memory", id: "api-memory" },
       { title: "@buildersgarden/siwa/proxy-auth", id: "api-proxy-auth" },

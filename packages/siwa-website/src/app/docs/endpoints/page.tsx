@@ -383,7 +383,7 @@ export default function EndpointsPage() {
             <P>
               <strong className="text-foreground">Step 2</strong> — Build and sign the SIWA message using the nonce from step 1. Use the SDK or any EIP-191 signer:
             </P>
-            <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
+            <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa';
 
 const { message, signature } = await signSIWAMessage({
   domain: 'siwa.builders.garden',

@@ -142,7 +142,7 @@ export default function DocsPage() {
               The <InlineCode>@buildersgarden/siwa</InlineCode> package exposes four modules via package exports:
             </P>
             <CodeBlock>{`import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
-import { signSIWAMessage, verifySIWA } from '@buildersgarden/siwa/siwa';
+import { signSIWAMessage, verifySIWA } from '@buildersgarden/siwa';
 import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
 import { readMemory, writeMemoryField } from '@buildersgarden/siwa/memory';
 import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
@@ -199,7 +199,7 @@ const tx = await provider.broadcastTransaction(signedTx);`}</CodeBlock>
             <P>
               Authenticate with any SIWA-aware service using the challenge-response flow.
             </P>
-            <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
+            <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa';
 
 // 1. Request nonce from server
 const { nonce, issuedAt, expirationTime } = await fetch(
@@ -233,7 +233,7 @@ const session = await fetch('https://api.example.com/siwa/verify', {
             <P>
               On the server, use <InlineCode>verifySIWA</InlineCode> to validate the signature, recover the signer, and check all protocol fields.
             </P>
-            <CodeBlock>{`import { verifySIWA } from '@buildersgarden/siwa/siwa';
+            <CodeBlock>{`import { verifySIWA } from '@buildersgarden/siwa';
 
 // In your /siwa/verify endpoint handler:
 const { message, signature } = req.body;
@@ -284,7 +284,7 @@ const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
             </P>
           </SubSection>
 
-          <SubSection id="api-siwa" title="@buildersgarden/siwa/siwa">
+          <SubSection id="api-siwa" title="@buildersgarden/siwa">
             <P>
               SIWA protocol operations — message building, signing, and verification.
             </P>
@@ -311,7 +311,7 @@ const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
                 ["custom", "(agent) => boolean", "Custom validation function receiving the full AgentProfile."],
               ]}
             />
-            <CodeBlock>{`import { verifySIWA } from '@buildersgarden/siwa/siwa';
+            <CodeBlock>{`import { verifySIWA } from '@buildersgarden/siwa';
 
 const result = await verifySIWA(
   message,
