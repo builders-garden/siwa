@@ -14,7 +14,7 @@
 #     -e KEYRING_PROXY_SECRET=<your-secret> \
 #     -e KEYSTORE_BACKEND=encrypted-file \
 #     -e KEYSTORE_PASSWORD=<your-password> \
-#     -v siwa-keystore:/app/test \
+#     -v siwa-keystore:/app/packages/siwa-testing \
 #     -p 3100:3100 \
 #     siwa-keyring-proxy
 #
@@ -31,21 +31,26 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Copy root package manifest (ethers dependency)
-COPY package.json pnpm-lock.yaml ./
+# Copy workspace config
+COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
 
-# Install root dependencies
+# Copy package manifests for layer caching
+COPY packages/siwa/package.json packages/siwa/
+COPY packages/siwa/tsconfig.json packages/siwa/
+COPY packages/siwa-skill/package.json packages/siwa-skill/
+COPY packages/siwa-testing/package.json packages/siwa-testing/
+
+# Install all workspace dependencies
 RUN pnpm install --frozen-lockfile || pnpm install
 
-# Copy test package manifest for layer caching
-COPY test/package.json test/pnpm-lock.yaml test/
+# Copy siwa core source
+COPY packages/siwa/src/ packages/siwa/src/
 
-# Install test dependencies
-RUN cd test && pnpm install --frozen-lockfile || (cd test && pnpm install)
+# Copy skill assets (needed for templates)
+COPY packages/siwa-skill/assets/ packages/siwa-skill/assets/
 
-# Copy source files
-COPY scripts/ scripts/
-COPY test/ test/
+# Copy siwa-testing source
+COPY packages/siwa-testing/ packages/siwa-testing/
 
 # Keyring proxy defaults
 ENV KEYRING_PROXY_PORT=3100
@@ -56,5 +61,5 @@ EXPOSE 3100
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:3100/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
 
-WORKDIR /app/test
+WORKDIR /app/packages/siwa-testing
 CMD ["pnpm", "run", "proxy"]

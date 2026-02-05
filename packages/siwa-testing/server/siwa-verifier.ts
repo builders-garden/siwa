@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { parseSIWAMessage } from '../../scripts/siwa.js';
+import { parseSIWAMessage } from 'siwa/siwa';
 
 export interface SIWAVerifyResult {
   valid: boolean;

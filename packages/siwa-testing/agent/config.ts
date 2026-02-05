@@ -1,7 +1,8 @@
-import type { KeystoreBackend } from '../../scripts/keystore.js';
+import type { KeystoreBackend } from 'siwa/keystore';
 import * as path from 'path';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
+const skillRoot = path.resolve(projectRoot, '..', 'siwa-skill');
 
 // Registry addresses per chain (must match contracts in references/contract-addresses.md)
 export const REGISTRY_ADDRESSES: Record<number, string> = {
@@ -62,8 +63,8 @@ export const config = {
   keystoreBackend: (process.env.KEYSTORE_BACKEND || 'encrypted-file') as KeystoreBackend,
   keyringProxyUrl: process.env.KEYRING_PROXY_URL || '',
   keyringProxySecret: process.env.KEYRING_PROXY_SECRET || '',
-  templatePath: path.resolve(projectRoot, '..', 'assets', 'MEMORY.md.template'),
-  registrationFile: process.env.REGISTRATION_FILE || path.resolve(projectRoot, '..', 'assets', 'registration-template.json'),
+  templatePath: path.resolve(skillRoot, 'assets', 'MEMORY.md.template'),
+  registrationFile: process.env.REGISTRATION_FILE || path.resolve(skillRoot, 'assets', 'registration-template.json'),
 
   // Onchain settings
   rpcUrl: process.env.RPC_URL || '',

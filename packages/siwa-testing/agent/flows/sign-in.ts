@@ -1,6 +1,6 @@
 import chalk from 'chalk';
-import { isRegistered, readMemory, appendToMemorySection } from '../../../scripts/memory.js';
-import { signSIWAMessage } from '../../../scripts/siwa.js';
+import { isRegistered, readMemory, appendToMemorySection } from 'siwa/memory';
+import { signSIWAMessage } from 'siwa/siwa';
 import { config, getKeystoreConfig } from '../config.js';
 import type { NonceResponse, VerifyResponse } from '../../shared/types.js';
 

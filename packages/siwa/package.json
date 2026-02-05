@@ -1,0 +1,24 @@
+{
+  "name": "siwa",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./keystore": "./src/keystore.ts",
+    "./siwa": "./src/siwa.ts",
+    "./memory": "./src/memory.ts",
+    "./proxy-auth": "./src/proxy-auth.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "ethers": "^6.14.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

@@ -2,8 +2,8 @@ import chalk from 'chalk';
 import { ethers } from 'ethers';
 import {
   hasWallet, getAddress, signMessage, getSigner, createWallet,
-} from '../../../scripts/keystore.js';
-import { computeHmac } from '../../../scripts/proxy-auth.js';
+} from 'siwa/keystore';
+import { computeHmac } from 'siwa/proxy-auth';
 import { config, getKeystoreConfig } from '../config.js';
 
 let passed = 0;

@@ -1,7 +1,12 @@
 {
+  "name": "siwa-monorepo",
   "private": true,
   "type": "module",
-  "dependencies": {
-    "ethers": "^6.14.3"
+  "scripts": {
+    "build": "pnpm --filter siwa build",
+    "clean": "pnpm --filter siwa run clean"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
   }
 }

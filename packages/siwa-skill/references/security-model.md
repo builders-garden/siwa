@@ -33,13 +33,17 @@ The key is then compromised, and the attacker controls the agent's onchain ident
 
 For the highest security in production, use a **hardware wallet** or **TEE-based signer** (see ERC-8004's Validation Registry trust models).
 
-## Architecture: Three-Layer Keystore
+## Architecture: Keystore Backends
 
-The `keystore.ts` module provides three storage backends. The agent auto-detects the best available one.
+The `siwa/keystore` module provides four storage backends. In production, the **keyring proxy** is the primary backend — all other backends are used either internally by the proxy server or for local development.
 
-### Layer 1: OS Keychain (`os-keychain`)
+### Keyring Proxy (`proxy`) — Production Default
 
-**Best option when available.**
+**The recommended backend. Private key never enters the agent process.** See the "Keyring Proxy" section below for full details.
+
+### OS Keychain (`os-keychain`)
+
+**For local development when proxy is not running.**
 
 Uses the operating system's native credential store:
 
@@ -55,9 +59,9 @@ Uses the operating system's native credential store:
 
 **Limitations**: Requires `keytar` native module (C++ bindings). Not available in all environments (Docker containers, serverless, CI).
 
-### Layer 2: Ethereum V3 Encrypted JSON Keystore (`encrypted-file`)
+### Encrypted JSON Keystore (`encrypted-file`)
 
-**The Ethereum-native approach. Available everywhere.**
+**The Ethereum-native approach. Used internally by the proxy server. Also works for local development.**
 
 Uses the same encrypted format as MetaMask, Geth, and MyEtherWallet:
 
@@ -87,11 +91,11 @@ This is useless without the password. The password can itself be stored in the O
 
 **File permissions**: Created with `chmod 600` (owner-only read/write).
 
-### Layer 3: Environment Variable (`env`)
+### Environment Variable (`env`)
 
 **For CI/CD and testing only. Not recommended for production.**
 
-### Layer 4: Keyring Proxy (`proxy`)
+### Keyring Proxy (`proxy`)
 
 **Process isolation — private key never enters the agent process.**
 
@@ -141,19 +145,20 @@ Use only when the OS keychain and encrypted file are unavailable (e.g., ephemera
 
 The most important architectural decision: **external code never receives the private key.**
 
-The `keystore.ts` module exposes only these functions:
+The `siwa/keystore` module exposes only these functions:
 
 ```
-createWallet()        → { address, backend }           // No key
-importWallet(pk)      → { address, backend }           // Consumes key, never returns it
-getAddress()          → string                          // Public address only
-hasWallet()           → boolean
-signMessage(msg)      → { signature, address }          // Key loaded, used, discarded
-signTransaction(tx)   → { signedTx, address }           // Key loaded, used, discarded
-getSigner(provider)   → ethers.Wallet                   // For contract calls; use in narrow scope
+createWallet()           → { address, backend }           // No key
+importWallet(pk)         → { address, backend }           // Consumes key, never returns it
+getAddress()             → string                          // Public address only
+hasWallet()              → boolean
+signMessage(msg)         → { signature, address }          // Key loaded, used, discarded
+signTransaction(tx)      → { signedTx, address }           // Key loaded, used, discarded
+signAuthorization(auth)  → SignedAuthorization              // EIP-7702 delegation signing
+getSigner(provider)      → ethers.Wallet                   // For contract calls (not available with proxy)
 ```
 
-The private key exists in memory only during the `signMessage()` or `signTransaction()` call. It is loaded from the backend, used for the cryptographic operation, and then the `Wallet` object falls out of scope and is eligible for garbage collection. It is **never returned** to the calling code.
+The private key exists in memory only during a signing call. With the proxy backend, the key never enters the agent process at all — it stays in the proxy server. With local backends, the key is loaded from the backend, used for the cryptographic operation, and then the `Wallet` object falls out of scope and is eligible for garbage collection. It is **never returned** to the calling code.
 
 This means:
 
@@ -193,7 +198,7 @@ npm install keytar
 The keystore will auto-detect and use the OS keychain. To also keep an encrypted file backup:
 
 ```typescript
-import { createWallet } from './scripts/keystore';
+import { createWallet } from 'siwa/keystore';
 
 // Creates wallet in OS keychain
 const info = await createWallet({ backend: 'os-keychain' });

@@ -5,12 +5,8 @@
     "moduleResolution": "bundler",
     "esModuleInterop": true,
     "strict": true,
-    "outDir": "./dist",
-    "rootDir": "..",
     "resolveJsonModule": true,
-    "declaration": false,
+    "declaration": true,
     "skipLibCheck": true
-  },
-  "include": ["./**/*.ts", "../scripts/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  }
 }
