@@ -103,8 +103,8 @@ app.use(express.json({
 function hmacAuth(req: Request, res: Response, next: NextFunction) {
   if (req.path === '/health') return next();
 
-  const timestamp = req.headers['x-proxy-timestamp'] as string;
-  const signature = req.headers['x-proxy-signature'] as string;
+  const timestamp = req.headers['x-keyring-timestamp'] as string;
+  const signature = req.headers['x-keyring-signature'] as string;
 
   if (!timestamp || !signature) {
     audit(req, false, 'Missing HMAC headers');

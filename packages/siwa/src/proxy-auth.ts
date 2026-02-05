@@ -15,8 +15,8 @@ import * as crypto from 'crypto';
 const MAX_DRIFT_MS = 30_000; // 30 seconds
 
 export interface HmacHeaders {
-  'X-Proxy-Timestamp': string;
-  'X-Proxy-Signature': string;
+  'X-Keyring-Timestamp': string;
+  'X-Keyring-Signature': string;
 }
 
 /**
@@ -36,8 +36,8 @@ export function computeHmac(
     .digest('hex');
 
   return {
-    'X-Proxy-Timestamp': timestamp,
-    'X-Proxy-Signature': signature,
+    'X-Keyring-Timestamp': timestamp,
+    'X-Keyring-Signature': signature,
   };
 }
 
