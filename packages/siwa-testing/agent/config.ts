@@ -60,7 +60,7 @@ export const config = {
   memoryPath: process.env.MEMORY_PATH || path.resolve(projectRoot, 'MEMORY.md'),
   keystorePath: process.env.KEYSTORE_PATH || path.resolve(projectRoot, 'agent-keystore.json'),
   keystorePassword: process.env.KEYSTORE_PASSWORD || 'test-password-local-only',
-  keystoreBackend: (process.env.KEYSTORE_BACKEND || 'encrypted-file') as KeystoreBackend,
+  keystoreBackend: (process.env.KEYSTORE_BACKEND || (process.env.KEYRING_PROXY_URL ? 'proxy' : 'encrypted-file')) as KeystoreBackend,
   keyringProxyUrl: process.env.KEYRING_PROXY_URL || '',
   keyringProxySecret: process.env.KEYRING_PROXY_SECRET || '',
   templatePath: path.resolve(skillRoot, 'assets', 'MEMORY.md.template'),

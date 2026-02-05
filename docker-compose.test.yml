@@ -85,8 +85,7 @@ services:
     environment:
       - HOME=/home/node
       - TERM=xterm-256color
-      # Keyring proxy config — agent uses proxy backend for all signing
-      - KEYSTORE_BACKEND=proxy
+      # Keyring proxy config — proxy backend auto-detected from KEYRING_PROXY_URL
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
       - KEYRING_PROXY_SECRET=test-secret-123
       # SIWA server config
@@ -114,7 +113,6 @@ services:
     environment:
       - HOME=/home/node
       - TERM=xterm-256color
-      - KEYSTORE_BACKEND=proxy
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
       - KEYRING_PROXY_SECRET=test-secret-123
       - SERVER_URL=http://siwa-server:3000

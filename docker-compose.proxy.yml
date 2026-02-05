@@ -50,7 +50,6 @@ services:
     ports:
       - "${OPENCLAW_PORT:-18789}:18789"
     environment:
-      - KEYSTORE_BACKEND=proxy
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
       - KEYRING_PROXY_SECRET=${KEYRING_PROXY_SECRET}
     volumes:
@@ -67,7 +66,6 @@ services:
     image: openclaw:local
     profiles: ["cli"]
     environment:
-      - KEYSTORE_BACKEND=proxy
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
       - KEYRING_PROXY_SECRET=${KEYRING_PROXY_SECRET}
     volumes:

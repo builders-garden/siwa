@@ -282,8 +282,7 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
             <Table
               headers={["Variable", "Required", "Description"]}
               rows={[
-                ["KEYSTORE_BACKEND", "Yes", "Must be proxy."],
-                ["KEYRING_PROXY_URL", "Yes", "http://keyring-proxy.railway.internal:3100"],
+                ["KEYRING_PROXY_URL", "Yes", "URL of the keyring proxy. Use private networking (e.g. http://keyring-proxy.railway.internal:3100) when both services run in the same project, or a public domain when the agent runs externally."],
                 ["KEYRING_PROXY_SECRET", "Yes", "Shared HMAC secret. Must match keyring-proxy."],
               ]}
             />
