@@ -119,7 +119,7 @@ export default function DeployPage() {
         {/* Deploy Buttons */}
         <div className="mb-12 grid gap-4 sm:grid-cols-2">
           <a
-            href="https://railway.com/template/KEYRING_TEMPLATE_ID"
+            href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
             target="_blank"
             rel="noopener noreferrer"
             className="group rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
@@ -139,18 +139,15 @@ export default function DeployPage() {
               Deploy the signing proxy. Connect your own agent or OpenClaw instance externally.
             </p>
           </a>
-          <a
-            href="https://railway.com/template/KEYRING_OPENCLAW_TEMPLATE_ID"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+          <div
+            className="rounded-lg border border-border bg-surface p-5 opacity-50 cursor-default block"
           >
             <div className="flex items-center gap-3 mb-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="https://railway.com/button.svg"
                 alt="Deploy on Railway"
-                className="h-8"
+                className="h-8 grayscale"
               />
             </div>
             <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
@@ -159,7 +156,10 @@ export default function DeployPage() {
             <p className="text-xs text-muted">
               Full stack: signing proxy and AI agent gateway with the SIWA skill pre-installed.
             </p>
-          </a>
+            <p className="text-xs text-dim mt-2 italic">
+              Coming soon
+            </p>
+          </div>
         </div>
 
         {/* Overview */}
