@@ -20,8 +20,8 @@ services:
   # Exposes HMAC-authenticated signing API on port 3100.
   keyring-proxy:
     build:
-      context: packages/keyring-proxy
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: packages/keyring-proxy/Dockerfile
     restart: unless-stopped
     ports:
       - "${KEYRING_PROXY_PORT:-3100}:3100"
