@@ -211,7 +211,37 @@ if (info.keystorePath) writeMemoryField('Keystore Path', info.keystorePath);
 writeMemoryField('Created At', new Date().toISOString());
 ```
 
-Fund the address with testnet ETH before registering.
+### Step 1b: Fund the Wallet (REQUIRED before registration)
+
+**STOP — the wallet must have ETH for gas before any onchain transaction can succeed.** Registration, URI updates, and metadata changes all require gas fees.
+
+After creating the wallet, you MUST:
+
+1. **Show the user the wallet address and the target chain** so they can send funds:
+   - Address: the value returned by `createWallet()` or `getAddress()`
+   - Chain: the chain where the agent will register (e.g. Base Sepolia chainId `84532`, Base mainnet chainId `8453`)
+2. **Tell the user to send ETH** (or the chain's native gas token) to that address on that chain.
+3. **Wait for the user to confirm** they have funded the wallet before proceeding to registration.
+
+For testnets, suggest using a faucet:
+- **Base Sepolia**: [Base Sepolia faucet](https://www.alchemy.com/faucets/base-sepolia) or bridge from ETH Sepolia
+- **ETH Sepolia**: [Sepolia faucet](https://www.alchemy.com/faucets/ethereum-sepolia)
+
+> **Do NOT attempt to register or send any onchain transaction until the wallet is funded.** The transaction will fail with an insufficient funds error.
+
+Example message to show the user:
+
+```
+Wallet created successfully!
+
+  Address: 0x1234...abcd
+  Chain:   Base Sepolia (chainId 84532)
+
+Please send some ETH to this address on Base Sepolia to cover gas fees.
+You can use a faucet: https://www.alchemy.com/faucets/base-sepolia
+
+Let me know once the wallet is funded and I'll proceed with registration.
+```
 
 ### Step 2: Build the Registration File
 

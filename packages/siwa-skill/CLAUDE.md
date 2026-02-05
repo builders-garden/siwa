@@ -29,37 +29,45 @@ Creates an Ethereum wallet. The private key is stored securely in the keyring pr
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent create-wallet
 ```
 
-### 2. Check Status
+### 2. Fund the Wallet (REQUIRED before registration)
+After creating a wallet, you **MUST stop and ask the user to fund it** before attempting registration or any onchain transaction. Show the user:
+- The wallet **address** (from `create-wallet` or `status` output)
+- The **chain** where they need to send gas (e.g. Base Sepolia, chainId 84532)
+- A **faucet link** for testnets (e.g. https://www.alchemy.com/faucets/base-sepolia)
+
+**Do NOT proceed to registration until the user confirms the wallet is funded.** Onchain transactions will fail without gas.
+
+### 3. Check Status
 Shows your current wallet address, registration state, and keystore backend.
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent status
 ```
 
-### 3. Register as an Agent
+### 4. Register as an Agent
 Registers your wallet as an ERC-8004 agent identity (mock mode for testing, or live onchain).
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent register
 ```
 
-### 4. Sign In (SIWA Authentication)
+### 5. Sign In (SIWA Authentication)
 Proves ownership of your ERC-8004 identity by signing a structured message and receiving a JWT from the server.
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent sign-in
 ```
 
-### 5. Full Flow (All Steps)
+### 6. Full Flow (All Steps)
 Runs wallet creation → registration → SIWA sign-in → authenticated API call, all sequentially.
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent:flow
 ```
 
-### 6. Run Proxy Tests
+### 7. Run Proxy Tests
 Validates that the keyring proxy is working correctly (7 tests).
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent test-proxy
 ```
 
-### 7. Reset State
+### 8. Reset State
 Clears MEMORY.md and keystore state to start fresh.
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
