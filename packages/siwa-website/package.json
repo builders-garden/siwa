@@ -4,12 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "pnpm --filter @buildersgarden/siwa build && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
-    "@buildersgarden/siwa": "workspace:*",
+    "@buildersgarden/siwa": "0.0.1",
     "ethers": "^6.16.0",
     "jsonwebtoken": "^9.0.3",
     "next": "16.1.6",
