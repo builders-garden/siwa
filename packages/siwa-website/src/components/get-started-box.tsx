@@ -57,9 +57,9 @@ export function GetStartedBox() {
               <div className="flex items-center justify-between gap-3">
                 <code className="font-mono text-sm text-accent whitespace-nowrap">
                   <span className="text-dim select-none">$ </span>
-                  npm install siwa ethers
+                  npm install @buildersgarden/siwa ethers
                 </code>
-                <CopyButton text="npm install siwa ethers" />
+                <CopyButton text="npm install @buildersgarden/siwa ethers" />
               </div>
             </div>
 
