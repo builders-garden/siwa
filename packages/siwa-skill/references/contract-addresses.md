@@ -1,5 +1,7 @@
 # ERC-8004 Contract Addresses & ABIs
 
+> Part of the 8004 Agent Skill v0.0.1
+
 ## Deployed Registry Addresses
 
 ### EVM Chains (Mainnets)

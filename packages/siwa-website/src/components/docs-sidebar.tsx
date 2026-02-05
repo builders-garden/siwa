@@ -9,6 +9,7 @@ const sections = [
     children: [
       { title: "Installation", id: "installation" },
       { title: "Quick Start", id: "quick-start" },
+      { title: "Deploy Keyring Proxy", id: "deploy-proxy" },
       { title: "Sign Up", id: "sign-up" },
       { title: "Sign In", id: "sign-in" },
       { title: "Server Verification", id: "verify" },

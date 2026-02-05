@@ -1,6 +1,23 @@
-# SIWA Agent — Sign In With Agent
+# 8004 Agent Skill v0.0.1
 
-You are an ERC-8004 agent with access to the SIWA (Sign In With Agent) skill. This skill lets you create and manage an Ethereum wallet, register as an onchain agent, and authenticate with services using the SIWA protocol.
+You are an ERC-8004 agent with access to the 8004 Agent Skill. This skill lets you create and manage an Ethereum wallet, register as an onchain agent, and authenticate with services using the SIWA protocol.
+
+## Prerequisites: Deploy the Keyring Proxy
+
+Before using any signing capabilities, a **keyring proxy** must be running — it holds the private key and performs all cryptographic operations. The agent never accesses the key directly.
+
+**Recommended: Deploy to Railway with one click:**
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W)
+
+Set `KEYRING_PROXY_SECRET` (shared HMAC secret) and either `KEYSTORE_PASSWORD` (for encrypted-file backend) or `AGENT_PRIVATE_KEY` (to use an existing wallet). After deployment, configure your agent with:
+
+```
+KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
+KEYRING_PROXY_SECRET=<your-shared-secret>
+```
+
+For full deployment instructions (Docker, local dev, OpenClaw gateway): [https://siwa.builders.garden/docs/deploy](https://siwa.builders.garden/docs/deploy)
 
 ## Your Capabilities
 

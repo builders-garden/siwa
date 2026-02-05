@@ -1,20 +1,22 @@
 ---
-name: erc-8004-agent
+name: 8004-agent
+version: 0.0.1
 description: >
-  Skill for registering AI agents on the ERC-8004 Trustless Agents standard and authenticating
-  them via SIWA (Sign In With Agent). Use this skill when an agent needs to: (1) create or
-  manage an Ethereum wallet for onchain identity, (2) register on the ERC-8004 Identity Registry
-  as an NFT-based agent identity (SIGN UP), (3) authenticate with a server by proving ownership
-  of an ERC-8004 identity using a signed challenge (SIGN IN / SIWA), (4) build or update an
-  ERC-8004 registration file (metadata JSON with endpoints, trust models, services), (5) upload
-  agent metadata to IPFS or base64 data URI, (6) look up or verify an agent's onchain registration.
-  The agent persists public identity state in MEMORY.md. Private keys are held in a separate
-  keyring proxy server — the agent can request signatures but never access the key itself.
+  8004 Agent Skill for registering AI agents on the ERC-8004 Trustless Agents
+  standard and authenticating them via SIWA (Sign In With Agent). Use this skill when an agent
+  needs to: (1) create or manage an Ethereum wallet for onchain identity, (2) register on the
+  ERC-8004 Identity Registry as an NFT-based agent identity (SIGN UP), (3) authenticate with a
+  server by proving ownership of an ERC-8004 identity using a signed challenge (SIGN IN / SIWA),
+  (4) build or update an ERC-8004 registration file (metadata JSON with endpoints, trust models,
+  services), (5) upload agent metadata to IPFS or base64 data URI, (6) look up or verify an
+  agent's onchain registration. The agent persists public identity state in MEMORY.md. Private
+  keys are held in a separate keyring proxy server — the agent can request signatures but never
+  access the key itself.
   Triggers on: ERC-8004, trustless agents, agent registration, SIWA, Sign In With Agent,
   agent identity NFT, Agent0 SDK, agent wallet, agent keystore, keyring proxy.
 ---
 
-# ERC-8004 Agent Skill
+# 8004 Agent Skill v0.0.1
 
 Register AI agents onchain (ERC-8004) and authenticate them via **SIWA (Sign In With Agent)**.
 
@@ -122,6 +124,56 @@ MEMORY.md stores the agent's public identity state — **never the private key**
 4. **After SIWA sign-in** — Append session token under Sessions.
 
 **Template**: [assets/MEMORY.md.template](assets/MEMORY.md.template)
+
+---
+
+## Deploying the Keyring Proxy
+
+Before signing anything, the agent needs a running **keyring proxy** — the separate process that holds the private key and performs all cryptographic operations.
+
+### Option A — Railway (Recommended)
+
+Deploy with one click using the Railway template:
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W)
+
+This deploys a single `keyring-proxy` service built from `packages/keyring-proxy/Dockerfile`. Set these environment variables in Railway:
+
+| Variable | Required | Description |
+|---|---|---|
+| `KEYRING_PROXY_SECRET` | Yes | Shared HMAC-SHA256 secret. Must match your agent. |
+| `KEYSTORE_PASSWORD` | Conditional | Password for the encrypted-file keystore (default backend). |
+| `AGENT_PRIVATE_KEY` | Conditional | Hex-encoded private key (0x...) to use an existing wallet instead. |
+
+After deployment, note the proxy URL (e.g. `https://your-keyring-proxy.up.railway.app` or `http://keyring-proxy.railway.internal:3100` for private networking). Set it as `KEYRING_PROXY_URL` on your agent.
+
+> Full deployment guide with architecture details, OpenClaw gateway setup, and verification steps: [https://siwa.builders.garden/docs/deploy](https://siwa.builders.garden/docs/deploy)
+
+### Option B — Docker (Self-hosted)
+
+```bash
+docker build -f packages/keyring-proxy/Dockerfile -t keyring-proxy .
+docker run -p 3100:3100 \
+  -e KEYRING_PROXY_SECRET=your-secret \
+  -e KEYSTORE_PASSWORD=your-password \
+  keyring-proxy
+```
+
+### Option C — Local Development
+
+```bash
+cd packages/siwa-testing
+pnpm run proxy
+```
+
+Once the proxy is running, set these environment variables on the agent:
+
+```
+KEYRING_PROXY_URL=http://localhost:3100   # or your Railway URL
+KEYRING_PROXY_SECRET=your-shared-secret
+```
+
+The `proxy` keystore backend is auto-detected when `KEYRING_PROXY_URL` is set — no need to set `KEYSTORE_BACKEND` manually.
 
 ---
 

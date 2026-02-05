@@ -1,5 +1,7 @@
 # ERC-8004 Registration Guide
 
+> Part of the 8004 Agent Skill v0.0.1
+
 ## Registration File Schema (v1)
 
 The `agentURI` onchain resolves to this JSON file. It follows the ERC-8004 registration-v1 schema.

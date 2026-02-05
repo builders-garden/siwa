@@ -1,5 +1,7 @@
 # Security Model
 
+> Part of the 8004 Agent Skill v0.0.1
+
 How ERC-8004 agent identity keys are stored and protected against prompt injection and accidental exposure.
 
 ## Threat Model
@@ -115,6 +117,10 @@ signMessage("hello")
 | `KEYRING_PROXY_URL` | Agent | Proxy server URL (e.g. `http://localhost:3100`) |
 | `KEYRING_PROXY_SECRET` | Both | HMAC shared secret |
 | `KEYRING_PROXY_PORT` | Proxy server | Listen port (default: 3100) |
+
+**Deployment:** Deploy the keyring proxy to Railway with one click using the [Railway template](https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W), or run it via Docker / locally. Full deployment guide: [https://siwa.builders.garden/docs/deploy](https://siwa.builders.garden/docs/deploy).
+
+### Environment Variable (`env`)
 
 Reads `AGENT_PRIVATE_KEY` from the process environment. This is the least secure option because:
 
