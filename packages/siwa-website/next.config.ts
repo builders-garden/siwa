@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: ["ethers"],
+  transpilePackages: ["@buildersgarden/siwa"],
 };
 
 export default nextConfig;

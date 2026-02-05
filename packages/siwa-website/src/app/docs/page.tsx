@@ -612,6 +612,32 @@ Examples:
             </P>
           </SubSection>
         </Section>
+
+        {/* Next Steps */}
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <a
+            href="/docs/endpoints"
+            className="rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+          >
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
+              API Endpoints
+            </h4>
+            <p className="text-xs text-muted">
+              Live HTTP endpoints you can call right now to try the full SIWA auth flow.
+            </p>
+          </a>
+          <a
+            href="/docs/deploy"
+            className="rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+          >
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
+              Deploy to Railway
+            </h4>
+            <p className="text-xs text-muted">
+              Deploy your own SIWA server and keyring proxy with one Dockerfile.
+            </p>
+          </a>
+        </div>
       </article>
     </div>
   );
