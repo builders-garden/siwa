@@ -7,5 +7,5 @@ echo
 # Step 1: Check current agent status
 echo "📊 Step 1: Agent Status"
 echo "-------------------------"
-cd /home/node/.openclaw/workspace/siwa/test
+cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing
 pnpm run agent status

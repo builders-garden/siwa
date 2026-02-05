@@ -8,10 +8,10 @@ description: >
   of an ERC-8004 identity using a signed challenge (SIGN IN / SIWA), (4) build or update an
   ERC-8004 registration file (metadata JSON with endpoints, trust models, services), (5) upload
   agent metadata to IPFS or base64 data URI, (6) look up or verify an agent's onchain registration.
-  The agent persists public identity state in MEMORY.md and stores private keys securely in the
-  OS keychain or an encrypted V3 keystore file — never in plaintext.
+  The agent persists public identity state in MEMORY.md. Private keys are held in a separate
+  keyring proxy server — the agent can request signatures but never access the key itself.
   Triggers on: ERC-8004, trustless agents, agent registration, SIWA, Sign In With Agent,
-  agent identity NFT, Agent0 SDK, agent wallet, agent keystore.
+  agent identity NFT, Agent0 SDK, agent wallet, agent keystore, keyring proxy.
 ---
 
 # ERC-8004 Agent Skill
@@ -36,29 +36,62 @@ ERC-8004 ("Trustless Agents") provides three onchain registries deployed as per-
 
 The agent's private key is the root of its onchain identity. It must be protected against prompt injection, accidental exposure, and file system snooping.
 
-### Principle: The private key NEVER enters the agent's context
+### Principle: The private key NEVER enters the agent process
 
-All secret material is managed by `scripts/keystore.ts`, which provides three storage backends:
+All signing is delegated to a **keyring proxy server** — a separate process that holds the encrypted private key and exposes only HMAC-authenticated signing endpoints. The agent can request signatures but can never extract the key, even under full compromise (arbitrary code execution via prompt injection).
 
-| Backend | Storage | When to use |
+```
+Agent Process                     Keyring Proxy Server (port 3100)
+(KEYSTORE_BACKEND=proxy)          (holds encrypted private key)
+
+createWallet()
+  |
+  +--> POST /create-wallet
+       + HMAC-SHA256 header  ---> Generates key, encrypts to disk
+                              <-- Returns { address } only
+
+signMessage("hello")
+  |
+  +--> POST /sign-message
+       + HMAC-SHA256 header  ---> Validates HMAC + timestamp (30s window)
+                                  Loads key, signs, discards key
+                              <-- Returns { signature, address }
+```
+
+**Why this is secure:**
+
+| Property | Detail |
+|---|---|
+| **Key isolation** | Private key lives in a separate OS process; never enters agent memory |
+| **Transport auth** | HMAC-SHA256 over method + path + body + timestamp; 30-second replay window |
+| **Audit trail** | Every signing request is logged with timestamp, endpoint, source IP, success/failure |
+| **Compromise limit** | Even full agent takeover can only request signatures — cannot extract the key |
+
+**Environment variables:**
+
+| Variable | Used by | Purpose |
 |---|---|---|
-| **`os-keychain`** | macOS Keychain / Windows Credential Manager / Linux libsecret | Default — best security |
-| **`encrypted-file`** | Ethereum V3 JSON Keystore (AES-128-CTR + scrypt) | Docker, CI, or when `keytar` unavailable |
-| **`env`** | `AGENT_PRIVATE_KEY` env var | Testing only |
-| **`proxy`** | HMAC-authenticated HTTP to a keyring proxy server | Process isolation — key never enters agent |
+| `KEYRING_PROXY_URL` | Agent | Proxy server URL (e.g. `http://keyring-proxy:3100`) |
+| `KEYRING_PROXY_SECRET` | Both | HMAC shared secret |
+| `KEYRING_PROXY_PORT` | Proxy server | Listen port (default: 3100) |
+| `KEYSTORE_BACKEND` | Agent | Must be set to `proxy` |
 
-The keystore module exposes ONLY these operations:
+> **Note**: The proxy server itself stores keys using an AES-encrypted V3 JSON Keystore (scrypt KDF). Other keystore backends (`os-keychain`, `encrypted-file`, `env`) exist in the codebase for local development without Docker, but the proxy backend is the only one used in production.
+
+### Keystore API
+
+The `siwa/keystore` module exposes ONLY these operations — none return the private key:
 
 ```
-createWallet()        → { address, backend }     // Creates key, returns ONLY address
-signMessage(msg)      → { signature, address }   // Loads key, signs, discards key
-signTransaction(tx)   → { signedTx, address }    // Same pattern
-getSigner(provider)   → ethers.Wallet            // For contract calls; use in narrow scope (not available with proxy backend)
-getAddress()          → string                    // Public address only
-hasWallet()           → boolean
+createWallet()           → { address, backend }     // Creates key, returns ONLY address
+signMessage(msg)         → { signature, address }   // Signs via proxy, key never exposed
+signTransaction(tx)      → { signedTx, address }    // Same pattern
+signAuthorization(auth)  → SignedAuthorization       // EIP-7702 delegation signing
+getAddress()             → string                    // Public address only
+hasWallet()              → boolean
 ```
 
-The private key is **never returned** to calling code. It is loaded from the backend, used for the cryptographic operation, and immediately discarded (falls out of scope).
+> `getSigner()` is **not available** with the proxy backend — use `signMessage()` / `signTransaction()` instead.
 
 ### MEMORY.md: Public Data Only
 
@@ -66,9 +99,8 @@ MEMORY.md stores the agent's public identity state — **never the private key**
 
 ```markdown
 ## Wallet
-- **Address**: `0x1234...abcd`       ← public
-- **Keystore Backend**: `os-keychain` ← which backend holds the key
-- **Keystore Path**: `<NOT SET>`      ← only if encrypted-file backend
+- **Address**: `0x1234...abcd`       <- public
+- **Keystore Backend**: `proxy`      <- which backend holds the key
 - **Created At**: `2026-02-04T...`
 
 ## Registration
@@ -81,7 +113,7 @@ MEMORY.md stores the agent's public identity state — **never the private key**
 **Lifecycle rules**:
 
 1. **Before any action** — Read MEMORY.md. If wallet exists, skip creation. If registered, skip re-registration.
-2. **After wallet creation** — Write address + backend info to MEMORY.md. Private key goes to keystore only.
+2. **After wallet creation** — Write address + backend info to MEMORY.md. Private key goes to proxy keystore only.
 3. **After registration** — Write agentId, agentRegistry, agentURI, chainId to MEMORY.md.
 4. **After SIWA sign-in** — Append session token under Sessions.
 
@@ -94,8 +126,8 @@ MEMORY.md stores the agent's public identity state — **never the private key**
 ### Step 0: Check MEMORY.md + Keystore
 
 ```typescript
-import { hasWallet } from './scripts/keystore';
-import { ensureMemoryExists, hasWalletRecord, isRegistered } from './scripts/memory';
+import { hasWallet } from 'siwa/keystore';
+import { ensureMemoryExists, hasWalletRecord, isRegistered } from 'siwa/memory';
 
 ensureMemoryExists('./MEMORY.md', './assets/MEMORY.md.template');
 
@@ -108,13 +140,13 @@ if (await hasWallet() && hasWalletRecord('./MEMORY.md')) {
 // Otherwise proceed to Step 1
 ```
 
-### Step 1: Create Wallet (key goes to keystore, address goes to MEMORY.md)
+### Step 1: Create Wallet (key goes to proxy, address goes to MEMORY.md)
 
 ```typescript
-import { createWallet } from './scripts/keystore';
-import { writeMemoryField } from './scripts/memory';
+import { createWallet } from 'siwa/keystore';
+import { writeMemoryField } from 'siwa/memory';
 
-const info = await createWallet();  // ← key stored securely, NEVER returned
+const info = await createWallet();  // <- key created in proxy, NEVER returned
 
 // Write ONLY public data to MEMORY.md
 writeMemoryField('Address', info.address);
@@ -162,25 +194,42 @@ const encoded = Buffer.from(JSON.stringify(registrationFile)).toString('base64')
 const agentURI = `data:application/json;base64,${encoded}`;
 ```
 
-### Step 4: Register Onchain (signer from keystore)
+### Step 4: Register Onchain (signed via proxy)
+
+With the proxy backend, the agent builds the transaction and delegates signing to the proxy:
 
 ```typescript
-import { getSigner } from './scripts/keystore';
+import { signTransaction, getAddress } from 'siwa/keystore';
+import { writeMemoryField } from 'siwa/memory';
 
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-const signer = await getSigner(provider);  // ← key loaded, attached to provider, used below
+const address = await getAddress();
 
 const IDENTITY_REGISTRY_ABI = [
   'function register(string agentURI) external returns (uint256 agentId)',
   'event Registered(uint256 indexed agentId, string agentURI, address indexed owner)'
 ];
 
-const registry = new ethers.Contract(REGISTRY_ADDRESS, IDENTITY_REGISTRY_ABI, signer);
-const tx = await registry.register(agentURI);
-const receipt = await tx.wait();
+// Build the transaction
+const iface = new ethers.Interface(IDENTITY_REGISTRY_ABI);
+const data = iface.encodeFunctionData('register', [agentURI]);
+const nonce = await provider.getTransactionCount(address);
+const feeData = await provider.getFeeData();
+
+const txReq = {
+  to: REGISTRY_ADDRESS, data, nonce, chainId,
+  type: 2,
+  maxFeePerGas: feeData.maxFeePerGas,
+  maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+  gasLimit: (await provider.estimateGas({ to: REGISTRY_ADDRESS, data, from: address })) * 120n / 100n,
+};
+
+// Sign via proxy — key never enters this process
+const { signedTx } = await signTransaction(txReq);
+const txResponse = await provider.broadcastTransaction(signedTx);
+const receipt = await txResponse.wait();
 
 // Parse event for agentId
-const iface = new ethers.Interface(IDENTITY_REGISTRY_ABI);
 for (const log of receipt.logs) {
   try {
     const parsed = iface.parseLog({ topics: log.topics as string[], data: log.data });
@@ -198,7 +247,6 @@ for (const log of receipt.logs) {
     }
   } catch { /* skip non-matching logs */ }
 }
-// signer goes out of scope — key discarded
 ```
 
 See [references/contract-addresses.md](references/contract-addresses.md) for deployed addresses per chain.
@@ -207,11 +255,11 @@ See [references/contract-addresses.md](references/contract-addresses.md) for dep
 
 ```typescript
 import { SDK } from 'agent0-sdk';
-import { readMemory } from './scripts/memory';
+import { readMemory } from 'siwa/memory';
 
 // Note: Agent0 SDK takes a private key string. If using the SDK,
-// you'll need getSigner() or load the key within a narrow scope.
-// Prefer the raw ethers.js approach above for keystore integration.
+// you'll need a non-proxy backend or load the key within a narrow scope.
+// Prefer the signTransaction() approach above for proxy integration.
 ```
 
 ### Alternative: create-8004-agent CLI
@@ -231,7 +279,7 @@ Full spec: [references/siwa-spec.md](references/siwa-spec.md)
 ### Step 0: Read Public Identity from MEMORY.md
 
 ```typescript
-import { readMemory, isRegistered } from './scripts/memory';
+import { readMemory, isRegistered } from 'siwa/memory';
 
 const memory = readMemory('./MEMORY.md');
 if (!isRegistered()) {
@@ -255,13 +303,13 @@ const nonceRes = await fetch('https://api.targetservice.com/siwa/nonce', {
 const { nonce, issuedAt, expirationTime } = await nonceRes.json();
 ```
 
-### Step 2: Sign via Keystore (key never exposed)
+### Step 2: Sign via Proxy (key never exposed)
 
 ```typescript
-import { signSIWAMessage } from './scripts/siwa';
+import { signSIWAMessage } from 'siwa/siwa';
 
 // signSIWAMessage internally calls keystore.signMessage()
-// The private key is loaded, used for signing, and discarded.
+// which delegates to the keyring proxy — the key never enters this process.
 const { message, signature } = await signSIWAMessage({
   domain: 'api.targetservice.com',
   address,
@@ -279,7 +327,7 @@ const { message, signature } = await signSIWAMessage({
 ### Step 3: Submit and Persist Session
 
 ```typescript
-import { appendToMemorySection } from './scripts/memory';
+import { appendToMemorySection } from 'siwa/memory';
 
 const verifyRes = await fetch('https://api.targetservice.com/siwa/verify', {
   method: 'POST',
@@ -325,7 +373,7 @@ The server MUST:
 4. **Call `ownerOf(agentId)` onchain** to confirm signer owns the agent NFT
 5. Issue session token
 
-See [scripts/siwa.ts](scripts/siwa.ts) for the full `verifySIWA()` implementation.
+See the `verifySIWA()` implementation in `siwa/siwa` and the test server's `verifySIWARequest()` for reference.
 
 | Endpoint | Method | Description |
 |---|---|---|
@@ -356,13 +404,12 @@ See [scripts/siwa.ts](scripts/siwa.ts) for the full `verifySIWA()` implementatio
 - **[references/contract-addresses.md](references/contract-addresses.md)** — Deployed registry addresses per chain, ABI fragments
 - **[references/registration-guide.md](references/registration-guide.md)** — Detailed registration file schema, endpoint types, update flows
 
-## Scripts
+## Core Library (`siwa` package)
 
-- **[scripts/keystore.ts](scripts/keystore.ts)** — Secure key storage abstraction (OS keychain, encrypted V3 file, env fallback)
-- **[scripts/memory.ts](scripts/memory.ts)** — MEMORY.md read/write helpers (public data only)
-- **[scripts/create_wallet.ts](scripts/create_wallet.ts)** — Wallet creation (key → keystore, address → MEMORY.md)
-- **[scripts/register_agent.ts](scripts/register_agent.ts)** — Onchain agent registration
-- **[scripts/siwa.ts](scripts/siwa.ts)** — SIWA message building, signing (via keystore), and server-side verification
+- **`siwa/keystore`** — Secure key storage abstraction with keyring proxy support
+- **`siwa/memory`** — MEMORY.md read/write helpers (public data only)
+- **`siwa/siwa`** — SIWA message building, signing (via keystore), and server-side verification
+- **`siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
 
 ## Assets
 

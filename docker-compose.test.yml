@@ -14,7 +14,7 @@
 #   docker compose -f docker-compose.test.yml run --rm openclaw-cli setup --non-interactive
 #
 #   # 3. Run agent from host against proxy + server
-#   cd test && pnpm run reset
+#   cd packages/siwa-testing && pnpm run reset
 #   KEYSTORE_BACKEND=proxy pnpm run agent:flow
 #
 #   # 4. Or interact via OpenClaw agent CLI
@@ -41,7 +41,7 @@ services:
       - KEYSTORE_BACKEND=encrypted-file
       - KEYSTORE_PASSWORD=test-password-local-only
     volumes:
-      - keystore-data:/app/test
+      - keystore-data:/app/packages/siwa-testing
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3100/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
       interval: 10s

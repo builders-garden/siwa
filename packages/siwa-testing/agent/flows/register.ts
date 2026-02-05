@@ -1,10 +1,10 @@
 import chalk from 'chalk';
 import * as fs from 'fs';
 import { ethers } from 'ethers';
-import { hasWallet, getSigner, getAddress, signTransaction, type KeystoreConfig } from '../../../scripts/keystore.js';
+import { hasWallet, getSigner, getAddress, signTransaction, type KeystoreConfig } from 'siwa/keystore';
 import {
   isRegistered, readMemory, writeMemoryField, appendToMemorySection,
-} from '../../../scripts/memory.js';
+} from 'siwa/memory';
 import {
   config, getKeystoreConfig, isLiveMode, REGISTRY_ADDRESSES, RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, txUrl, addressUrl,
 } from '../config.js';

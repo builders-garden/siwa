@@ -20,12 +20,12 @@
 import 'dotenv/config';
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
-import { verifyHmac } from '../../scripts/proxy-auth.js';
+import { verifyHmac } from 'siwa/proxy-auth';
 import {
   createWallet, hasWallet, getAddress, signMessage,
   signTransaction, signAuthorization,
   type KeystoreConfig, type KeystoreBackend,
-} from '../../scripts/keystore.js';
+} from 'siwa/keystore';
 
 // ---------------------------------------------------------------------------
 // Config

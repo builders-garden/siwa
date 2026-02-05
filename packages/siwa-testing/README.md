@@ -5,7 +5,7 @@ A local test environment for the ERC-8004 SIWA (Sign In With Agent) authenticati
 ## Quick Start
 
 ```bash
-cd test
+cd packages/siwa-testing
 pnpm install
 
 # Terminal 1: Start the SIWA server
@@ -81,11 +81,45 @@ pnpm tsx server/index.ts --live
 
 In live mode, the server calls `ownerOf(agentId)` on the registry contract to verify that the signing address actually owns the agent NFT.
 
+## Docker Testing
+
+Docker Compose configurations at the monorepo root let you test the full security architecture with process-isolated signing via the keyring proxy. This is important because the proxy backend is the recommended production configuration — the private key lives in a separate process and never enters the agent.
+
+### Proxy + OpenClaw Gateway
+
+Runs the keyring proxy alongside an OpenClaw AI agent gateway:
+
+```bash
+# From the monorepo root
+cp .env.proxy.example .env   # fill in secrets
+docker compose -f docker-compose.proxy.yml up -d
+```
+
+### Full Integration Test
+
+Runs all three services (keyring proxy, SIWA server, OpenClaw gateway) for end-to-end testing:
+
+```bash
+# From the monorepo root
+docker compose -f docker-compose.test.yml up -d --build
+
+# Run the agent flow against Docker services
+cd packages/siwa-testing
+pnpm run reset
+KEYSTORE_BACKEND=proxy \
+  KEYRING_PROXY_URL=http://localhost:3100 \
+  KEYRING_PROXY_SECRET=test-secret-123 \
+  SERVER_URL=http://localhost:3000 \
+  SERVER_DOMAIN=localhost:3000 \
+  pnpm run agent:flow
+```
+
+See the [root README](../../README.md) for more details on the Docker setup.
+
 ## Security Note
 
-This test environment uses the `encrypted-file` keystore backend with a known password (`test-password-local-only`). This is intentional for local development convenience.
+Running locally without Docker, this test environment uses the `encrypted-file` keystore backend with a known password (`test-password-local-only`). This is intentional for local development convenience.
 
-**Do NOT use this configuration in production.** In production:
-- Use the OS keychain backend (`os-keychain`) for best security
-- Or use a strong, unique password for the encrypted-file backend
-- Never commit keystore files or passwords to version control
+**In production, use the keyring proxy backend** (`KEYSTORE_BACKEND=proxy`). The proxy holds the encrypted private key in a separate process and exposes only HMAC-authenticated signing endpoints — even full agent compromise cannot extract the key.
+
+See [`packages/siwa-skill/references/security-model.md`](../siwa-skill/references/security-model.md) for the full threat model.
