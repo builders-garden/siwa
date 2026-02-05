@@ -12,6 +12,28 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  packages/keyring-proxy:
+    dependencies:
+      '@buildersgarden/siwa':
+        specifier: 0.0.1
+        version: 0.0.1
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
+      express:
+        specifier: ^4.21.0
+        version: 4.22.1
+      tsx:
+        specifier: ^4.0.0
+        version: 4.21.0
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.0
+        version: 4.17.25
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/siwa:
     dependencies:
       ethers:

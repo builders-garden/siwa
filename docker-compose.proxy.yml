@@ -20,8 +20,8 @@ services:
   # Exposes HMAC-authenticated signing API on port 3100.
   keyring-proxy:
     build:
-      context: .
-      dockerfile: Dockerfile.proxy
+      context: packages/keyring-proxy
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "${KEYRING_PROXY_PORT:-3100}:3100"
@@ -31,7 +31,7 @@ services:
       - KEYSTORE_BACKEND=encrypted-file
       - KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}
     volumes:
-      - keystore-data:/app/packages/siwa-testing
+      - keystore-data:/app
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3100/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
       interval: 15s

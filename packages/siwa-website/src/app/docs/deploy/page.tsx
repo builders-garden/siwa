@@ -116,10 +116,56 @@ export default function DeployPage() {
           Keyring proxy from a Dockerfile, optional OpenClaw gateway alongside it.
         </p>
 
+        {/* Deploy Buttons */}
+        <div className="mb-12 grid gap-4 sm:grid-cols-2">
+          <a
+            href="https://railway.com/template/KEYRING_TEMPLATE_ID"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://railway.com/button.svg"
+                alt="Deploy on Railway"
+                className="h-8"
+              />
+            </div>
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
+              Keyring Proxy Only
+            </h4>
+            <p className="text-xs text-muted">
+              Deploy the signing proxy. Connect your own agent or OpenClaw instance externally.
+            </p>
+          </a>
+          <a
+            href="https://railway.com/template/KEYRING_OPENCLAW_TEMPLATE_ID"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://railway.com/button.svg"
+                alt="Deploy on Railway"
+                className="h-8"
+              />
+            </div>
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
+              Keyring Proxy + OpenClaw
+            </h4>
+            <p className="text-xs text-muted">
+              Full stack: signing proxy and AI agent gateway with the SIWA skill pre-installed.
+            </p>
+          </a>
+        </div>
+
         {/* Overview */}
         <Section id="overview" title="Overview">
           <P>
-            The core deployment is a single <InlineCode>keyring-proxy</InlineCode> service built from <InlineCode>Dockerfile.proxy</InlineCode> in the repo root. Railway builds directly from your Git repository — no Docker Hub needed.
+            The core deployment is a single <InlineCode>keyring-proxy</InlineCode> service built from <InlineCode>packages/keyring-proxy/Dockerfile</InlineCode>. Railway builds directly from your Git repository — no Docker Hub needed.
           </P>
           <P>
             Optionally, you can add an <InlineCode>openclaw-gateway</InlineCode> service in the same Railway project. OpenClaw is an AI agent gateway that routes chat messages to agents — agents use the keyring proxy for all signing operations via <InlineCode>KEYSTORE_BACKEND=proxy</InlineCode>.
@@ -129,7 +175,7 @@ export default function DeployPage() {
             <Table
               headers={["Service", "Image", "Port", "Purpose"]}
               rows={[
-                ["keyring-proxy", "Dockerfile.proxy (this repo)", "3100", "Holds encrypted keys, HMAC-auth signing API"],
+                ["keyring-proxy", "packages/keyring-proxy/Dockerfile", "3100", "Holds encrypted keys, HMAC-auth signing API"],
                 ["openclaw-gateway", "Docker image (optional)", "18789", "AI agent gateway with SIWA skill installed"],
               ]}
             />
@@ -174,13 +220,13 @@ export default function DeployPage() {
 
           <SubSection id="configure-keyring-proxy" title="Configure keyring-proxy">
             <P>
-              <strong className="text-foreground">1.</strong> Add a new service from your SIWA repo. Railway will detect the <InlineCode>railway.json</InlineCode> and use <InlineCode>Dockerfile.proxy</InlineCode>.
+              <strong className="text-foreground">1.</strong> Add a new service from your SIWA repo. Railway will detect the <InlineCode>railway.json</InlineCode> and use <InlineCode>packages/keyring-proxy/Dockerfile</InlineCode>.
             </P>
             <P>
               <strong className="text-foreground">2.</strong> Name the service <InlineCode>keyring-proxy</InlineCode>.
             </P>
             <P>
-              <strong className="text-foreground">3.</strong> No start command override needed — the Dockerfile&apos;s default <InlineCode>CMD</InlineCode> runs <InlineCode>pnpm run proxy</InlineCode>.
+              <strong className="text-foreground">3.</strong> No start command override needed — the Dockerfile&apos;s default <InlineCode>CMD</InlineCode> runs <InlineCode>pnpm run start</InlineCode>.
             </P>
             <P>
               <strong className="text-foreground">4.</strong> Set the port to <InlineCode>3100</InlineCode> in the service&apos;s networking settings.
