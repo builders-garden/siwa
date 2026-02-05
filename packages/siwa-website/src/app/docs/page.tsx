@@ -137,7 +137,7 @@ export default function DocsPage() {
           </P>
 
           <SubSection id="installation" title="Installation">
-            <CodeBlock>{`npm install @buildersgarden/siwa ethers`}</CodeBlock>
+            <CodeBlock>{`npm install @buildersgarden/siwa`}</CodeBlock>
             <P>
               The <InlineCode>@buildersgarden/siwa</InlineCode> package exposes four modules via package exports:
             </P>
