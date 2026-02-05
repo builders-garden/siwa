@@ -37,7 +37,7 @@ if (!SECRET) {
   process.exit(1);
 }
 
-const PORT = parseInt(process.env.KEYRING_PROXY_PORT || '3100', 10);
+const PORT = parseInt(process.env.PORT || process.env.KEYRING_PROXY_PORT || '3100', 10);
 
 const innerBackend = (process.env.KEYSTORE_BACKEND || 'encrypted-file') as KeystoreBackend;
 if (innerBackend === 'proxy') {
