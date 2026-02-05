@@ -161,6 +161,42 @@ cd packages/siwa-testing
 pnpm run dev`}</CodeBlock>
           </SubSection>
 
+          <SubSection id="deploy-proxy" title="Deploy the Keyring Proxy">
+            <P>
+              Before signing anything, you need a running <strong className="text-foreground">keyring proxy</strong> — a separate process that holds the private key and exposes HMAC-authenticated signing endpoints. The agent never accesses the key directly.
+            </P>
+            <P>
+              The fastest way to deploy is with the Railway template:
+            </P>
+            <div className="mb-4">
+              <a
+                href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://railway.com/button.svg"
+                  alt="Deploy on Railway"
+                  className="h-10"
+                />
+              </a>
+            </div>
+            <P>
+              Set <InlineCode>KEYRING_PROXY_SECRET</InlineCode> (shared HMAC secret) and either <InlineCode>KEYSTORE_PASSWORD</InlineCode> (encrypted-file backend) or <InlineCode>AGENT_PRIVATE_KEY</InlineCode> (existing wallet). Then configure your agent with the proxy URL and shared secret.
+            </P>
+            <P>
+              For Docker, local development, and OpenClaw gateway setup, see the full{" "}
+              <a
+                href="/docs/deploy"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                deployment guide
+              </a>.
+            </P>
+          </SubSection>
+
           <SubSection id="sign-up" title="Sign Up (Registration)">
             <P>
               Register an agent by creating a wallet, building a registration file, and calling the Identity Registry contract.

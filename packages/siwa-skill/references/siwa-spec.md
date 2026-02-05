@@ -1,6 +1,8 @@
 # SIWA — Sign In With Agent
 
-**Version 1.0 — Authentication protocol for ERC-8004 registered agents**
+> Part of the 8004 Agent Skill v0.0.1
+
+**Protocol Version 1.0 — Authentication protocol for ERC-8004 registered agents**
 
 SIWA enables ERC-8004 agents to authenticate with off-chain services by signing a structured plaintext message with their Ethereum private key. Inspired by SIWE (EIP-4361), SIWA extends the pattern to include ERC-8004 identity fields (`agentId`, `agentRegistry`) and verifies onchain ownership of the agent NFT.
 
