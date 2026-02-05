@@ -112,9 +112,23 @@ export default function DocsPage() {
         <h1 className="font-mono text-2xl font-bold text-foreground mb-2">
           SIWA Documentation
         </h1>
-        <p className="text-sm text-dim mb-12">
+        <p className="text-sm text-dim mb-8">
           Sign In With Agent — v1.0
         </p>
+
+        <div className="mb-12 rounded-lg border border-accent/30 bg-accent/5 px-5 py-4">
+          <p className="text-sm text-muted leading-relaxed">
+            <span className="font-mono font-semibold text-accent">Agent?</span>{" "}
+            If you are an AI agent, read{" "}
+            <a
+              href="/skill.md"
+              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+            >
+              /skill.md
+            </a>{" "}
+            instead — it contains structured instructions for wallet creation, registration, and SIWA authentication.
+          </p>
+        </div>
 
         {/* Getting Started */}
         <Section id="getting-started" title="Getting Started">
@@ -129,6 +143,7 @@ export default function DocsPage() {
             </P>
             <CodeBlock>{`import { createWallet, signMessage, getAddress } from 'siwa/keystore';
 import { signSIWAMessage, verifySIWA } from 'siwa/siwa';
+import { getAgent, getReputation } from 'siwa/registry';
 import { readMemory, writeMemoryField } from 'siwa/memory';
 import { computeHMAC } from 'siwa/proxy-auth';`}</CodeBlock>
           </SubSection>
@@ -213,6 +228,38 @@ const session = await fetch('https://api.example.com/siwa/verify', {
 }).then(r => r.json());
 // session.token contains the JWT`}</CodeBlock>
           </SubSection>
+
+          <SubSection id="verify" title="Server-Side Verification">
+            <P>
+              On the server, use <InlineCode>verifySIWA</InlineCode> to validate the signature, recover the signer, and check all protocol fields.
+            </P>
+            <CodeBlock>{`import { verifySIWA } from 'siwa/siwa';
+
+// In your /siwa/verify endpoint handler:
+const { message, signature } = req.body;
+
+const result = verifySIWA(message, signature, {
+  domain: 'api.example.com',      // must match your server's origin
+  nonce: storedNonce,              // the nonce you issued earlier
+});
+
+// result contains:
+// {
+//   address,        — recovered signer address
+//   agentId,        — ERC-8004 agent token ID
+//   agentRegistry,  — registry contract identifier
+//   chainId,        — chain ID from the message
+// }
+
+// IMPORTANT: also verify onchain ownership
+const owner = await identityRegistry.ownerOf(result.agentId);
+if (owner.toLowerCase() !== result.address.toLowerCase()) {
+  throw new Error('Signer does not own this agent NFT');
+}
+
+// All checks passed — issue a session token
+const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
+          </SubSection>
         </Section>
 
         {/* API Reference */}
@@ -246,7 +293,97 @@ const session = await fetch('https://api.example.com/siwa/verify', {
               rows={[
                 ["buildSIWAMessage(fields)", "string", "Build a formatted SIWA message string."],
                 ["signSIWAMessage(fields)", "{ message, signature }", "Build and sign a SIWA message."],
-                ["verifySIWA(message, sig)", "VerifiedAgent", "Verify a SIWA signature (server-side)."],
+                ["verifySIWA(msg, sig, domain, nonceValid, provider, criteria?)", "SIWAVerificationResult", "Verify a SIWA signature. Optional criteria param validates agent profile/reputation."],
+              ]}
+            />
+            <P>
+              <InlineCode>verifySIWA</InlineCode> accepts an optional <InlineCode>SIWAVerifyCriteria</InlineCode> object as the 6th argument to validate agent profile and reputation after the ownership check. When criteria are provided, the result includes the full <InlineCode>agent</InlineCode> profile.
+            </P>
+            <Table
+              headers={["Criteria Field", "Type", "Description"]}
+              rows={[
+                ["mustBeActive", "boolean", "Require metadata.active === true."],
+                ["requiredServices", "ServiceType[]", "Agent must expose all listed service types (e.g. 'MCP', 'A2A')."],
+                ["requiredTrust", "TrustModel[]", "Agent must support all listed trust models."],
+                ["minScore", "number", "Minimum reputation score."],
+                ["minFeedbackCount", "number", "Minimum reputation feedback count."],
+                ["reputationRegistryAddress", "string", "Required when using minScore or minFeedbackCount."],
+                ["custom", "(agent) => boolean", "Custom validation function receiving the full AgentProfile."],
+              ]}
+            />
+            <CodeBlock>{`import { verifySIWA } from 'siwa/siwa';
+
+const result = await verifySIWA(
+  message,
+  signature,
+  'api.example.com',
+  (nonce) => nonceStore.consume(nonce),
+  provider,
+  {
+    mustBeActive: true,
+    requiredServices: ['MCP'],
+    requiredTrust: ['reputation'],
+    minScore: 0.5,
+    minFeedbackCount: 10,
+    reputationRegistryAddress: '0x8004BAa1...9b63',
+  }
+);
+
+if (result.valid) {
+  // result.agent contains the full AgentProfile
+  console.log(result.agent.metadata.services);
+}`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="api-registry" title="siwa/registry">
+            <P>
+              Read agent profiles and reputation from on-chain registries.
+            </P>
+            <Table
+              headers={["Function", "Returns", "Description"]}
+              rows={[
+                ["getAgent(agentId, options)", "AgentProfile", "Read agent profile from the Identity Registry (owner, tokenURI, agentWallet, metadata)."],
+                ["getReputation(agentId, options)", "ReputationSummary", "Read agent reputation summary from the Reputation Registry."],
+              ]}
+            />
+            <P>
+              <InlineCode>getAgent</InlineCode> fetches and parses the agent&apos;s metadata JSON from its <InlineCode>tokenURI</InlineCode>. Supported URI schemes: <InlineCode>ipfs://</InlineCode>, <InlineCode>data:application/json;base64,</InlineCode>, and <InlineCode>https://</InlineCode>.
+            </P>
+            <CodeBlock>{`import { getAgent, getReputation } from 'siwa/registry';
+
+const agent = await getAgent(42, {
+  registryAddress: '0x8004A169...a432',
+  provider,
+});
+// agent.owner        — NFT owner address
+// agent.agentWallet  — linked wallet (null if unset)
+// agent.metadata     — parsed JSON (name, services, active, ...)
+
+const rep = await getReputation(42, {
+  reputationRegistryAddress: '0x8004BAa1...9b63',
+  provider,
+  tag1: 'starred',     // filter by reputation tag
+});
+// rep.score  — normalized score
+// rep.count  — total feedback count`}</CodeBlock>
+            <P>
+              The module exports typed string literals for values defined in the{" "}
+              <a
+                href="https://eips.ethereum.org/EIPS/eip-8004"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent hover:text-blue-400 transition-colors duration-200 underline underline-offset-4 cursor-pointer"
+              >
+                ERC-8004
+              </a>
+              {" "}specification. These provide autocompletion while still accepting custom strings.
+            </P>
+            <Table
+              headers={["Type", "Values"]}
+              rows={[
+                ["ServiceType", "'web' | 'A2A' | 'MCP' | 'OASF' | 'ENS' | 'DID' | 'email'"],
+                ["TrustModel", "'reputation' | 'crypto-economic' | 'tee-attestation'"],
+                ["ReputationTag", "'starred' | 'reachable' | 'ownerVerified' | 'uptime' | 'successRate' | 'responseTime' | 'blocktimeFreshness' | 'revenues' | 'tradingYield'"],
               ]}
             />
           </SubSection>

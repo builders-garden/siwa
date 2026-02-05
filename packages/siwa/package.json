@@ -7,7 +7,8 @@
     "./keystore": "./src/keystore.ts",
     "./siwa": "./src/siwa.ts",
     "./memory": "./src/memory.ts",
-    "./proxy-auth": "./src/proxy-auth.ts"
+    "./proxy-auth": "./src/proxy-auth.ts",
+    "./registry": "./src/registry.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
