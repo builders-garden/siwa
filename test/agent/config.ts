@@ -45,6 +45,8 @@ export const config = {
   keystorePath: process.env.KEYSTORE_PATH || path.resolve(projectRoot, 'agent-keystore.json'),
   keystorePassword: process.env.KEYSTORE_PASSWORD || 'test-password-local-only',
   keystoreBackend: (process.env.KEYSTORE_BACKEND || 'encrypted-file') as KeystoreBackend,
+  keyringProxyUrl: process.env.KEYRING_PROXY_URL || '',
+  keyringProxySecret: process.env.KEYRING_PROXY_SECRET || '',
   templatePath: path.resolve(projectRoot, '..', 'assets', 'MEMORY.md.template'),
   registrationFile: process.env.REGISTRATION_FILE || path.resolve(projectRoot, '..', 'assets', 'registration-template.json'),
 
@@ -65,6 +67,8 @@ export function getKeystoreConfig() {
     backend: config.keystoreBackend,
     keystorePath: config.keystorePath,
     password: config.keystorePassword,
+    proxyUrl: config.keyringProxyUrl || undefined,
+    proxySecret: config.keyringProxySecret || undefined,
   };
 }
 

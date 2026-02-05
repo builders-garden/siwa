@@ -91,6 +91,44 @@ This is useless without the password. The password can itself be stored in the O
 
 **For CI/CD and testing only. Not recommended for production.**
 
+### Layer 4: Keyring Proxy (`proxy`)
+
+**Process isolation — private key never enters the agent process.**
+
+The agent delegates all signing to a separate **keyring proxy server** over HMAC-authenticated HTTP. The proxy server holds the real keystore (any of the backends above) and performs all cryptographic operations. Even full agent compromise (arbitrary code execution) cannot extract the key — only request signatures.
+
+| Property | Detail |
+|---|---|
+| **Transport** | HMAC-SHA256 authenticated HTTP (30s replay window) |
+| **Key isolation** | Private key lives in a separate process; never enters agent memory |
+| **Audit** | Every signing request is logged with timestamp, path, source IP |
+| **Limitation** | `getSigner()` is not available — use `signMessage()` / `signTransaction()` |
+
+**Architecture:**
+
+```
+Agent Process                     Keyring Proxy Server (port 3100)
+(KEYSTORE_BACKEND=proxy)          (KEYSTORE_BACKEND=encrypted-file)
+
+signMessage("hello")
+  |
+  +--> POST /sign-message
+       + HMAC-SHA256 header  ---> Validates HMAC + timestamp
+                                  Loads key from real keystore
+                                  Signs message, discards key
+                              <-- Returns { signature, address }
+```
+
+**How it resists prompt injection**: The private key exists in a completely separate OS process. Even if the agent process is fully compromised (arbitrary code execution via prompt injection), the attacker can only request signatures — they cannot extract the key. The proxy also maintains an audit log of every signing request.
+
+**Env vars:**
+
+| Variable | Used by | Purpose |
+|---|---|---|
+| `KEYRING_PROXY_URL` | Agent | Proxy server URL (e.g. `http://localhost:3100`) |
+| `KEYRING_PROXY_SECRET` | Both | HMAC shared secret |
+| `KEYRING_PROXY_PORT` | Proxy server | Listen port (default: 3100) |
+
 Reads `AGENT_PRIVATE_KEY` from the process environment. This is the least secure option because:
 
 - Environment variables can be read by any process running as the same user

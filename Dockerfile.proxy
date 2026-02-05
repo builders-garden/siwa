@@ -1,0 +1,60 @@
+# Dockerfile.proxy
+#
+# Keyring Proxy Server with OpenClaw gateway support.
+#
+# This image runs the keyring proxy server (port 3100) so that AI agents
+# (running locally or via OpenClaw) can delegate all signing operations
+# over HMAC-authenticated HTTP. Private keys never leave this container.
+#
+# Build:
+#   docker build -t siwa-keyring-proxy -f Dockerfile.proxy .
+#
+# Run standalone:
+#   docker run -d --name keyring-proxy \
+#     -e KEYRING_PROXY_SECRET=<your-secret> \
+#     -e KEYSTORE_BACKEND=encrypted-file \
+#     -e KEYSTORE_PASSWORD=<your-password> \
+#     -v siwa-keystore:/app/test \
+#     -p 3100:3100 \
+#     siwa-keyring-proxy
+#
+# Run with OpenClaw (docker compose):
+#   See docker-compose.proxy.yml
+
+FROM node:22-bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# Copy root package manifest (ethers dependency)
+COPY package.json pnpm-lock.yaml ./
+
+# Install root dependencies
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Copy test package manifest for layer caching
+COPY test/package.json test/pnpm-lock.yaml test/
+
+# Install test dependencies
+RUN cd test && pnpm install --frozen-lockfile || (cd test && pnpm install)
+
+# Copy source files
+COPY scripts/ scripts/
+COPY test/ test/
+
+# Keyring proxy defaults
+ENV KEYRING_PROXY_PORT=3100
+ENV KEYSTORE_BACKEND=encrypted-file
+
+EXPOSE 3100
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:3100/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
+
+WORKDIR /app/test
+CMD ["pnpm", "run", "proxy"]
