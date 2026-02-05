@@ -6,7 +6,7 @@ import {
   isRegistered, readMemory, writeMemoryField, appendToMemorySection,
 } from '../../../scripts/memory.js';
 import {
-  config, getKeystoreConfig, isLiveMode, REGISTRY_ADDRESSES, RPC_ENDPOINTS, txUrl, addressUrl,
+  config, getKeystoreConfig, isLiveMode, REGISTRY_ADDRESSES, RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, txUrl, addressUrl,
 } from '../config.js';
 
 const IDENTITY_REGISTRY_ABI = [
@@ -117,11 +117,21 @@ async function registerLive(): Promise<void> {
   console.log(chalk.dim(`   Balance: ${balanceEth} ETH`));
 
   if (balance === 0n) {
-    console.log(chalk.red(`\u{274C} Wallet has no ETH. Fund it with testnet ETH first.`));
-    console.log(chalk.yellow(`   Faucets for chain ${chainId}:`));
-    if (chainId === 84532) console.log(chalk.dim(`   https://www.alchemy.com/faucets/base-sepolia`));
-    if (chainId === 11155111) console.log(chalk.dim(`   https://www.alchemy.com/faucets/ethereum-sepolia`));
-    if (chainId === 80002) console.log(chalk.dim(`   https://faucet.polygon.technology/`));
+    const chainName = CHAIN_NAMES[chainId] || `Chain ${chainId}`;
+    const faucetUrl = FAUCETS[chainId];
+    console.log(chalk.red(`\u{274C} Wallet has no ETH — cannot send transactions.`));
+    console.log('');
+    console.log(chalk.yellow(`   Please fund this wallet before registering:`));
+    console.log('');
+    console.log(chalk.white(`   Address:  ${address}`));
+    console.log(chalk.white(`   Chain:    ${chainName} (Chain ID: ${chainId})`));
+    console.log(chalk.dim(`   Explorer: ${addressUrl(chainId, address)}`));
+    if (faucetUrl) {
+      console.log('');
+      console.log(chalk.yellow(`   Faucet:   ${faucetUrl}`));
+    }
+    console.log('');
+    console.log(chalk.dim(`   After funding, re-run this command to continue registration.`));
     process.exit(1);
   }
 
@@ -173,6 +183,9 @@ async function registerLive(): Promise<void> {
     const nonce = await provider.getTransactionCount(address);
     const feeData = await provider.getFeeData();
 
+    const gasEstimate = await provider.estimateGas({ to: registryAddress, data, from: address });
+    const gasLimit = gasEstimate * 120n / 100n; // 20% buffer
+
     const txReq: ethers.TransactionLike = {
       to: registryAddress,
       data,
@@ -181,7 +194,7 @@ async function registerLive(): Promise<void> {
       type: 2,
       maxFeePerGas: feeData.maxFeePerGas,
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-      gasLimit: 500_000,
+      gasLimit,
     };
 
     console.log(chalk.dim(`   Nonce:     ${nonce}`));

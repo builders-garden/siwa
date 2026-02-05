@@ -27,4 +27,7 @@ Thumbs.db
 *.swp
 *.swo
 
+# npm lockfile (project uses pnpm)
+package-lock.json
+
 # Lockfiles are kept (pnpm-lock.yaml)

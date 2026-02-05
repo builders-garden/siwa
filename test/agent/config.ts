@@ -20,6 +20,21 @@ export const RPC_ENDPOINTS: Record<number, string> = {
   80002: 'https://rpc-amoy.polygon.technology',
 };
 
+export const CHAIN_NAMES: Record<number, string> = {
+  8453: 'Base',
+  84532: 'Base Sepolia',
+  11155111: 'Ethereum Sepolia',
+  59141: 'Linea Sepolia',
+  80002: 'Polygon Amoy',
+};
+
+export const FAUCETS: Record<number, string> = {
+  84532: 'https://www.alchemy.com/faucets/base-sepolia',
+  11155111: 'https://www.alchemy.com/faucets/ethereum-sepolia',
+  59141: 'https://faucets.chain.link/linea-sepolia',
+  80002: 'https://faucet.polygon.technology/',
+};
+
 export const BLOCK_EXPLORERS: Record<number, string> = {
   8453: 'https://basescan.org',
   84532: 'https://sepolia.basescan.org',
