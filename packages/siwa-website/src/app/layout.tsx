@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import { Navbar } from "@/components/navbar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,31 +25,6 @@ export const metadata: Metadata = {
   },
 };
 
-function NavLink({
-  href,
-  children,
-  external,
-}: {
-  href: string;
-  children: React.ReactNode;
-  external?: boolean;
-}) {
-  const className =
-    "text-sm text-muted hover:text-foreground transition-colors duration-200 cursor-pointer";
-  if (external) {
-    return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <Link href={href} className={className}>
-      {children}
-    </Link>
-  );
-}
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -60,33 +35,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}
       >
-        <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
-          <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-            <Link
-              href="/"
-              className="font-mono text-sm font-semibold tracking-tight text-foreground hover:text-accent transition-colors duration-200"
-            >
-              SIWA
-            </Link>
-            <div className="flex items-center gap-6">
-              <NavLink href="/docs">Docs</NavLink>
-              <NavLink href="/docs/endpoints">Endpoints</NavLink>
-              <NavLink href="/docs/deploy">Deploy</NavLink>
-              <NavLink
-                href="https://github.com/builders-garden/siwa"
-                external
-              >
-                GitHub
-              </NavLink>
-              <NavLink
-                href="https://eips.ethereum.org/EIPS/eip-8004"
-                external
-              >
-                ERC-8004
-              </NavLink>
-            </div>
-          </div>
-        </nav>
+        <Navbar />
 
         <main className="pt-14">{children}</main>
 

@@ -19,7 +19,7 @@ const sections = [
     title: "Create Project",
     id: "create-project",
     children: [
-      { title: "keyring-proxy", id: "configure-keyring-proxy" },
+      { title: "keyring-proxy (manual)", id: "configure-keyring-proxy" },
       { title: "openclaw (optional)", id: "configure-openclaw" },
     ],
   },
