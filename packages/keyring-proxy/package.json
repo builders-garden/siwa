@@ -8,7 +8,7 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@buildersgarden/siwa": "0.0.1",
+    "@buildersgarden/siwa": "0.0.2",
     "dotenv": "^17.2.3",
     "express": "^4.21.0",
     "tsx": "^4.0.0"
