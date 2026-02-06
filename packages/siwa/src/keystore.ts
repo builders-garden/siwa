@@ -39,6 +39,7 @@ import { ethers } from 'ethers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import * as os from 'os';
 import { computeHmac } from './proxy-auth.js';
 
 // ---------------------------------------------------------------------------
@@ -183,8 +184,8 @@ function deriveMachinePassword(): string {
   const factors = [
     process.env.USER || process.env.USERNAME || 'agent',
     process.env.HOME || process.env.USERPROFILE || '/tmp',
-    require('os').hostname(),
-    require('os').platform(),
+    os.hostname(),
+    os.platform(),
   ];
   return crypto
     .createHash('sha256')

@@ -108,7 +108,14 @@ function hmacAuth(req: Request, res: Response, next: NextFunction) {
 
   if (!timestamp || !signature) {
     audit(req, false, 'Missing HMAC headers');
-    res.status(401).json({ error: 'Missing HMAC headers' });
+    res.status(401).json({
+      error: 'Missing HMAC headers',
+      expected: {
+        'X-Keyring-Timestamp': '<milliseconds since epoch>',
+        'X-Keyring-Signature': '<HMAC-SHA256 hex of METHOD\\nPATH\\nTIMESTAMP\\nBODY>',
+      },
+      hint: "Use the SDK: import { computeHmac } from '@buildersgarden/siwa/proxy-auth'",
+    });
     return;
   }
 
@@ -117,7 +124,11 @@ function hmacAuth(req: Request, res: Response, next: NextFunction) {
 
   if (!result.valid) {
     audit(req, false, result.error);
-    res.status(401).json({ error: result.error });
+    res.status(401).json({
+      error: result.error,
+      payload_format: 'METHOD\\nPATH\\nTIMESTAMP\\nBODY',
+      hint: "Use the SDK: import { computeHmac } from '@buildersgarden/siwa/proxy-auth'",
+    });
     return;
   }
 

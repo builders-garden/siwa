@@ -8,7 +8,8 @@
     "./siwa": { "types": "./dist/siwa.d.ts", "default": "./dist/siwa.js" },
     "./memory": { "types": "./dist/memory.d.ts", "default": "./dist/memory.js" },
     "./proxy-auth": { "types": "./dist/proxy-auth.d.ts", "default": "./dist/proxy-auth.js" },
-    "./registry": { "types": "./dist/registry.d.ts", "default": "./dist/registry.js" }
+    "./registry": { "types": "./dist/registry.d.ts", "default": "./dist/registry.js" },
+    "./addresses": { "types": "./dist/addresses.d.ts", "default": "./dist/addresses.js" }
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
