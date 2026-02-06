@@ -15,8 +15,8 @@ importers:
   packages/keyring-proxy:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: 0.0.1
-        version: 0.0.1
+        specifier: 0.0.2
+        version: 0.0.2
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3
@@ -86,8 +86,8 @@ importers:
   packages/siwa-website:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: 0.0.1
-        version: 0.0.1
+        specifier: 0.0.2
+        version: 0.0.2
       ethers:
         specifier: ^6.16.0
         version: 6.16.0
@@ -208,8 +208,8 @@ packages:
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
 
-  '@buildersgarden/siwa@0.0.1':
-    resolution: {integrity: sha512-fJgkqzaRobQ3IWzFL8mTH4/HoBb+Vx6duFRi1h3BoEs7dwOYCEZMHiBSkBOiGslMpTP/bDNBF38s6tevO8G/JQ==}
+  '@buildersgarden/siwa@0.0.2':
+    resolution: {integrity: sha512-qybAI54lh2oKrvZNEY41dCq2jpT42tG/muYdbhYEWIU3+I9Zk6Z7QuShXQ717SO9niqazV6G4Y3xn9jc9E6PJg==}
 
   '@emnapi/core@1.8.1':
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -2658,7 +2658,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@buildersgarden/siwa@0.0.1':
+  '@buildersgarden/siwa@0.0.2':
     dependencies:
       ethers: 6.16.0
     transitivePeerDependencies:
