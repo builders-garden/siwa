@@ -139,25 +139,25 @@ export default function DocsPage() {
 
           <SubSection id="prerequisites" title="Prerequisites">
             <P>
-              Before you begin, you need an <strong className="text-foreground">AI agent runtime</strong> where your agent will execute. SIWA is runtime-agnostic — it works with any agent framework that can run Node.js code.
-            </P>
-            <P>
-              If you don&apos;t have an agent running yet, the easiest way to get started is with{" "}
+              Before you begin, you need an{" "}
               <a
-                href="https://github.com/OpenClaw-ai/openclaw"
+                href="https://docs.openclaw.ai/install/railway"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
               >
-                OpenClaw
+                <strong className="text-foreground">OpenClaw</strong>
               </a>
-              {" "}— an open-source agent gateway that runs Claude with tool access. You can deploy it alongside the keyring proxy using the{" "}
+              {" "}agent running — an open-source agent gateway that runs Claude with tool access. Follow the{" "}
               <a
-                href="/docs/deploy"
+                href="https://docs.openclaw.ai/install/railway"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
               >
-                deployment guide
-              </a>.
+                OpenClaw installation guide
+              </a>
+              {" "}to deploy it on Railway.
             </P>
           </SubSection>
 
