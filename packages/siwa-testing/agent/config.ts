@@ -1,48 +1,15 @@
 import type { KeystoreBackend } from '@buildersgarden/siwa/keystore';
+import {
+  REGISTRY_ADDRESSES, REPUTATION_ADDRESSES,
+  RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, BLOCK_EXPLORERS,
+} from '@buildersgarden/siwa/addresses';
 import * as path from 'path';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const skillRoot = path.resolve(projectRoot, '..', 'siwa-skill');
 
-// Registry addresses per chain (must match contracts in references/contract-addresses.md)
-export const REGISTRY_ADDRESSES: Record<number, string> = {
-  8453: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',    // Base
-  84532: '0x8004A818BFB912233c491871b3d84c89A494BD9e',   // Base Sepolia
-  11155111: '0x8004a6090Cd10A7288092483047B097295Fb8847', // ETH Sepolia
-  59141: '0x8004aa7C931bCE1233973a0C6A667f73F66282e7',   // Linea Sepolia
-  80002: '0x8004ad19E14B9e0654f73353e8a0B600D46C2898',   // Polygon Amoy
-};
-
-export const RPC_ENDPOINTS: Record<number, string> = {
-  8453: 'https://mainnet.base.org',
-  84532: 'https://sepolia.base.org',
-  11155111: 'https://rpc.sepolia.org',
-  59141: 'https://rpc.sepolia.linea.build',
-  80002: 'https://rpc-amoy.polygon.technology',
-};
-
-export const CHAIN_NAMES: Record<number, string> = {
-  8453: 'Base',
-  84532: 'Base Sepolia',
-  11155111: 'Ethereum Sepolia',
-  59141: 'Linea Sepolia',
-  80002: 'Polygon Amoy',
-};
-
-export const FAUCETS: Record<number, string> = {
-  84532: 'https://www.alchemy.com/faucets/base-sepolia',
-  11155111: 'https://www.alchemy.com/faucets/ethereum-sepolia',
-  59141: 'https://faucets.chain.link/linea-sepolia',
-  80002: 'https://faucet.polygon.technology/',
-};
-
-export const BLOCK_EXPLORERS: Record<number, string> = {
-  8453: 'https://basescan.org',
-  84532: 'https://sepolia.basescan.org',
-  11155111: 'https://sepolia.etherscan.io',
-  59141: 'https://sepolia.lineascan.build',
-  80002: 'https://amoy.polygonscan.com',
-};
+// Re-export address constants from SDK for consumers of this module
+export { REGISTRY_ADDRESSES, REPUTATION_ADDRESSES, RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, BLOCK_EXPLORERS };
 
 export function txUrl(chainId: number, txHash: string): string {
   const base = BLOCK_EXPLORERS[chainId];
@@ -63,7 +30,7 @@ export const config = {
   keystoreBackend: (process.env.KEYSTORE_BACKEND || (process.env.KEYRING_PROXY_URL ? 'proxy' : 'encrypted-file')) as KeystoreBackend,
   keyringProxyUrl: process.env.KEYRING_PROXY_URL || '',
   keyringProxySecret: process.env.KEYRING_PROXY_SECRET || '',
-  templatePath: path.resolve(skillRoot, 'assets', 'MEMORY.md.template'),
+  templatePath: path.resolve(skillRoot, 'assets', 'MEMORY.template.md'),
   registrationFile: process.env.REGISTRATION_FILE || path.resolve(skillRoot, 'assets', 'registration-template.json'),
 
   // Onchain settings
