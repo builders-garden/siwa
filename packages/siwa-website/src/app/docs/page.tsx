@@ -187,6 +187,10 @@ export default function DocsPage() {
               Set <InlineCode>KEYRING_PROXY_SECRET</InlineCode> (shared HMAC secret) and either <InlineCode>KEYSTORE_PASSWORD</InlineCode> (encrypted-file backend) or <InlineCode>AGENT_PRIVATE_KEY</InlineCode> (existing wallet). Then configure your agent with the proxy URL and shared secret.
             </P>
             <P>
+              Generate a random HMAC secret with:
+            </P>
+            <CodeBlock>{`openssl rand -hex 32`}</CodeBlock>
+            <P>
               For Docker, local development, and OpenClaw gateway setup, see the full{" "}
               <a
                 href="/docs/deploy"
