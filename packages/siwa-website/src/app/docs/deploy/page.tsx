@@ -173,24 +173,24 @@ export default function DeployPage() {
 
           <SubSection id="architecture" title="Architecture">
             <Table
-              headers={["Service", "Image", "Port", "Purpose"]}
+              headers={["Service", "Image", "Purpose"]}
               rows={[
-                ["keyring-proxy", "packages/keyring-proxy/Dockerfile", "3100", "Holds encrypted keys, HMAC-auth signing API"],
-                ["openclaw-gateway", "Docker image (optional)", "18789", "AI agent gateway with SIWA skill installed"],
+                ["keyring-proxy", "packages/keyring-proxy/Dockerfile", "Holds encrypted keys, HMAC-auth signing API"],
+                ["openclaw-gateway", "Docker image (optional)", "AI agent gateway with SIWA skill installed"],
               ]}
             />
             <CodeBlock>{`Agent / OpenClaw
   |
-  +---> keyring-proxy (port 3100)
+  +---> keyring-proxy
   |     KEYSTORE_BACKEND=encrypted-file
   |     Signs messages, never exposes keys
   |     (private networking)
   |
-  +---> openclaw-gateway (port 18789)   [optional]
+  +---> openclaw-gateway   [optional]
         KEYSTORE_BACKEND=proxy
         Delegates signing to keyring-proxy`}</CodeBlock>
             <P>
-              Railway auto-provisions private DNS between services in the same project. The openclaw-gateway reaches the keyring-proxy at <InlineCode>keyring-proxy.railway.internal:3100</InlineCode>.
+              Railway auto-provisions private DNS between services in the same project. The openclaw-gateway reaches the keyring-proxy at its internal URL — no public exposure needed.
             </P>
           </SubSection>
         </Section>
@@ -215,10 +215,28 @@ export default function DeployPage() {
         {/* Create Project */}
         <Section id="create-project" title="Create Railway Project">
           <P>
-            Create a new project in Railway. At minimum you need one service (keyring-proxy). Add the openclaw-gateway only if you want to run an agent gateway alongside it.
+            The fastest way to create your project is with the deploy button — it sets up the keyring-proxy service with the correct Dockerfile and configuration automatically:
+          </P>
+          <div className="mb-4">
+            <a
+              href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://railway.com/button.svg"
+                alt="Deploy on Railway"
+                className="h-10"
+              />
+            </a>
+          </div>
+          <P>
+            If you prefer to set things up manually, or want to add an openclaw-gateway alongside it, follow the steps below.
           </P>
 
-          <SubSection id="configure-keyring-proxy" title="Configure keyring-proxy">
+          <SubSection id="configure-keyring-proxy" title="Configure keyring-proxy (manual)">
             <P>
               <strong className="text-foreground">1.</strong> Add a new service from your SIWA repo. Railway will detect the <InlineCode>railway.json</InlineCode> and use <InlineCode>packages/keyring-proxy/Dockerfile</InlineCode>.
             </P>
@@ -229,37 +247,25 @@ export default function DeployPage() {
               <strong className="text-foreground">3.</strong> No start command override needed — the Dockerfile&apos;s default <InlineCode>CMD</InlineCode> runs <InlineCode>pnpm run start</InlineCode>.
             </P>
             <P>
-              <strong className="text-foreground">4.</strong> Set the port to <InlineCode>3100</InlineCode> in the service&apos;s networking settings.
-            </P>
-            <P>
-              <strong className="text-foreground">5.</strong> If the openclaw-gateway (or your agent) runs in the <strong className="text-foreground">same Railway project</strong>, keep this service private — it&apos;s reachable via internal networking. If your agent or OpenClaw instance runs <strong className="text-foreground">outside Railway</strong>, assign a public domain so it can reach the proxy over the internet.
+              <strong className="text-foreground">4.</strong> If the openclaw-gateway (or your agent) runs in the <strong className="text-foreground">same Railway project</strong>, keep this service private — it&apos;s reachable via internal networking. If your agent or OpenClaw instance runs <strong className="text-foreground">outside Railway</strong>, assign a public domain so it can reach the proxy over the internet.
             </P>
           </SubSection>
 
           <SubSection id="configure-openclaw" title="Configure openclaw-gateway (optional)">
             <P>
-              The OpenClaw gateway is a separate Docker image — it is not built from this repo. You can deploy it as a Railway service using a Docker image reference.
+              OpenClaw is an open-source AI agent gateway. Follow the{" "}
+              <a
+                href="https://docs.openclaw.ai/install/railway"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                OpenClaw Railway installation guide
+              </a>
+              {" "}to deploy it. Once running, connect it to the keyring-proxy by setting these environment variables on the OpenClaw service:
             </P>
-            <P>
-              <strong className="text-foreground">1.</strong> Add a new service and select <strong className="text-foreground">Docker Image</strong> as the source.
-            </P>
-            <P>
-              <strong className="text-foreground">2.</strong> Point it at your OpenClaw image (e.g. from a container registry).
-            </P>
-            <P>
-              <strong className="text-foreground">3.</strong> Name the service <InlineCode>openclaw-gateway</InlineCode>.
-            </P>
-            <P>
-              <strong className="text-foreground">4.</strong> Set the port to <InlineCode>18789</InlineCode>.
-            </P>
-            <P>
-              <strong className="text-foreground">5.</strong> Use Railway reference variables to connect to the keyring-proxy:
-            </P>
-            <CodeBlock>{`KEYRING_PROXY_URL=http://keyring-proxy.railway.internal:3100
+            <CodeBlock>{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
 KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
-            <P>
-              <strong className="text-foreground">6.</strong> The entrypoint script (<InlineCode>scripts/openclaw-entrypoint.sh</InlineCode>) installs SIWA skill dependencies and registers the skill before starting the gateway.
-            </P>
           </SubSection>
         </Section>
 
@@ -270,10 +276,9 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
               headers={["Variable", "Required", "Description"]}
               rows={[
                 ["KEYRING_PROXY_SECRET", "Yes", "Shared HMAC secret. Must match openclaw-gateway (if deployed)."],
-                ["KEYSTORE_BACKEND", "No", "Defaults to encrypted-file. Set to env to use AGENT_PRIVATE_KEY."],
+                ["KEYSTORE_BACKEND", "No", "Defaults to encrypted-file. Set to 'env' to use AGENT_PRIVATE_KEY."],
                 ["KEYSTORE_PASSWORD", "Conditional", "Required when KEYSTORE_BACKEND=encrypted-file."],
                 ["AGENT_PRIVATE_KEY", "Conditional", "Required when KEYSTORE_BACKEND=env. Hex-encoded private key (0x...)."],
-                ["KEYRING_PROXY_PORT", "No", "Defaults to 3100."],
               ]}
             />
           </SubSection>
@@ -282,7 +287,7 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
             <Table
               headers={["Variable", "Required", "Description"]}
               rows={[
-                ["KEYRING_PROXY_URL", "Yes", "URL of the keyring proxy. Use private networking (e.g. http://keyring-proxy.railway.internal:3100) when both services run in the same project, or a public domain when the agent runs externally."],
+                ["KEYRING_PROXY_URL", "Yes", "Public URL of the keyring proxy (e.g. https://your-keyring-proxy.up.railway.app)."],
                 ["KEYRING_PROXY_SECRET", "Yes", "Shared HMAC secret. Must match keyring-proxy."],
               ]}
             />
@@ -319,8 +324,7 @@ AGENT_PRIVATE_KEY=0x<your-private-key>`}</CodeBlock>
             <P>
               The keyring-proxy exposes a <InlineCode>/health</InlineCode> endpoint. Railway uses this for automatic health checks (configured in <InlineCode>railway.json</InlineCode>).
             </P>
-            <CodeBlock>{`# keyring-proxy (internal only — run from Railway shell)
-curl http://keyring-proxy.railway.internal:3100/health
+            <CodeBlock>{`curl https://your-keyring-proxy.up.railway.app/health
 
 # Expected: { "status": "ok", ... }`}</CodeBlock>
           </SubSection>
@@ -346,17 +350,10 @@ curl https://your-keyring-proxy.up.railway.app/health
           <P>
             Point your agent at the deployed keyring-proxy by setting these environment variables:
           </P>
-          <CodeBlock>{`# Same Railway project — use internal networking
-KEYSTORE_BACKEND=proxy
-KEYRING_PROXY_URL=http://keyring-proxy.railway.internal:3100
-KEYRING_PROXY_SECRET=<your-shared-secret>
-
-# External agent / existing OpenClaw — use the public domain
-KEYSTORE_BACKEND=proxy
-KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
+          <CodeBlock>{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
 KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
           <P>
-            If your agent or OpenClaw instance runs inside the same Railway project, it reaches the proxy via internal networking. If it runs externally (e.g. an existing OpenClaw container or a local agent), assign a public domain to the keyring-proxy and use that URL instead. The HMAC secret ensures only authorized clients can request signatures.
+            Use the public domain Railway assigns to your keyring-proxy service. The HMAC secret ensures only authorized clients can request signatures.
           </P>
           <P>
             For the full authentication flow, see the{" "}

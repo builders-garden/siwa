@@ -54,8 +54,8 @@ export function GetStartedBox() {
         {tab === "developers" ? (
           <>
             <div className="rounded-md bg-background px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <code className="font-mono text-sm text-accent whitespace-nowrap">
+              <div className="flex items-center justify-between gap-3 min-w-0">
+                <code className="font-mono text-sm text-accent truncate min-w-0">
                   <span className="text-dim select-none">$ </span>
                   npm install @buildersgarden/siwa
                 </code>

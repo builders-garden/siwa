@@ -7,12 +7,13 @@ const sections = [
     title: "Getting Started",
     id: "getting-started",
     children: [
-      { title: "Installation", id: "installation" },
+      { title: "Prerequisites", id: "prerequisites" },
+      { title: "Step 1: Deploy Proxy", id: "deploy-proxy" },
+      { title: "Step 2: Install SDK", id: "installation" },
+      { title: "Step 3: Sign Up (Optional)", id: "sign-up" },
+      { title: "Step 4: Sign In", id: "sign-in" },
+      { title: "Step 5: Server Verification", id: "verify" },
       { title: "Quick Start", id: "quick-start" },
-      { title: "Deploy Keyring Proxy", id: "deploy-proxy" },
-      { title: "Sign Up", id: "sign-up" },
-      { title: "Sign In", id: "sign-in" },
-      { title: "Server Verification", id: "verify" },
     ],
   },
   {

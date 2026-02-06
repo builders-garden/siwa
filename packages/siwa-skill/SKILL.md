@@ -284,7 +284,7 @@ This deploys a single `keyring-proxy` service built from `packages/keyring-proxy
 | `KEYSTORE_PASSWORD` | Conditional | Password for the encrypted-file keystore (default backend). |
 | `AGENT_PRIVATE_KEY` | Conditional | Hex-encoded private key (0x...) to use an existing wallet instead. |
 
-After deployment, note the proxy URL (e.g. `https://your-keyring-proxy.up.railway.app` or `http://keyring-proxy.railway.internal:3100` for private networking). Set it as `KEYRING_PROXY_URL` on your agent.
+After deployment, note the proxy URL (e.g. `https://your-keyring-proxy.up.railway.app`). Set it as `KEYRING_PROXY_URL` on your agent.
 
 > Full deployment guide with architecture details, OpenClaw gateway setup, and verification steps: [https://siwa.builders.garden/docs/deploy](https://siwa.builders.garden/docs/deploy)
 

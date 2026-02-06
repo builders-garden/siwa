@@ -134,37 +134,36 @@ export default function DocsPage() {
         {/* Getting Started */}
         <Section id="getting-started" title="Getting Started">
           <P>
-            SIWA lets AI agents authenticate with off-chain services by proving ownership of an ERC-8004 identity NFT. Install the SDK, create a wallet, register onchain, and authenticate.
+            SIWA lets AI agents authenticate with off-chain services by proving ownership of an ERC-8004 identity NFT. Follow the steps below to deploy a keyring proxy, install the SDK, register your agent onchain, and authenticate.
           </P>
 
-          <SubSection id="installation" title="Installation">
-            <CodeBlock>{`npm install @buildersgarden/siwa`}</CodeBlock>
+          <SubSection id="prerequisites" title="Prerequisites">
             <P>
-              The <InlineCode>@buildersgarden/siwa</InlineCode> package exposes four modules via package exports:
+              Before you begin, you need an{" "}
+              <a
+                href="https://docs.openclaw.ai/install/railway"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                <strong className="text-foreground">OpenClaw</strong>
+              </a>
+              {" "}agent running — an open-source agent gateway that runs Claude with tool access. Follow the{" "}
+              <a
+                href="https://docs.openclaw.ai/install/railway"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                OpenClaw installation guide
+              </a>
+              {" "}to deploy it on Railway.
             </P>
-            <CodeBlock>{`import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
-import { signSIWAMessage, verifySIWA } from '@buildersgarden/siwa';
-import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
-import { readMemory, writeMemoryField } from '@buildersgarden/siwa/memory';
-import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
           </SubSection>
 
-          <SubSection id="quick-start" title="Quick Start">
+          <SubSection id="deploy-proxy" title="Step 1: Deploy the Keyring Proxy (Recommended)">
             <P>
-              The fastest way to try SIWA is with the test harness:
-            </P>
-            <CodeBlock>{`git clone https://github.com/builders-garden/siwa
-cd siwa
-pnpm install
-
-# Run the full flow: wallet creation → registration → SIWA sign-in
-cd packages/siwa-testing
-pnpm run dev`}</CodeBlock>
-          </SubSection>
-
-          <SubSection id="deploy-proxy" title="Deploy the Keyring Proxy">
-            <P>
-              Before signing anything, you need a running <strong className="text-foreground">keyring proxy</strong> — a separate process that holds the private key and exposes HMAC-authenticated signing endpoints. The agent never accesses the key directly.
+              For security, we strongly recommend running a <strong className="text-foreground">keyring proxy</strong> — a separate process that holds the private key of the agent and exposes HMAC-authenticated signing endpoints. This ensures the agent never accesses the key directly, even under full compromise.
             </P>
             <P>
               The fastest way to deploy is with the Railway template:
@@ -198,9 +197,21 @@ pnpm run dev`}</CodeBlock>
             </P>
           </SubSection>
 
-          <SubSection id="sign-up" title="Sign Up (Registration)">
+          <SubSection id="installation" title="Step 2: Install the SDK">
+            <CodeBlock>{`npm install @buildersgarden/siwa`}</CodeBlock>
             <P>
-              Register an agent by creating a wallet, building a registration file, and calling the Identity Registry contract.
+              The <InlineCode>@buildersgarden/siwa</InlineCode> package exposes four modules via package exports:
+            </P>
+            <CodeBlock>{`import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
+import { signSIWAMessage, verifySIWA } from '@buildersgarden/siwa';
+import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
+import { readMemory, writeMemoryField } from '@buildersgarden/siwa/memory';
+import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="sign-up" title="Step 3: Sign Up (Registration) — Optional">
+            <P>
+              If your agent is already registered onchain (has an <InlineCode>agentId</InlineCode>), skip to Step 4. Otherwise, register by creating a wallet, building a registration file, and calling the Identity Registry contract.
             </P>
             <CodeBlock>{`import { createWallet, signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
 import { writeMemoryField } from '@buildersgarden/siwa/memory';
@@ -232,7 +243,7 @@ const { signedTx } = await signTransaction({ to: REGISTRY, data, ... });
 const tx = await provider.broadcastTransaction(signedTx);`}</CodeBlock>
           </SubSection>
 
-          <SubSection id="sign-in" title="Sign In (SIWA Authentication)">
+          <SubSection id="sign-in" title="Step 4: Sign In (SIWA Authentication)">
             <P>
               Authenticate with any SIWA-aware service using the challenge-response flow.
             </P>
@@ -266,7 +277,7 @@ const session = await fetch('https://api.example.com/siwa/verify', {
 // session.token contains the JWT`}</CodeBlock>
           </SubSection>
 
-          <SubSection id="verify" title="Server-Side Verification">
+          <SubSection id="verify" title="Step 5: Server-Side Verification">
             <P>
               On the server, use <InlineCode>verifySIWA</InlineCode> to validate the signature, recover the signer, and check all protocol fields.
             </P>
@@ -296,6 +307,19 @@ if (owner.toLowerCase() !== result.address.toLowerCase()) {
 
 // All checks passed — issue a session token
 const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="quick-start" title="Quick Start (Try it locally)">
+            <P>
+              Want to try the full flow locally without deploying anything? Use the test harness:
+            </P>
+            <CodeBlock>{`git clone https://github.com/builders-garden/siwa
+cd siwa
+pnpm install
+
+# Run the full flow: wallet creation → registration → SIWA sign-in
+cd packages/siwa-testing
+pnpm run dev`}</CodeBlock>
           </SubSection>
         </Section>
 
@@ -465,7 +489,7 @@ const rep = await getReputation(42, {
             <P>
               All signing is delegated to a separate keyring proxy server over HMAC-authenticated HTTP. The proxy holds the encrypted key and performs all cryptographic operations.
             </P>
-            <CodeBlock>{`Agent Process                     Keyring Proxy (port 3100)
+            <CodeBlock>{`Agent Process                     Keyring Proxy
 (KEYSTORE_BACKEND=proxy)          (holds encrypted key)
 
 signMessage("hello")

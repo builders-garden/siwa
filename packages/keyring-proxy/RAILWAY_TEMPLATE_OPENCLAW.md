@@ -29,10 +29,10 @@ This template deploys two services connected via Railway's private networking. T
 
 This template deploys two services:
 
-| Service | Port | Description |
-|---|---|---|
-| **keyring-proxy** | 3100 | Holds encrypted keys, exposes HMAC-authenticated signing API |
-| **openclaw-gateway** | 18789 | AI agent gateway with the SIWA skill, delegates signing to keyring-proxy |
+| Service | Description |
+|---|---|
+| **keyring-proxy** | Holds encrypted keys, exposes HMAC-authenticated signing API |
+| **openclaw-gateway** | AI agent gateway with the SIWA skill, delegates signing to keyring-proxy |
 
 **keyring-proxy environment variables:**
 
@@ -46,16 +46,16 @@ This template deploys two services:
 
 | Variable | Required | Description |
 |---|---|---|
-| `KEYRING_PROXY_URL` | Yes | Private URL of the keyring proxy (e.g. `http://keyring-proxy.railway.internal:3100`). |
+| `KEYRING_PROXY_URL` | Yes | URL of the keyring proxy (e.g. `https://your-keyring-proxy.up.railway.app`). |
 | `KEYRING_PROXY_SECRET` | Yes | Shared HMAC-SHA256 secret. Must match keyring-proxy. |
 
-The two services communicate over Railway's private networking. The openclaw-gateway reaches the keyring proxy at `keyring-proxy.railway.internal:3100` — no public exposure needed for the proxy.
+The openclaw-gateway reaches the keyring proxy via its public URL. The HMAC shared secret ensures only authorized clients can request signatures.
 
 ```
-openclaw-gateway (port 18789)        keyring-proxy (port 3100)
+openclaw-gateway                     keyring-proxy
   |                                    |
   +-- KEYRING_PROXY_URL ------------>  |  Holds encrypted private key
-  |   (private networking)             |  Signs messages & transactions
+  |   (HMAC-authenticated)             |  Signs messages & transactions
   |                                    |  HMAC-SHA256 authenticated
   |                                    |  Full audit log
   +-- Agent receives signatures  <---  |
