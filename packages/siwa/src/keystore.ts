@@ -502,6 +502,44 @@ export async function signMessage(
 }
 
 /**
+ * Parse a numeric value from JSON (string/number) to bigint.
+ * Returns undefined for null, undefined, or zero values.
+ * Zero is returned as undefined so viem encodes it as empty (0x80 in RLP).
+ */
+function parseBigIntFromJson(value: unknown): bigint | undefined {
+  if (value === null || value === undefined) return undefined;
+  
+  let result: bigint;
+  if (typeof value === 'bigint') {
+    result = value;
+  } else if (typeof value === 'number') {
+    result = BigInt(value);
+  } else if (typeof value === 'string') {
+    // Handle hex strings (0x...) and decimal strings
+    result = BigInt(value);
+  } else {
+    return undefined;
+  }
+  
+  // Return undefined for zero so viem encodes it as empty (0x80)
+  // instead of 0x00 which is non-canonical RLP
+  return result === 0n ? undefined : result;
+}
+
+/**
+ * Parse a numeric value, keeping zero as 0n (for fields like nonce where 0 is valid).
+ */
+function parseBigIntKeepZero(value: unknown): bigint | undefined {
+  if (value === null || value === undefined) return undefined;
+  
+  if (typeof value === 'bigint') return value;
+  if (typeof value === 'number') return BigInt(value);
+  if (typeof value === 'string') return BigInt(value);
+  
+  return undefined;
+}
+
+/**
  * Sign a transaction.
  * The private key is loaded, used, and immediately discarded.
  * Only the signed transaction is returned.
@@ -521,24 +559,33 @@ export async function signTransaction(
 
   const account = privateKeyToAccount(privateKey);
 
+  // Parse numeric fields from JSON representation (strings) to bigints.
+  // For 'value', zero is converted to undefined so viem encodes it as 0x80 (empty)
+  // instead of 0x00, which is non-canonical RLP and rejected by nodes.
+  const value = parseBigIntFromJson(tx.value);
+  const gas = parseBigIntKeepZero(tx.gasLimit ?? tx.gas);
+  const maxFeePerGas = parseBigIntKeepZero(tx.maxFeePerGas);
+  const maxPriorityFeePerGas = parseBigIntKeepZero(tx.maxPriorityFeePerGas);
+  const gasPrice = parseBigIntKeepZero(tx.gasPrice);
+
   // Build transaction request for viem
   const viemTx: any = {
     to: tx.to as Address | undefined,
     data: tx.data as Hex | undefined,
-    value: tx.value,
+    value,
     nonce: tx.nonce,
     chainId: tx.chainId,
-    gas: tx.gasLimit ?? tx.gas,
+    gas,
   };
 
   // Handle EIP-1559 vs legacy transactions
   if (tx.type === 2 || tx.maxFeePerGas !== undefined) {
     viemTx.type = 'eip1559';
-    viemTx.maxFeePerGas = tx.maxFeePerGas;
-    viemTx.maxPriorityFeePerGas = tx.maxPriorityFeePerGas;
+    viemTx.maxFeePerGas = maxFeePerGas;
+    viemTx.maxPriorityFeePerGas = maxPriorityFeePerGas;
   } else if (tx.gasPrice !== undefined) {
     viemTx.type = 'legacy';
-    viemTx.gasPrice = tx.gasPrice;
+    viemTx.gasPrice = gasPrice;
   }
 
   if (tx.accessList) {
