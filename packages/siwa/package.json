@@ -1,30 +1,56 @@
 {
   "name": "@buildersgarden/siwa",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./keystore": { "types": "./dist/keystore.d.ts", "default": "./dist/keystore.js" },
-    "./siwa": { "types": "./dist/siwa.d.ts", "default": "./dist/siwa.js" },
-    "./memory": { "types": "./dist/memory.d.ts", "default": "./dist/memory.js" },
-    "./proxy-auth": { "types": "./dist/proxy-auth.d.ts", "default": "./dist/proxy-auth.js" },
-    "./registry": { "types": "./dist/registry.d.ts", "default": "./dist/registry.js" },
-    "./addresses": { "types": "./dist/addresses.d.ts", "default": "./dist/addresses.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./keystore": {
+      "types": "./dist/keystore.d.ts",
+      "default": "./dist/keystore.js"
+    },
+    "./siwa": {
+      "types": "./dist/siwa.d.ts",
+      "default": "./dist/siwa.js"
+    },
+    "./memory": {
+      "types": "./dist/memory.d.ts",
+      "default": "./dist/memory.js"
+    },
+    "./proxy-auth": {
+      "types": "./dist/proxy-auth.d.ts",
+      "default": "./dist/proxy-auth.js"
+    },
+    "./registry": {
+      "types": "./dist/registry.d.ts",
+      "default": "./dist/registry.js"
+    },
+    "./addresses": {
+      "types": "./dist/addresses.d.ts",
+      "default": "./dist/addresses.js"
+    }
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "viem": "^2.21.0",
+    "@noble/ciphers": "^0.5.0",
     "@noble/hashes": "^1.4.0",
-    "@noble/ciphers": "^0.5.0"
+    "viem": "^2.21.0"
   },
   "devDependencies": {
+    "@types/node": "^25.2.1",
     "typescript": "^5.5.0"
   }
 }
