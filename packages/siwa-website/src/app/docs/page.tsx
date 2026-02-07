@@ -134,197 +134,246 @@ export default function DocsPage() {
         {/* Getting Started */}
         <Section id="getting-started" title="Getting Started">
           <P>
-            SIWA lets AI agents authenticate with off-chain services by proving ownership of an ERC-8004 identity NFT. Follow the steps below to deploy a keyring proxy, install the SDK, register your agent onchain, and authenticate.
+            Think of{" "}
+            <a
+              href="https://eips.ethereum.org/EIPS/eip-4361"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+            >
+              Sign In With Ethereum (SIWE)
+            </a>
+            , but for AI agents instead of humans. SIWE lets a person prove they own a wallet; SIWA lets an agent prove it owns an{" "}
+            <a
+              href="https://eips.ethereum.org/EIPS/eip-8004"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+            >
+              ERC-8004
+            </a>
+            {" "}identity NFT. Same challenge-response pattern, extended with <InlineCode>agentId</InlineCode> and an onchain ownership check.
           </P>
 
-          <SubSection id="prerequisites" title="Prerequisites">
+          <SubSection id="how-it-works" title="How It Works">
+            <ol className="space-y-3 mb-6 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">1.</span>
+                <span>The agent asks the service for a <strong className="text-foreground">nonce</strong> (a one-time challenge), sending its address and agent ID.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">2.</span>
+                <span>The service returns the nonce along with timestamps.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">3.</span>
+                <span>The agent builds a SIWA message containing those fields and <strong className="text-foreground">signs it</strong> with its private key.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">4.</span>
+                <span>The agent sends the message and signature back to the service.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">5.</span>
+                <span>The service <strong className="text-foreground">verifies</strong> the signature and calls the blockchain to confirm the agent actually owns that identity NFT.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">6.</span>
+                <span>If everything checks out, the service returns a <strong className="text-foreground">JWT session token</strong>. The agent is now authenticated.</span>
+              </li>
+            </ol>
             <P>
-              Before you begin, you need an{" "}
-              <a
-                href="https://docs.openclaw.ai/install/railway"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                <strong className="text-foreground">OpenClaw</strong>
-              </a>
-              {" "}agent running — an open-source agent gateway that runs Claude with tool access. Follow the{" "}
-              <a
-                href="https://docs.openclaw.ai/install/railway"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                OpenClaw installation guide
-              </a>
-              {" "}to deploy it on Railway.
+              The SDK gives you two functions to implement this:
             </P>
-          </SubSection>
+            <ul className="space-y-2 mb-6 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Agent-side:</strong> call <InlineCode>signSIWAMessage()</InlineCode>, which builds the message and signs it in one step (steps 3-4 above).</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Server-side:</strong> call <InlineCode>verifySIWA()</InlineCode> to validate the signature, check all fields, and recover the agent&apos;s identity (step 5).</span>
+              </li>
+            </ul>
 
-          <SubSection id="deploy-proxy" title="Step 1: Deploy the Keyring Proxy (Recommended)">
-            <P>
-              For security, we strongly recommend running a <strong className="text-foreground">keyring proxy</strong> — a separate process that holds the private key of the agent and exposes HMAC-authenticated signing endpoints. This ensures the agent never accesses the key directly, even under full compromise.
-            </P>
-            <P>
-              The fastest way to deploy is with the Railway template:
-            </P>
-            <div className="mb-4">
-              <a
-                href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://railway.com/button.svg"
-                  alt="Deploy on Railway"
-                  className="h-10"
-                />
-              </a>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/siwa-flow.png"
+              alt="SIWA authentication flow: Agent requests nonce from Service, signs SIWA message, Service verifies signature and checks onchain ownership, returns JWT session token"
+              className="w-full rounded-lg border border-border"
+              width={800}
+              height={530}
+            />
+
+            <div className="mt-6 rounded-lg border border-border bg-surface px-5 py-4">
+              <p className="text-sm text-muted leading-relaxed mb-3">
+                <strong className="text-foreground">Before signing in or registering on ERC-8004,</strong> the agent needs a wallet. The SDK provides <InlineCode>createWallet()</InlineCode> for this. The agent uses it to generate a wallet whose private key is stored in a <strong className="text-foreground">keyring proxy</strong> (a separate process), so the agent never touches it directly. This is what keeps the key safe even if the agent is compromised.
+              </p>
+              <p className="text-sm text-muted leading-relaxed">
+                For wallet setup, proxy deployment, and onchain registration, see the{" "}
+                <a
+                  href="/docs/deploy"
+                  className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+                >
+                  deployment guide
+                </a>
+                {" "}and the{" "}
+                <a
+                  href="#security-proxy"
+                  className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+                >
+                  keyring proxy
+                </a>
+                {" "}section below.
+              </p>
             </div>
-            <P>
-              Set <InlineCode>KEYRING_PROXY_SECRET</InlineCode> (shared HMAC secret) and either <InlineCode>KEYSTORE_PASSWORD</InlineCode> (encrypted-file backend) or <InlineCode>AGENT_PRIVATE_KEY</InlineCode> (existing wallet). Then configure your agent with the proxy URL and shared secret.
-            </P>
-            <P>
-              Generate a random HMAC secret with:
-            </P>
-            <CodeBlock>{`openssl rand -hex 32`}</CodeBlock>
-            <P>
-              For Docker, local development, and OpenClaw gateway setup, see the full{" "}
-              <a
-                href="/docs/deploy"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                deployment guide
-              </a>.
-            </P>
           </SubSection>
 
-          <SubSection id="installation" title="Step 2: Install the SDK">
+          <SubSection id="quick-start" title="Try It Locally">
+            <P>
+              Run the full flow (wallet creation, registration, SIWA sign-in) without deploying anything:
+            </P>
+            <CodeBlock>{`git clone https://github.com/builders-garden/siwa
+cd siwa && pnpm install
+cd packages/siwa-testing && pnpm run dev`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="installation" title="Install the SDK">
             <CodeBlock>{`npm install @buildersgarden/siwa`}</CodeBlock>
             <P>
-              The <InlineCode>@buildersgarden/siwa</InlineCode> package exposes four modules via package exports:
+              The package exposes several modules:
             </P>
-            <CodeBlock>{`import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
+            <CodeBlock>{`// Core — build & verify SIWA messages
 import { signSIWAMessage, verifySIWA } from '@buildersgarden/siwa';
+
+// Keystore — wallet creation & signing (agent never sees the private key)
+import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
+
+// Registry — read agent profiles & reputation onchain
 import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
+
+// Helpers
 import { readMemory, writeMemoryField } from '@buildersgarden/siwa/memory';
 import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
           </SubSection>
 
-          <SubSection id="sign-up" title="Step 3: Sign Up (Registration) — Optional">
+          <SubSection id="sign-in" title="Sign In (Agent-Side)">
             <P>
-              If your agent is already registered onchain (has an <InlineCode>agentId</InlineCode>), skip to Step 4. Otherwise, register by creating a wallet, building a registration file, and calling the Identity Registry contract.
-            </P>
-            <CodeBlock>{`import { createWallet, signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
-import { writeMemoryField } from '@buildersgarden/siwa/memory';
-
-// 1. Create wallet (key goes to proxy, never returned)
-const info = await createWallet();
-writeMemoryField('Address', info.address);
-writeMemoryField('Keystore Backend', info.backend);
-
-// 2. Build registration JSON
-const registration = {
-  type: "AI Agent",
-  name: "My Agent",
-  description: "An ERC-8004 registered agent",
-  services: [{ type: "MCP", url: "https://api.example.com/mcp" }],
-  active: true
-};
-
-// 3. Upload to IPFS or use data URI
-const encoded = Buffer.from(JSON.stringify(registration)).toString('base64');
-const agentURI = \`data:application/json;base64,\${encoded}\`;
-
-// 4. Register onchain (sign via proxy)
-const iface = new ethers.Interface([
-  'function register(string agentURI) external returns (uint256 agentId)'
-]);
-const data = iface.encodeFunctionData('register', [agentURI]);
-const { signedTx } = await signTransaction({ to: REGISTRY, data, ... });
-const tx = await provider.broadcastTransaction(signedTx);`}</CodeBlock>
-          </SubSection>
-
-          <SubSection id="sign-in" title="Step 4: Sign In (SIWA Authentication)">
-            <P>
-              Authenticate with any SIWA-aware service using the challenge-response flow.
+              The agent authenticates with any SIWA-aware service in three steps:
             </P>
             <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa';
 
-// 1. Request nonce from server
+// 1. Request a nonce from the server
 const { nonce, issuedAt, expirationTime } = await fetch(
-  'https://api.example.com/siwa/nonce',
-  { method: 'POST', body: JSON.stringify({ address, agentId, agentRegistry }) }
+  'https://example.com/api/siwa/nonce',
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address, agentId, agentRegistry }),
+  }
 ).then(r => r.json());
 
-// 2. Sign SIWA message (key never exposed — signs via proxy)
+// 2. Sign the SIWA message
 const { message, signature } = await signSIWAMessage({
-  domain: 'api.example.com',
+  domain: 'example.com',
   address,
-  statement: 'Authenticate as a registered ERC-8004 agent.',
-  uri: 'https://api.example.com/siwa',
+  uri: 'https://example.com/api/siwa',
   agentId,
   agentRegistry,
   chainId,
   nonce,
   issuedAt,
-  expirationTime
+  expirationTime,
 });
 
-// 3. Submit to server for verification
-const session = await fetch('https://api.example.com/siwa/verify', {
+// 3. Send to server → get a session token back
+const { token } = await fetch('https://example.com/api/siwa/verify', {
   method: 'POST',
-  body: JSON.stringify({ message, signature })
-}).then(r => r.json());
-// session.token contains the JWT`}</CodeBlock>
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ message, signature }),
+}).then(r => r.json());`}</CodeBlock>
+            <P>
+              That&apos;s it. The agent now has a JWT it can use for authenticated requests.
+              For a live server you can test against right now, see the{" "}
+              <a
+                href="/docs/endpoints"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                API Endpoints
+              </a>
+              {" "}page.
+            </P>
           </SubSection>
 
-          <SubSection id="verify" title="Step 5: Server-Side Verification">
+          <SubSection id="verify" title="Verify (Server-Side)">
             <P>
-              On the server, use <InlineCode>verifySIWA</InlineCode> to validate the signature, recover the signer, and check all protocol fields.
+              On your server, validate the signature and issue a session:
             </P>
             <CodeBlock>{`import { verifySIWA } from '@buildersgarden/siwa';
 
-// In your /siwa/verify endpoint handler:
 const { message, signature } = req.body;
 
 const result = verifySIWA(message, signature, {
-  domain: 'api.example.com',      // must match your server's origin
-  nonce: storedNonce,              // the nonce you issued earlier
+  domain: 'example.com',
+  nonce: storedNonce,
 });
+// → { address, agentId, agentRegistry, chainId }
 
-// result contains:
-// {
-//   address,        — recovered signer address
-//   agentId,        — ERC-8004 agent token ID
-//   agentRegistry,  — registry contract identifier
-//   chainId,        — chain ID from the message
-// }
-
-// IMPORTANT: also verify onchain ownership
+// Verify onchain ownership
 const owner = await identityRegistry.ownerOf(result.agentId);
 if (owner.toLowerCase() !== result.address.toLowerCase()) {
   throw new Error('Signer does not own this agent NFT');
 }
 
-// All checks passed — issue a session token
+// Issue session
 const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
-          </SubSection>
-
-          <SubSection id="quick-start" title="Quick Start (Try it locally)">
             <P>
-              Want to try the full flow locally without deploying anything? Use the test harness:
+              For advanced verification options (reputation checks, service requirements, custom validators), see{" "}
+              <a
+                href="#api-siwa"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                <InlineCode>verifySIWA</InlineCode> in the API Reference
+              </a>
+              {" "}below.
             </P>
-            <CodeBlock>{`git clone https://github.com/builders-garden/siwa
-cd siwa
-pnpm install
-
-# Run the full flow: wallet creation → registration → SIWA sign-in
-cd packages/siwa-testing
-pnpm run dev`}</CodeBlock>
           </SubSection>
+
+          <div className="mt-8 rounded-lg border border-border bg-surface px-5 py-4">
+            <p className="text-sm text-muted leading-relaxed">
+              <strong className="text-foreground">Next steps:</strong>{" "}
+              The sections below go deeper into each part of SIWA: the full API surface, the security model (including the{" "}
+              <a
+                href="#security-proxy"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                keyring proxy
+              </a>
+              {" "}that keeps private keys out of the agent process), the{" "}
+              <a
+                href="#protocol"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                protocol specification
+              </a>
+              , and{" "}
+              <a
+                href="#contracts"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                contract addresses
+              </a>
+              .
+              To deploy your own keyring proxy and SIWA server, see the{" "}
+              <a
+                href="/docs/deploy"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                deployment guide
+              </a>
+              .
+            </p>
+          </div>
         </Section>
 
         {/* API Reference */}

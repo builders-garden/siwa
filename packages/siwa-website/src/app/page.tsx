@@ -47,6 +47,9 @@ function HeroSection() {
             </a>
             .
           </p>
+          <p className="mt-3 max-w-md text-sm text-dim leading-relaxed">
+            Give your agent one prompt and it will create a wallet, register onchain, and start authenticating.
+          </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
               href="/docs#getting-started"

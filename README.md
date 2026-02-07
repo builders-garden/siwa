@@ -1,63 +1,80 @@
-# SIWA Monorepo — Sign In With Agent
+# SIWA — Sign In With Agent
 
-A monorepo for the SIWA (Sign In With Agent) protocol, enabling AI agents to register on the [ERC-8004](https://github.com/builders-garden/ERC-8004) standard and authenticate via a challenge-response protocol inspired by [EIP-4361 (SIWE)](https://eips.ethereum.org/EIPS/eip-4361).
+SIWA lets AI agents prove who they are. Think [Sign In With Ethereum](https://eips.ethereum.org/EIPS/eip-4361), but for agents instead of humans.
 
-## Packages
-
-| Package | Description |
-|---------|-------------|
-| [`packages/siwa`](packages/siwa/) | Core library — keystore, SIWA signing/verification, memory helpers |
-| [`packages/siwa-skill`](packages/siwa-skill/) | Agent skill definition — SKILL.md, CLAUDE.md, references, assets |
-| [`packages/siwa-testing`](packages/siwa-testing/) | Test harness — Express server, CLI agent, keyring proxy |
+An agent signs a message proving it owns an [ERC-8004](https://github.com/builders-garden/ERC-8004) identity NFT. The server verifies the signature and checks onchain ownership. If it all checks out, the agent gets a session token.
 
 ## Quick Start
 
 ```bash
-pnpm install
-
-# Run the local test flow (encrypted-file keystore)
-cd packages/siwa-testing
-pnpm run dev
+npm install @buildersgarden/siwa
 ```
 
-## Docker Testing
+Two functions cover the core flow:
 
-Docker Compose configurations are provided for testing the full security architecture with process-isolated signing via the keyring proxy.
+```ts
+// Agent signs a SIWA message
+import { signSIWAMessage } from '@buildersgarden/siwa';
+const { message, signature } = await signSIWAMessage({ domain, address, agentId, ... });
 
-### Proxy + OpenClaw Gateway
+// Server verifies it
+import { verifySIWA } from '@buildersgarden/siwa';
+const result = verifySIWA(message, signature, { domain, nonce });
+```
 
-Runs the keyring proxy alongside an OpenClaw AI agent gateway. The agent uses `KEYSTORE_BACKEND=proxy` so private keys never enter the agent process.
+For a full walkthrough, see the [documentation](https://siwa.builders.garden/docs).
+
+## Try It Locally
+
+Clone the repo and run the test harness to see the full flow (wallet creation, registration, SIWA sign-in) without deploying anything:
 
 ```bash
+git clone https://github.com/builders-garden/siwa
+cd siwa && pnpm install
+cd packages/siwa-testing && pnpm run dev
+```
+
+## Repository Structure
+
+This is a monorepo with three packages:
+
+| Package | What it does |
+|---------|-------------|
+| [`packages/siwa`](packages/siwa/) | The core SDK. Wallet management, SIWA signing/verification, registry helpers. |
+| [`packages/siwa-skill`](packages/siwa-skill/) | A skill file agents can read to learn how to register and authenticate on their own. |
+| [`packages/siwa-testing`](packages/siwa-testing/) | Test harness with an Express server, CLI agent, and keyring proxy for local development. |
+
+## How It Works
+
+1. The agent asks the server for a **nonce** (one-time challenge)
+2. The agent builds a SIWA message and **signs** it
+3. The server **verifies** the signature and confirms the agent owns the identity NFT onchain
+4. The server returns a **JWT session token**
+
+The agent's private key is kept in a separate keyring proxy process, so the agent never touches it directly. For details on the security architecture, deployment options, and the full protocol spec, see the [docs](https://siwa.builders.garden/docs).
+
+## Docker
+
+Docker Compose files are included for testing with the keyring proxy:
+
+```bash
+# Proxy + OpenClaw gateway
 cp .env.proxy.example .env   # fill in secrets
 docker compose -f docker-compose.proxy.yml up -d
-```
 
-### Full Integration Test
-
-Runs all three services (keyring proxy, SIWA relying-party server, OpenClaw gateway) for end-to-end testing:
-
-```bash
+# Full integration (proxy + SIWA server + OpenClaw)
 docker compose -f docker-compose.test.yml up -d --build
-
-# Run the agent flow against the Docker services
-cd packages/siwa-testing
-pnpm run reset
-KEYSTORE_BACKEND=proxy \
-  KEYRING_PROXY_URL=http://localhost:3100 \
-  KEYRING_PROXY_SECRET=test-secret-123 \
-  SERVER_URL=http://localhost:3000 \
-  SERVER_DOMAIN=localhost:3000 \
-  pnpm run agent:flow
 ```
 
-See [`packages/siwa-testing/README.md`](packages/siwa-testing/README.md) for full details on the test environment and CLI commands.
+See [`packages/siwa-testing/README.md`](packages/siwa-testing/README.md) for more.
 
-## Security Model
+## Links
 
-Private keys are held in a separate **keyring proxy server** and never enter the agent process. The agent delegates all signing over HMAC-SHA256 authenticated HTTP. Even under full agent compromise, an attacker can only request signatures — the key itself cannot be extracted.
-
-See [`packages/siwa-skill/references/security-model.md`](packages/siwa-skill/references/security-model.md) for the full threat model.
+- [Documentation](https://siwa.builders.garden/docs)
+- [API Endpoints](https://siwa.builders.garden/docs/endpoints)
+- [Deployment Guide](https://siwa.builders.garden/docs/deploy)
+- [ERC-8004 Standard](https://eips.ethereum.org/EIPS/eip-8004)
+- [Agent Explorer (8004scan)](https://www.8004scan.io/)
 
 ## License
 
