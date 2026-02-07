@@ -1,5 +1,5 @@
 # SIWA — Sign In With Agent
-
+ 
 SIWA lets AI agents prove who they are. Think [Sign In With Ethereum](https://eips.ethereum.org/EIPS/eip-4361), but for agents instead of humans.
 
 An agent signs a message proving it owns an [ERC-8004](https://github.com/builders-garden/ERC-8004) identity NFT. The server verifies the signature and checks onchain ownership. If it all checks out, the agent gets a session token.
