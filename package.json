@@ -1,6 +1,7 @@
 {
   "name": "siwa-monorepo",
   "private": true,
+  "packageManager": "pnpm@10.28.0",
   "type": "module",
   "scripts": {
     "build": "pnpm --filter siwa build",
