@@ -279,14 +279,14 @@ async function proxyRequest(
   body: Record<string, unknown> = {}
 ): Promise<any> {
   const url = config.proxyUrl || process.env.KEYRING_PROXY_URL;
-  const secret = config.proxySecret || process.env.OPENCLAW_PROXY_SECRET;
+  const secret = config.proxySecret || process.env.KEYRING_PROXY_SECRET;
   if (!url)
     throw new Error(
       "Proxy backend requires KEYRING_PROXY_URL or config.proxyUrl"
     );
   if (!secret)
     throw new Error(
-      "Proxy backend requires OPENCLAW_PROXY_SECRET or config.proxySecret"
+      "Proxy backend requires KEYRING_PROXY_SECRET or config.proxySecret"
     );
 
   const bodyStr = JSON.stringify(body, (_key, value) =>

@@ -17,7 +17,7 @@ A standalone Express server that acts as the security boundary for agent signing
 pnpm install
 
 # Start the proxy
-OPENCLAW_PROXY_SECRET=your-secret \
+KEYRING_PROXY_SECRET=your-secret \
 KEYSTORE_PASSWORD=your-password \
 KEYSTORE_BACKEND=encrypted-file \
 pnpm start
@@ -29,7 +29,7 @@ The proxy will start on port 3100 (configurable via `KEYRING_PROXY_PORT`).
 
 | Variable                      | Required | Description                                                             |
 | ----------------------------- | -------- | ----------------------------------------------------------------------- |
-| `OPENCLAW_PROXY_SECRET`       | Yes      | Shared HMAC secret for signing operations                               |
+| `KEYRING_PROXY_SECRET`       | Yes      | Shared HMAC secret for signing operations                               |
 | `KEYRING_POLICY_ADMIN_SECRET` | No       | Separate secret for policy management (if not set, uses regular secret) |
 | `KEYRING_PROXY_PORT`          | No       | Listen port (default: 3100)                                             |
 | `KEYSTORE_BACKEND`            | Yes      | Backend type: `encrypted-file` or `env` (NOT `proxy`)                   |
@@ -335,7 +335,7 @@ cd ../siwa-testing
 
 # Basic policy tests
 KEYRING_PROXY_URL=http://localhost:3100 \
-OPENCLAW_PROXY_SECRET=your-secret \
+KEYRING_PROXY_SECRET=your-secret \
 KEYSTORE_BACKEND=proxy \
 pnpm tsx agent/cli.ts test-policies
 

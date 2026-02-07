@@ -85,13 +85,13 @@ export async function testAdvancedPoliciesFlow(): Promise<boolean> {
 
   const kc = getKeystoreConfig();
   const proxyUrl = kc.proxyUrl || process.env.KEYRING_PROXY_URL;
-  const secret = kc.proxySecret || process.env.OPENCLAW_PROXY_SECRET;
+  const secret = kc.proxySecret || process.env.KEYRING_PROXY_SECRET;
   const adminSecret = process.env.KEYRING_POLICY_ADMIN_SECRET;
 
   if (!proxyUrl || !secret) {
     fail(
       "Config check",
-      "KEYRING_PROXY_URL and OPENCLAW_PROXY_SECRET must be set"
+      "KEYRING_PROXY_URL and KEYRING_PROXY_SECRET must be set"
     );
     return false;
   }

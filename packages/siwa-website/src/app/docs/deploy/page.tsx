@@ -306,7 +306,7 @@ export default function DeployPage() {
               setting these environment variables on the OpenClaw service:
             </P>
             <CodeBlock language="bash">{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
-OPENCLAW_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
+KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
           </SubSection>
         </Section>
 
@@ -317,14 +317,14 @@ OPENCLAW_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
               headers={["Variable", "Required", "Description"]}
               rows={[
                 [
-                  "OPENCLAW_PROXY_SECRET",
+                  "KEYRING_PROXY_SECRET",
                   "Yes",
                   "Shared HMAC secret. Must match openclaw-gateway (if deployed).",
                 ],
                 [
                   "KEYRING_POLICY_ADMIN_SECRET",
                   "No",
-                  "Separate secret for policy management. If not set, OPENCLAW_PROXY_SECRET is used.",
+                  "Separate secret for policy management. If not set, KEYRING_PROXY_SECRET is used.",
                 ],
                 [
                   "KEYSTORE_BACKEND",
@@ -370,7 +370,7 @@ OPENCLAW_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
                   "Public URL of the keyring proxy (e.g. https://your-keyring-proxy.up.railway.app).",
                 ],
                 [
-                  "OPENCLAW_PROXY_SECRET",
+                  "KEYRING_PROXY_SECRET",
                   "Yes",
                   "Shared HMAC secret. Must match keyring-proxy.",
                 ],
@@ -378,7 +378,7 @@ OPENCLAW_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
             />
             <P>
               Use Railway&apos;s shared variables to keep{" "}
-              <InlineCode>OPENCLAW_PROXY_SECRET</InlineCode> in sync between
+              <InlineCode>KEYRING_PROXY_SECRET</InlineCode> in sync between
               both services.
             </P>
             <div className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-5 py-4">
@@ -388,7 +388,7 @@ OPENCLAW_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
                 <InlineCode>KEYRING_POLICY_ADMIN_SECRET</InlineCode> on OpenClaw
                 or your agent. The policy admin secret should only be configured
                 on the keyring-proxy itself. Your agent only needs{" "}
-                <InlineCode>OPENCLAW_PROXY_SECRET</InlineCode> to sign messages
+                <InlineCode>KEYRING_PROXY_SECRET</InlineCode> to sign messages
                 — it should not have the ability to modify its own security
                 policies.
               </p>
@@ -431,7 +431,7 @@ OPENCLAW_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
             <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
               <li>
                 <strong className="text-foreground">Single secret:</strong> Use{" "}
-                <InlineCode>OPENCLAW_PROXY_SECRET</InlineCode> for both signing
+                <InlineCode>KEYRING_PROXY_SECRET</InlineCode> for both signing
                 and policy management.
               </li>
               <li>
@@ -443,7 +443,7 @@ OPENCLAW_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
               </li>
             </ul>
             <CodeBlock language="bash">{`# Generate separate secrets
-OPENCLAW_PROXY_SECRET=$(openssl rand -hex 32)
+KEYRING_PROXY_SECRET=$(openssl rand -hex 32)
 KEYRING_POLICY_ADMIN_SECRET=$(openssl rand -hex 32)`}</CodeBlock>
           </SubSection>
 
@@ -546,7 +546,7 @@ curl https://your-keyring-proxy.up.railway.app/health
             environment variables:
           </P>
           <CodeBlock language="bash">{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
-OPENCLAW_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
+KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
           <P>
             Use the public domain Railway assigns to your keyring-proxy service.
             The HMAC secret ensures only authorized clients can request

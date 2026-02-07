@@ -36,7 +36,7 @@ services:
     ports:
       - "3100:3100"
     environment:
-      - OPENCLAW_PROXY_SECRET=test-secret-123
+      - KEYRING_PROXY_SECRET=test-secret-123
       - KEYRING_PROXY_PORT=3100
       - KEYSTORE_BACKEND=encrypted-file
       - KEYSTORE_PASSWORD=test-password-local-only
@@ -99,7 +99,7 @@ services:
       - TERM=xterm-256color
       # Keyring proxy config — proxy backend auto-detected from KEYRING_PROXY_URL
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
-      - OPENCLAW_PROXY_SECRET=test-secret-123
+      - KEYRING_PROXY_SECRET=test-secret-123
       # SIWA server config
       - SERVER_URL=http://siwa-server:3000
       - SERVER_DOMAIN=siwa-server:3000
@@ -130,7 +130,7 @@ services:
       - HOME=/home/node
       - TERM=xterm-256color
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
-      - OPENCLAW_PROXY_SECRET=test-secret-123
+      - KEYRING_PROXY_SECRET=test-secret-123
       - SERVER_URL=http://siwa-server:3000
       - SERVER_DOMAIN=siwa-server:3000
       - OPENCLAW_GATEWAY_URL=ws://openclaw-gateway:18789
