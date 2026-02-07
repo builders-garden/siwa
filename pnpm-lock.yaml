@@ -15,8 +15,8 @@ importers:
   packages/keyring-proxy:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: workspace:*
-        version: link:../siwa
+        specifier: ^0.0.3
+        version: 0.0.3(typescript@5.9.3)(zod@4.3.6)
       dotenv:
         specifier: ^17.2.3
         version: 17.2.4
@@ -49,6 +49,9 @@ importers:
         specifier: ^2.21.0
         version: 2.45.1(typescript@5.9.3)(zod@4.3.6)
     devDependencies:
+      '@types/node':
+        specifier: ^25.2.1
+        version: 25.2.1
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
@@ -58,8 +61,8 @@ importers:
   packages/siwa-testing:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: workspace:*
-        version: link:../siwa
+        specifier: ^0.0.3
+        version: 0.0.3(typescript@5.9.3)(zod@4.3.6)
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -95,8 +98,8 @@ importers:
   packages/siwa-website:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: workspace:*
-        version: link:../siwa
+        specifier: ^0.0.3
+        version: 0.0.3(typescript@5.9.3)(zod@4.3.6)
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -216,6 +219,9 @@ packages:
   '@babel/types@7.29.0':
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
+
+  '@buildersgarden/siwa@0.0.3':
+    resolution: {integrity: sha512-1jtGYQybDjKXedY85nZluCFaJAOehXnrlLx/+yDnofRX8+ojNegOyDXZRIjQQIv9xSnmUx547vbSg48CShzX2A==}
 
   '@emnapi/core@1.8.1':
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -818,6 +824,9 @@ packages:
 
   '@types/node@20.19.32':
     resolution: {integrity: sha512-Ez8QE4DMfhjjTsES9K2dwfV258qBui7qxUsoaixZDiTzbde4U12e1pXGNu/ECsUIOi5/zoCxAQxIhQnaUQ2VvA==}
+
+  '@types/node@25.2.1':
+    resolution: {integrity: sha512-CPrnr8voK8vC6eEtyRzvMpgp3VyVRhgclonE7qYi6P9sXwYb59ucfrnmFBTaP0yUi8Gk4yZg/LlTJULGxvTNsg==}
 
   '@types/qs@6.14.0':
     resolution: {integrity: sha512-eOunJqu0K1923aExK6y8p6fsihYEn/BYuQ4g0CxAAgFc4b/ZLN4CrsRZ55srTdqoiLzU2B2evC+apEIxprEzkQ==}
@@ -2487,6 +2496,9 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
+  undici-types@7.16.0:
+    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
+
   unpipe@1.0.0:
     resolution: {integrity: sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ==}
     engines: {node: '>= 0.8'}
@@ -2693,6 +2705,17 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
+
+  '@buildersgarden/siwa@0.0.3(typescript@5.9.3)(zod@4.3.6)':
+    dependencies:
+      '@noble/ciphers': 0.5.3
+      '@noble/hashes': 1.8.0
+      viem: 2.45.1(typescript@5.9.3)(zod@4.3.6)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
 
   '@emnapi/core@1.8.1':
     dependencies:
@@ -3158,6 +3181,10 @@ snapshots:
   '@types/node@20.19.32':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/node@25.2.1':
+    dependencies:
+      undici-types: 7.16.0
 
   '@types/qs@6.14.0': {}
 
@@ -5121,6 +5148,8 @@ snapshots:
       which-boxed-primitive: 1.1.1
 
   undici-types@6.21.0: {}
+
+  undici-types@7.16.0: {}
 
   unpipe@1.0.0: {}
 
