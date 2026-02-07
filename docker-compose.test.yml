@@ -36,14 +36,20 @@ services:
     ports:
       - "3100:3100"
     environment:
-      - KEYRING_PROXY_SECRET=test-secret-123
+      - OPENCLAW_PROXY_SECRET=test-secret-123
       - KEYRING_PROXY_PORT=3100
       - KEYSTORE_BACKEND=encrypted-file
       - KEYSTORE_PASSWORD=test-password-local-only
     volumes:
       - keystore-data:/app
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3100/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3100/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -66,7 +72,13 @@ services:
       - JWT_SECRET=test-secret-change-in-production
     command: ["pnpm", "run", "server"]
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -87,7 +99,7 @@ services:
       - TERM=xterm-256color
       # Keyring proxy config — proxy backend auto-detected from KEYRING_PROXY_URL
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
-      - KEYRING_PROXY_SECRET=test-secret-123
+      - OPENCLAW_PROXY_SECRET=test-secret-123
       # SIWA server config
       - SERVER_URL=http://siwa-server:3000
       - SERVER_DOMAIN=siwa-server:3000
@@ -101,7 +113,11 @@ services:
         condition: service_healthy
       siwa-server:
         condition: service_healthy
-    command: ["sh", "/home/node/.openclaw/workspace/siwa/scripts/openclaw-entrypoint.sh"]
+    command:
+      [
+        "sh",
+        "/home/node/.openclaw/workspace/siwa/scripts/openclaw-entrypoint.sh",
+      ]
     init: true
     networks:
       - agent-net
@@ -114,7 +130,7 @@ services:
       - HOME=/home/node
       - TERM=xterm-256color
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
-      - KEYRING_PROXY_SECRET=test-secret-123
+      - OPENCLAW_PROXY_SECRET=test-secret-123
       - SERVER_URL=http://siwa-server:3000
       - SERVER_DOMAIN=siwa-server:3000
       - OPENCLAW_GATEWAY_URL=ws://openclaw-gateway:18789

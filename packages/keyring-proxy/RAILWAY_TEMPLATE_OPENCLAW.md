@@ -29,25 +29,25 @@ This template deploys two services connected via Railway's private networking. T
 
 This template deploys two services:
 
-| Service | Description |
-|---|---|
-| **keyring-proxy** | Holds encrypted keys, exposes HMAC-authenticated signing API |
+| Service              | Description                                                              |
+| -------------------- | ------------------------------------------------------------------------ |
+| **keyring-proxy**    | Holds encrypted keys, exposes HMAC-authenticated signing API             |
 | **openclaw-gateway** | AI agent gateway with the SIWA skill, delegates signing to keyring-proxy |
 
 **keyring-proxy environment variables:**
 
-| Variable | Required | Description |
-|---|---|---|
-| `KEYRING_PROXY_SECRET` | Yes | Shared HMAC-SHA256 secret. Must match openclaw-gateway. |
-| `KEYSTORE_PASSWORD` | Conditional | Password for the encrypted-file keystore (default backend). |
-| `AGENT_PRIVATE_KEY` | Conditional | Hex-encoded private key (0x...) to use an existing wallet instead. |
+| Variable                | Required    | Description                                                        |
+| ----------------------- | ----------- | ------------------------------------------------------------------ |
+| `OPENCLAW_PROXY_SECRET` | Yes         | Shared HMAC-SHA256 secret. Must match openclaw-gateway.            |
+| `KEYSTORE_PASSWORD`     | Conditional | Password for the encrypted-file keystore (default backend).        |
+| `AGENT_PRIVATE_KEY`     | Conditional | Hex-encoded private key (0x...) to use an existing wallet instead. |
 
 **openclaw-gateway environment variables:**
 
-| Variable | Required | Description |
-|---|---|---|
-| `KEYRING_PROXY_URL` | Yes | URL of the keyring proxy (e.g. `https://your-keyring-proxy.up.railway.app`). |
-| `KEYRING_PROXY_SECRET` | Yes | Shared HMAC-SHA256 secret. Must match keyring-proxy. |
+| Variable                | Required | Description                                                                  |
+| ----------------------- | -------- | ---------------------------------------------------------------------------- |
+| `KEYRING_PROXY_URL`     | Yes      | URL of the keyring proxy (e.g. `https://your-keyring-proxy.up.railway.app`). |
+| `OPENCLAW_PROXY_SECRET` | Yes      | Shared HMAC-SHA256 secret. Must match keyring-proxy.                         |
 
 The openclaw-gateway reaches the keyring proxy via its public URL. The HMAC shared secret ensures only authorized clients can request signatures.
 

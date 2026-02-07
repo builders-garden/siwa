@@ -63,24 +63,24 @@ signMessage("hello")
 
 **Why this is secure:**
 
-| Property | Detail |
-|---|---|
-| **Key isolation** | Private key lives in a separate OS process; never enters agent memory |
-| **Transport auth** | HMAC-SHA256 over method + path + body + timestamp; 30-second replay window |
-| **Audit trail** | Every signing request is logged with timestamp, endpoint, source IP, success/failure |
-| **Compromise limit** | Even full agent takeover can only request signatures — cannot extract the key |
+| Property             | Detail                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| **Key isolation**    | Private key lives in a separate OS process; never enters agent memory                |
+| **Transport auth**   | HMAC-SHA256 over method + path + body + timestamp; 30-second replay window           |
+| **Audit trail**      | Every signing request is logged with timestamp, endpoint, source IP, success/failure |
+| **Compromise limit** | Even full agent takeover can only request signatures — cannot extract the key        |
 
 **Environment variables:**
 
-| Variable | Used by | Purpose |
-|---|---|---|
-| `KEYRING_PROXY_URL` | Agent | Proxy server URL — private (e.g. `http://keyring-proxy:3100`) or public |
-| `KEYRING_PROXY_SECRET` | Both | HMAC shared secret for signing operations |
-| `KEYRING_POLICY_ADMIN_SECRET` | Proxy server | Separate secret for policy management (optional, defaults to `KEYRING_PROXY_SECRET`) |
-| `KEYRING_PROXY_PORT` | Proxy server | Listen port (default: 3100) |
-| `AGENT_PRIVATE_KEY` | Proxy server | Hex-encoded private key (0x...) — use an existing wallet instead of generating one |
-| `KEYSTORE_PASSWORD` | Proxy server | Password for the encrypted-file keystore (not needed with `AGENT_PRIVATE_KEY`) |
-| `POLICY_STORE_PATH` | Proxy server | Path to policies JSON file (default: `./data/policies.json`) |
+| Variable                      | Used by      | Purpose                                                                               |
+| ----------------------------- | ------------ | ------------------------------------------------------------------------------------- |
+| `KEYRING_PROXY_URL`           | Agent        | Proxy server URL — private (e.g. `http://keyring-proxy:3100`) or public               |
+| `OPENCLAW_PROXY_SECRET`       | Both         | HMAC shared secret for signing operations                                             |
+| `KEYRING_POLICY_ADMIN_SECRET` | Proxy server | Separate secret for policy management (optional, defaults to `OPENCLAW_PROXY_SECRET`) |
+| `KEYRING_PROXY_PORT`          | Proxy server | Listen port (default: 3100)                                                           |
+| `AGENT_PRIVATE_KEY`           | Proxy server | Hex-encoded private key (0x...) — use an existing wallet instead of generating one    |
+| `KEYSTORE_PASSWORD`           | Proxy server | Password for the encrypted-file keystore (not needed with `AGENT_PRIVATE_KEY`)        |
+| `POLICY_STORE_PATH`           | Proxy server | Path to policies JSON file (default: `./data/policies.json`)                          |
 
 > **Auto-detection**: When `KEYRING_PROXY_URL` is set, `KEYSTORE_BACKEND` automatically defaults to `proxy` — no need to set it manually. When `AGENT_PRIVATE_KEY` is set on the proxy server, `KEYSTORE_BACKEND` defaults to `env`.
 >
@@ -115,20 +115,24 @@ npm install @buildersgarden/siwa
 
 ```
 KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
-KEYRING_PROXY_SECRET=<your-shared-secret>
+OPENCLAW_PROXY_SECRET=<your-shared-secret>
 ```
 
 **Step 3 — Use the SDK functions** (never call the proxy HTTP endpoints directly):
 
 ```typescript
-import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
+import {
+  createWallet,
+  signMessage,
+  getAddress,
+} from "@buildersgarden/siwa/keystore";
 
-const info = await createWallet();           // SDK handles HMAC auth internally
+const info = await createWallet(); // SDK handles HMAC auth internally
 const { signature } = await signMessage(msg); // SDK handles HMAC auth internally
-const address = await getAddress();           // SDK handles HMAC auth internally
+const address = await getAddress(); // SDK handles HMAC auth internally
 ```
 
-The SDK reads `KEYRING_PROXY_URL` and `KEYRING_PROXY_SECRET` from environment variables and constructs the correct HMAC headers automatically.
+The SDK reads `KEYRING_PROXY_URL` and `OPENCLAW_PROXY_SECRET` from environment variables and constructs the correct HMAC headers automatically.
 
 ### Fallback: Manual HMAC authentication (without SDK)
 
@@ -136,11 +140,11 @@ If you absolutely cannot install the SDK (e.g. non-Node.js environment, restrict
 
 **Headers required on every request** (except `GET /health`):
 
-| Header | Value |
-|---|---|
-| `Content-Type` | `application/json` |
+| Header                | Value                                                              |
+| --------------------- | ------------------------------------------------------------------ |
+| `Content-Type`        | `application/json`                                                 |
 | `X-Keyring-Timestamp` | Current time as Unix epoch **milliseconds** (e.g. `1738792800000`) |
-| `X-Keyring-Signature` | HMAC-SHA256 hex digest of the payload string (see below) |
+| `X-Keyring-Signature` | HMAC-SHA256 hex digest of the payload string (see below)           |
 
 **HMAC payload format** — a single string with four parts separated by newlines (`\n`):
 
@@ -148,12 +152,12 @@ If you absolutely cannot install the SDK (e.g. non-Node.js environment, restrict
 {METHOD}\n{PATH}\n{TIMESTAMP}\n{BODY}
 ```
 
-| Part | Value |
-|---|---|
-| `METHOD` | HTTP method, uppercase (always `POST`) |
-| `PATH` | Endpoint path (e.g. `/create-wallet`, `/sign-message`) |
-| `TIMESTAMP` | Same value as the `X-Keyring-Timestamp` header |
-| `BODY` | The raw JSON request body string (e.g. `{}` or `{"message":"hello"}`) |
+| Part        | Value                                                                 |
+| ----------- | --------------------------------------------------------------------- |
+| `METHOD`    | HTTP method, uppercase (always `POST`)                                |
+| `PATH`      | Endpoint path (e.g. `/create-wallet`, `/sign-message`)                |
+| `TIMESTAMP` | Same value as the `X-Keyring-Timestamp` header                        |
+| `BODY`      | The raw JSON request body string (e.g. `{}` or `{"message":"hello"}`) |
 
 **Compute the signature:**
 
@@ -166,35 +170,39 @@ HMAC-SHA256(secret, "POST\n/create-wallet\n1738792800000\n{}") → hex digest
 **Example — create a wallet (Node.js without SDK):**
 
 ```typescript
-import crypto from 'crypto';
+import crypto from "crypto";
 
 const PROXY_URL = process.env.KEYRING_PROXY_URL;
-const SECRET = process.env.KEYRING_PROXY_SECRET;
+const SECRET = process.env.OPENCLAW_PROXY_SECRET;
 
 async function proxyRequest(path: string, body: Record<string, unknown> = {}) {
   const bodyStr = JSON.stringify(body);
   const timestamp = Date.now().toString();
   const payload = `POST\n${path}\n${timestamp}\n${bodyStr}`;
-  const signature = crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
+  const signature = crypto
+    .createHmac("sha256", SECRET)
+    .update(payload)
+    .digest("hex");
 
   const res = await fetch(`${PROXY_URL}${path}`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'X-Keyring-Timestamp': timestamp,
-      'X-Keyring-Signature': signature,
+      "Content-Type": "application/json",
+      "X-Keyring-Timestamp": timestamp,
+      "X-Keyring-Signature": signature,
     },
     body: bodyStr,
   });
 
-  if (!res.ok) throw new Error(`${path} failed (${res.status}): ${await res.text()}`);
+  if (!res.ok)
+    throw new Error(`${path} failed (${res.status}): ${await res.text()}`);
   return res.json();
 }
 
 // Usage
-const wallet = await proxyRequest('/create-wallet');        // { address, backend }
-const addr = await proxyRequest('/get-address');             // { address }
-const sig = await proxyRequest('/sign-message', { message: 'hello' }); // { signature, address }
+const wallet = await proxyRequest("/create-wallet"); // { address, backend }
+const addr = await proxyRequest("/get-address"); // { address }
+const sig = await proxyRequest("/sign-message", { message: "hello" }); // { signature, address }
 ```
 
 **Example — create a wallet (Python):**
@@ -203,7 +211,7 @@ const sig = await proxyRequest('/sign-message', { message: 'hello' }); // { sign
 import hmac, hashlib, json, time, requests, os
 
 PROXY_URL = os.environ["KEYRING_PROXY_URL"]
-SECRET = os.environ["KEYRING_PROXY_SECRET"]
+SECRET = os.environ["OPENCLAW_PROXY_SECRET"]
 
 def proxy_request(path, body=None):
     if body is None:
@@ -230,15 +238,15 @@ sig = proxy_request("/sign-message", {"message": "hello"})  # {"signature": "0x.
 
 **Available endpoints:**
 
-| Endpoint | Body | Response |
-|---|---|---|
-| `POST /create-wallet` | `{}` | `{ address, backend }` |
-| `POST /has-wallet` | `{}` | `{ hasWallet: boolean }` |
-| `POST /get-address` | `{}` | `{ address }` |
-| `POST /sign-message` | `{ message: string }` | `{ signature, address }` |
-| `POST /sign-transaction` | `{ tx: { to, data, nonce, chainId, type, maxFeePerGas, ... } }` | `{ signedTx, address }` |
-| `POST /sign-authorization` | `{ auth: { chainId, address, nonce } }` | `{ signedAuthorization }` |
-| `GET /health` | — | `{ status: "ok", backend }` (no auth required) |
+| Endpoint                   | Body                                                            | Response                                       |
+| -------------------------- | --------------------------------------------------------------- | ---------------------------------------------- |
+| `POST /create-wallet`      | `{}`                                                            | `{ address, backend }`                         |
+| `POST /has-wallet`         | `{}`                                                            | `{ hasWallet: boolean }`                       |
+| `POST /get-address`        | `{}`                                                            | `{ address }`                                  |
+| `POST /sign-message`       | `{ message: string }`                                           | `{ signature, address }`                       |
+| `POST /sign-transaction`   | `{ tx: { to, data, nonce, chainId, type, maxFeePerGas, ... } }` | `{ signedTx, address }`                        |
+| `POST /sign-authorization` | `{ auth: { chainId, address, nonce } }`                         | `{ signedAuthorization }`                      |
+| `GET /health`              | —                                                               | `{ status: "ok", backend }` (no auth required) |
 
 ### MEMORY.md: Public Data Only
 
@@ -246,15 +254,17 @@ MEMORY.md stores the agent's public identity state — **never the private key**
 
 ```markdown
 ## Wallet
-- **Address**: `0x1234...abcd`       <- public
-- **Keystore Backend**: `proxy`      <- which backend holds the key
+
+- **Address**: `0x1234...abcd` <- public
+- **Keystore Backend**: `proxy` <- which backend holds the key
 - **Created At**: `2026-02-04T...`
 
 ## Registration
+
 - **Status**: `registered`
 - **Agent ID**: `42`
 - **Agent Registry**: `eip155:84532:0x8004AA63...`
-...
+  ...
 ```
 
 **Lifecycle rules**:
@@ -327,22 +337,22 @@ A policy is a JSON object containing one or more rules. Each rule specifies:
 
 Conditions can evaluate fields from different sources:
 
-| Field Source | Available Fields |
-|---|---|
-| `ethereum_transaction` | `to`, `value`, `chain_id`, `gas`, `data`, `nonce` |
-| `ethereum_calldata` | `function_name`, `<function>.<param>` (requires ABI) |
-| `message` | `content`, `length`, `is_hex` |
-| `ethereum_authorization` | `contract`, `chain_id` |
-| `system` | `current_unix_timestamp` |
+| Field Source             | Available Fields                                     |
+| ------------------------ | ---------------------------------------------------- |
+| `ethereum_transaction`   | `to`, `value`, `chain_id`, `gas`, `data`, `nonce`    |
+| `ethereum_calldata`      | `function_name`, `<function>.<param>` (requires ABI) |
+| `message`                | `content`, `length`, `is_hex`                        |
+| `ethereum_authorization` | `contract`, `chain_id`                               |
+| `system`                 | `current_unix_timestamp`                             |
 
 ### Operators
 
-| Operator | Description |
-|---|---|
-| `eq`, `neq` | Equality / inequality |
+| Operator                 | Description                                  |
+| ------------------------ | -------------------------------------------- |
+| `eq`, `neq`              | Equality / inequality                        |
 | `lt`, `lte`, `gt`, `gte` | Numeric comparison (supports BigInt for wei) |
-| `in`, `not_in` | Array membership |
-| `matches` | Regex pattern matching |
+| `in`, `not_in`           | Array membership                             |
+| `matches`                | Regex pattern matching                       |
 
 ### Policy Examples
 
@@ -353,12 +363,14 @@ Conditions can evaluate fields from different sources:
   "name": "Base only",
   "method": "sign_transaction",
   "action": "ALLOW",
-  "conditions": [{
-    "field_source": "ethereum_transaction",
-    "field": "chain_id",
-    "operator": "eq",
-    "value": 8453
-  }]
+  "conditions": [
+    {
+      "field_source": "ethereum_transaction",
+      "field": "chain_id",
+      "operator": "eq",
+      "value": 8453
+    }
+  ]
 }
 ```
 
@@ -369,12 +381,14 @@ Conditions can evaluate fields from different sources:
   "name": "Allowed contracts only",
   "method": "sign_transaction",
   "action": "ALLOW",
-  "conditions": [{
-    "field_source": "ethereum_transaction",
-    "field": "to",
-    "operator": "in",
-    "value": ["0x1234...", "0x5678..."]
-  }]
+  "conditions": [
+    {
+      "field_source": "ethereum_transaction",
+      "field": "to",
+      "operator": "in",
+      "value": ["0x1234...", "0x5678..."]
+    }
+  ]
 }
 ```
 
@@ -385,12 +399,14 @@ Conditions can evaluate fields from different sources:
   "name": "SIWA sign-in only",
   "method": "sign_message",
   "action": "ALLOW",
-  "conditions": [{
-    "field_source": "message",
-    "field": "content",
-    "operator": "matches",
-    "value": "wants you to sign in with your Agent account"
-  }]
+  "conditions": [
+    {
+      "field_source": "message",
+      "field": "content",
+      "operator": "matches",
+      "value": "wants you to sign in with your Agent account"
+    }
+  ]
 }
 ```
 
@@ -398,18 +414,18 @@ Conditions can evaluate fields from different sources:
 
 Policies are managed via the keyring proxy API. All endpoints require HMAC authentication:
 
-| Endpoint | Auth | Description |
-|---|---|---|
-| `GET /policies` | Regular | List all policies |
-| `POST /policies` | Admin | Create a new policy |
-| `GET /policies/:id` | Regular | Get a specific policy |
-| `PUT /policies/:id` | Admin | Update a policy |
-| `DELETE /policies/:id` | Admin | Delete a policy |
-| `GET /wallets/:address/policies` | Regular | List policies attached to a wallet |
-| `POST /wallets/:address/policies` | Admin | Attach a policy to a wallet |
-| `DELETE /wallets/:address/policies/:id` | Admin | Detach a policy from a wallet |
+| Endpoint                                | Auth    | Description                        |
+| --------------------------------------- | ------- | ---------------------------------- |
+| `GET /policies`                         | Regular | List all policies                  |
+| `POST /policies`                        | Admin   | Create a new policy                |
+| `GET /policies/:id`                     | Regular | Get a specific policy              |
+| `PUT /policies/:id`                     | Admin   | Update a policy                    |
+| `DELETE /policies/:id`                  | Admin   | Delete a policy                    |
+| `GET /wallets/:address/policies`        | Regular | List policies attached to a wallet |
+| `POST /wallets/:address/policies`       | Admin   | Attach a policy to a wallet        |
+| `DELETE /wallets/:address/policies/:id` | Admin   | Detach a policy from a wallet      |
 
-**Two-tier authentication**: If `KEYRING_POLICY_ADMIN_SECRET` is set, the regular secret (`KEYRING_PROXY_SECRET`) can only read policies and sign, while the admin secret can also create, update, and delete policies.
+**Two-tier authentication**: If `KEYRING_POLICY_ADMIN_SECRET` is set, the regular secret (`OPENCLAW_PROXY_SECRET`) can only read policies and sign, while the admin secret can also create, update, and delete policies.
 
 > Full policy documentation: [https://siwa.builders.garden/docs#policies](https://siwa.builders.garden/docs#policies)
 
@@ -427,11 +443,11 @@ Deploy with one click using the Railway template:
 
 This deploys a single `keyring-proxy` service built from `packages/keyring-proxy/Dockerfile`. Set these environment variables in Railway:
 
-| Variable | Required | Description |
-|---|---|---|
-| `KEYRING_PROXY_SECRET` | Yes | Shared HMAC-SHA256 secret. Must match your agent. |
-| `KEYSTORE_PASSWORD` | Conditional | Password for the encrypted-file keystore (default backend). |
-| `AGENT_PRIVATE_KEY` | Conditional | Hex-encoded private key (0x...) to use an existing wallet instead. |
+| Variable                | Required    | Description                                                        |
+| ----------------------- | ----------- | ------------------------------------------------------------------ |
+| `OPENCLAW_PROXY_SECRET` | Yes         | Shared HMAC-SHA256 secret. Must match your agent.                  |
+| `KEYSTORE_PASSWORD`     | Conditional | Password for the encrypted-file keystore (default backend).        |
+| `AGENT_PRIVATE_KEY`     | Conditional | Hex-encoded private key (0x...) to use an existing wallet instead. |
 
 After deployment, note the proxy URL (e.g. `https://your-keyring-proxy.up.railway.app`). Set it as `KEYRING_PROXY_URL` on your agent.
 
@@ -442,7 +458,7 @@ After deployment, note the proxy URL (e.g. `https://your-keyring-proxy.up.railwa
 ```bash
 docker build -f packages/keyring-proxy/Dockerfile -t keyring-proxy .
 docker run -p 3100:3100 \
-  -e KEYRING_PROXY_SECRET=your-secret \
+  -e OPENCLAW_PROXY_SECRET=your-secret \
   -e KEYSTORE_PASSWORD=your-password \
   keyring-proxy
 ```
@@ -458,7 +474,7 @@ Once the proxy is running, set these environment variables on the agent:
 
 ```
 KEYRING_PROXY_URL=http://localhost:3100   # or your Railway URL
-KEYRING_PROXY_SECRET=your-shared-secret
+OPENCLAW_PROXY_SECRET=your-shared-secret
 ```
 
 The `proxy` keystore backend is auto-detected when `KEYRING_PROXY_URL` is set — no need to set `KEYSTORE_BACKEND` manually.
@@ -470,15 +486,19 @@ The `proxy` keystore backend is auto-detected when `KEYRING_PROXY_URL` is set �
 ### Step 0: Check MEMORY.md + Keystore
 
 ```typescript
-import { hasWallet } from '@buildersgarden/siwa/keystore';
-import { ensureMemoryExists, hasWalletRecord, isRegistered } from '@buildersgarden/siwa/memory';
+import { hasWallet } from "@buildersgarden/siwa/keystore";
+import {
+  ensureMemoryExists,
+  hasWalletRecord,
+  isRegistered,
+} from "@buildersgarden/siwa/memory";
 
-ensureMemoryExists('./MEMORY.md', './assets/MEMORY.md.template');
+ensureMemoryExists("./MEMORY.md", "./assets/MEMORY.md.template");
 
-if (await hasWallet() && isRegistered('./MEMORY.md')) {
+if ((await hasWallet()) && isRegistered("./MEMORY.md")) {
   // Already registered — skip to SIGN IN or update
 }
-if (await hasWallet() && hasWalletRecord('./MEMORY.md')) {
+if ((await hasWallet()) && hasWalletRecord("./MEMORY.md")) {
   // Wallet exists — skip to Step 2
 }
 // Otherwise proceed to Step 1
@@ -487,16 +507,16 @@ if (await hasWallet() && hasWalletRecord('./MEMORY.md')) {
 ### Step 1: Create Wallet (key goes to proxy, address goes to MEMORY.md)
 
 ```typescript
-import { createWallet } from '@buildersgarden/siwa/keystore';
-import { writeMemoryField } from '@buildersgarden/siwa/memory';
+import { createWallet } from "@buildersgarden/siwa/keystore";
+import { writeMemoryField } from "@buildersgarden/siwa/memory";
 
-const info = await createWallet();  // <- key created in proxy, NEVER returned
+const info = await createWallet(); // <- key created in proxy, NEVER returned
 
 // Write ONLY public data to MEMORY.md
-writeMemoryField('Address', info.address);
-writeMemoryField('Keystore Backend', info.backend);
-if (info.keystorePath) writeMemoryField('Keystore Path', info.keystorePath);
-writeMemoryField('Created At', new Date().toISOString());
+writeMemoryField("Address", info.address);
+writeMemoryField("Keystore Backend", info.backend);
+if (info.keystorePath) writeMemoryField("Keystore Path", info.keystorePath);
+writeMemoryField("Created At", new Date().toISOString());
 ```
 
 ### Step 1b: Fund the Wallet (REQUIRED before registration)
@@ -512,6 +532,7 @@ After creating the wallet, you MUST:
 3. **Wait for the user to confirm** they have funded the wallet before proceeding to registration.
 
 For testnets, suggest using a faucet:
+
 - **Base Sepolia**: [Base Sepolia faucet](https://www.alchemy.com/faucets/base-sepolia) or bridge from ETH Sepolia
 - **ETH Sepolia**: [Sepolia faucet](https://www.alchemy.com/faucets/ethereum-sepolia)
 
@@ -540,8 +561,8 @@ Required fields: `type`, `name`, `description`, `image`, `services`, `active`.
 After building, update MEMORY.md profile:
 
 ```typescript
-writeMemoryField('Name', registrationFile.name);
-writeMemoryField('Description', registrationFile.description);
+writeMemoryField("Name", registrationFile.name);
+writeMemoryField("Description", registrationFile.description);
 ```
 
 ### Step 3: Upload Metadata
@@ -549,13 +570,13 @@ writeMemoryField('Description', registrationFile.description);
 **Option A — IPFS (Pinata, recommended):**
 
 ```typescript
-const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
-  method: 'POST',
+const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+  method: "POST",
   headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${process.env.PINATA_JWT}`
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.PINATA_JWT}`,
   },
-  body: JSON.stringify({ pinataContent: registrationFile })
+  body: JSON.stringify({ pinataContent: registrationFile }),
 });
 const { IpfsHash } = await res.json();
 const agentURI = `ipfs://${IpfsHash}`;
@@ -564,7 +585,9 @@ const agentURI = `ipfs://${IpfsHash}`;
 **Option B — Base64 data URI:**
 
 ```typescript
-const encoded = Buffer.from(JSON.stringify(registrationFile)).toString('base64');
+const encoded = Buffer.from(JSON.stringify(registrationFile)).toString(
+  "base64"
+);
 const agentURI = `data:application/json;base64,${encoded}`;
 ```
 
@@ -573,55 +596,90 @@ const agentURI = `data:application/json;base64,${encoded}`;
 With the proxy backend, the agent builds the transaction and delegates signing to the proxy:
 
 ```typescript
-import { signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
-import { writeMemoryField } from '@buildersgarden/siwa/memory';
-import { createPublicClient, http, encodeFunctionData, parseEventLogs } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { signTransaction, getAddress } from "@buildersgarden/siwa/keystore";
+import { writeMemoryField } from "@buildersgarden/siwa/memory";
+import {
+  createPublicClient,
+  http,
+  encodeFunctionData,
+  parseEventLogs,
+} from "viem";
+import { baseSepolia } from "viem/chains";
 
-const publicClient = createPublicClient({ chain: baseSepolia, transport: http(process.env.RPC_URL) });
+const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
 const address = await getAddress();
 
 const IDENTITY_REGISTRY_ABI = [
-  { name: 'register', type: 'function', inputs: [{ name: 'agentURI', type: 'string' }], outputs: [{ name: 'agentId', type: 'uint256' }] },
-  { name: 'Registered', type: 'event', inputs: [{ name: 'agentId', type: 'uint256', indexed: true }, { name: 'agentURI', type: 'string' }, { name: 'owner', type: 'address', indexed: true }] }
+  {
+    name: "register",
+    type: "function",
+    inputs: [{ name: "agentURI", type: "string" }],
+    outputs: [{ name: "agentId", type: "uint256" }],
+  },
+  {
+    name: "Registered",
+    type: "event",
+    inputs: [
+      { name: "agentId", type: "uint256", indexed: true },
+      { name: "agentURI", type: "string" },
+      { name: "owner", type: "address", indexed: true },
+    ],
+  },
 ] as const;
 
 // Build the transaction
 const data = encodeFunctionData({
   abi: IDENTITY_REGISTRY_ABI,
-  functionName: 'register',
-  args: [agentURI]
+  functionName: "register",
+  args: [agentURI],
 });
 const nonce = await publicClient.getTransactionCount({ address });
-const { maxFeePerGas, maxPriorityFeePerGas } = await publicClient.estimateFeesPerGas();
-const gasLimit = await publicClient.estimateGas({ to: REGISTRY_ADDRESS, data, account: address });
+const { maxFeePerGas, maxPriorityFeePerGas } =
+  await publicClient.estimateFeesPerGas();
+const gasLimit = await publicClient.estimateGas({
+  to: REGISTRY_ADDRESS,
+  data,
+  account: address,
+});
 
 const txReq = {
-  to: REGISTRY_ADDRESS, data, nonce, chainId,
+  to: REGISTRY_ADDRESS,
+  data,
+  nonce,
+  chainId,
   type: 2,
   maxFeePerGas,
   maxPriorityFeePerGas,
-  gasLimit: gasLimit * 120n / 100n,
+  gasLimit: (gasLimit * 120n) / 100n,
 };
 
 // Sign via proxy — key never enters this process
 const { signedTx } = await signTransaction(txReq);
-const txHash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx });
+const txHash = await publicClient.sendRawTransaction({
+  serializedTransaction: signedTx,
+});
 const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
 // Parse event for agentId
-const logs = parseEventLogs({ abi: IDENTITY_REGISTRY_ABI, logs: receipt.logs, eventName: 'Registered' });
+const logs = parseEventLogs({
+  abi: IDENTITY_REGISTRY_ABI,
+  logs: receipt.logs,
+  eventName: "Registered",
+});
 for (const log of logs) {
   const agentId = log.args.agentId.toString();
   const agentRegistry = `eip155:${chainId}:${REGISTRY_ADDRESS}`;
 
   // Persist PUBLIC results to MEMORY.md
-  writeMemoryField('Status', 'registered');
-  writeMemoryField('Agent ID', agentId);
-  writeMemoryField('Agent Registry', agentRegistry);
-  writeMemoryField('Agent URI', agentURI);
-  writeMemoryField('Chain ID', chainId.toString());
-  writeMemoryField('Registered At', new Date().toISOString());
+  writeMemoryField("Status", "registered");
+  writeMemoryField("Agent ID", agentId);
+  writeMemoryField("Agent Registry", agentRegistry);
+  writeMemoryField("Agent URI", agentURI);
+  writeMemoryField("Chain ID", chainId.toString());
+  writeMemoryField("Registered At", new Date().toISOString());
 }
 ```
 
@@ -630,8 +688,8 @@ See [references/contract-addresses.md](references/contract-addresses.md) for dep
 ### Alternative: Agent0 SDK
 
 ```typescript
-import { SDK } from 'agent0-sdk';
-import { readMemory } from '@buildersgarden/siwa/memory';
+import { SDK } from "agent0-sdk";
+import { readMemory } from "@buildersgarden/siwa/memory";
 
 // Note: Agent0 SDK takes a private key string. If using the SDK,
 // you'll need a non-proxy backend or load the key within a narrow scope.
@@ -655,26 +713,26 @@ Full spec: [references/siwa-spec.md](references/siwa-spec.md)
 ### Step 0: Read Public Identity from MEMORY.md
 
 ```typescript
-import { readMemory, isRegistered } from '@buildersgarden/siwa/memory';
+import { readMemory, isRegistered } from "@buildersgarden/siwa/memory";
 
-const memory = readMemory('./MEMORY.md');
+const memory = readMemory("./MEMORY.md");
 if (!isRegistered()) {
-  throw new Error('Agent not registered. Run SIGN UP workflow first.');
+  throw new Error("Agent not registered. Run SIGN UP workflow first.");
 }
 
-const address = memory['Address'];
-const agentId = parseInt(memory['Agent ID']);
-const agentRegistry = memory['Agent Registry'];
-const chainId = parseInt(memory['Chain ID']);
+const address = memory["Address"];
+const agentId = parseInt(memory["Agent ID"]);
+const agentRegistry = memory["Agent Registry"];
+const chainId = parseInt(memory["Chain ID"]);
 ```
 
 ### Step 1: Request Nonce from Server
 
 ```typescript
-const nonceRes = await fetch('https://api.targetservice.com/siwa/nonce', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ address, agentId, agentRegistry })
+const nonceRes = await fetch("https://api.targetservice.com/siwa/nonce", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ address, agentId, agentRegistry }),
 });
 const { nonce, issuedAt, expirationTime } = await nonceRes.json();
 ```
@@ -682,39 +740,42 @@ const { nonce, issuedAt, expirationTime } = await nonceRes.json();
 ### Step 2: Sign via Proxy (key never exposed)
 
 ```typescript
-import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
+import { signSIWAMessage } from "@buildersgarden/siwa/siwa";
 
 // signSIWAMessage internally calls keystore.signMessage()
 // which delegates to the keyring proxy — the key never enters this process.
 const { message, signature } = await signSIWAMessage({
-  domain: 'api.targetservice.com',
+  domain: "api.targetservice.com",
   address,
-  statement: 'Authenticate as a registered ERC-8004 agent.',
-  uri: 'https://api.targetservice.com/siwa',
+  statement: "Authenticate as a registered ERC-8004 agent.",
+  uri: "https://api.targetservice.com/siwa",
   agentId,
   agentRegistry,
   chainId,
   nonce,
   issuedAt,
-  expirationTime
+  expirationTime,
 });
 ```
 
 ### Step 3: Submit and Persist Session
 
 ```typescript
-import { appendToMemorySection } from '@buildersgarden/siwa/memory';
+import { appendToMemorySection } from "@buildersgarden/siwa/memory";
 
-const verifyRes = await fetch('https://api.targetservice.com/siwa/verify', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ message, signature })
+const verifyRes = await fetch("https://api.targetservice.com/siwa/verify", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message, signature }),
 });
 const session = await verifyRes.json();
 
 if (session.success) {
-  appendToMemorySection('Sessions',
-    `- **${agentId}@api.targetservice.com**: \`${session.token}\` (exp: ${expirationTime || 'none'})`
+  appendToMemorySection(
+    "Sessions",
+    `- **${agentId}@api.targetservice.com**: \`${session.token}\` (exp: ${
+      expirationTime || "none"
+    })`
   );
 }
 ```
@@ -747,45 +808,52 @@ The server MUST:
 2. Match recovered address to message address
 3. Validate domain binding, nonce, time window
 4. **Call `ownerOf(agentId)` onchain** to confirm signer owns the agent NFT
-5. *(Optional)* Evaluate `SIWAVerifyCriteria` — activity status, required services, trust models, reputation score
+5. _(Optional)_ Evaluate `SIWAVerifyCriteria` — activity status, required services, trust models, reputation score
 6. Issue session token
 
 `verifySIWA()` in `@buildersgarden/siwa/siwa` accepts an optional `criteria` parameter (6th argument) to enforce requirements after the ownership check:
 
 ```typescript
-import { verifySIWA } from '@buildersgarden/siwa/siwa';
+import { verifySIWA } from "@buildersgarden/siwa/siwa";
 
-const result = await verifySIWA(message, signature, domain, nonceValid, provider, {
-  mustBeActive: true,              // agent metadata.active must be true
-  requiredServices: ['MCP'],       // ServiceType values from ERC-8004
-  requiredTrust: ['reputation'],   // TrustModel values from ERC-8004
-  minScore: 0.5,                   // minimum reputation score
-  minFeedbackCount: 10,            // minimum feedback count
-  reputationRegistryAddress: '0x8004BAa1...9b63',
-});
+const result = await verifySIWA(
+  message,
+  signature,
+  domain,
+  nonceValid,
+  provider,
+  {
+    mustBeActive: true, // agent metadata.active must be true
+    requiredServices: ["MCP"], // ServiceType values from ERC-8004
+    requiredTrust: ["reputation"], // TrustModel values from ERC-8004
+    minScore: 0.5, // minimum reputation score
+    minFeedbackCount: 10, // minimum feedback count
+    reputationRegistryAddress: "0x8004BAa1...9b63",
+  }
+);
 
 // result.agent contains the full AgentProfile when criteria are provided
 ```
 
 See the test server's `verifySIWARequest()` for a full reference implementation.
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/siwa/nonce` | POST | Generate and return a nonce |
-| `/siwa/verify` | POST | Accept `{ message, signature }`, verify, return session/JWT |
+| Endpoint       | Method | Description                                                 |
+| -------------- | ------ | ----------------------------------------------------------- |
+| `/siwa/nonce`  | POST   | Generate and return a nonce                                 |
+| `/siwa/verify` | POST   | Accept `{ message, signature }`, verify, return session/JWT |
 
 ---
 
 ## MEMORY.md Quick Reference
 
-| Section | When Written | Key Fields |
-|---|---|---|
-| **Wallet** | Step 1 of SIGN UP | Address, Keystore Backend, Created At |
-| **Registration** | Step 4 of SIGN UP | Status, Agent ID, Agent Registry, Agent URI, Chain ID |
-| **Agent Profile** | Step 2 of SIGN UP | Name, Description, Image |
-| **Services** | After adding endpoints | One line per service |
-| **Sessions** | After each SIWA sign-in | Token, domain, expiry per session |
-| **Notes** | Any time | Free-form (funding tx, faucet used, etc.) |
+| Section           | When Written            | Key Fields                                            |
+| ----------------- | ----------------------- | ----------------------------------------------------- |
+| **Wallet**        | Step 1 of SIGN UP       | Address, Keystore Backend, Created At                 |
+| **Registration**  | Step 4 of SIGN UP       | Status, Agent ID, Agent Registry, Agent URI, Chain ID |
+| **Agent Profile** | Step 2 of SIGN UP       | Name, Description, Image                              |
+| **Services**      | After adding endpoints  | One line per service                                  |
+| **Sessions**      | After each SIWA sign-in | Token, domain, expiry per session                     |
+| **Notes**         | Any time                | Free-form (funding tx, faucet used, etc.)             |
 
 **What is NOT in MEMORY.md**: Private keys, keystore passwords, mnemonic phrases.
 

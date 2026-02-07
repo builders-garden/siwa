@@ -12,6 +12,7 @@
     "@buildersgarden/siwa": "^0.0.3",
     "jsonwebtoken": "^9.0.3",
     "next": "16.1.6",
+    "prism-react-renderer": "^2.4.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "viem": "^2.21.0"

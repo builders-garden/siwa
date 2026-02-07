@@ -1,19 +1,12 @@
 import { Metadata } from "next";
 import { DeploySidebar } from "@/components/deploy-sidebar";
+import { CodeBlock } from "@/components/code-block";
 
 export const metadata: Metadata = {
   title: "Deploy — SIWA",
   description:
     "Deploy SIWA to Railway — keyring proxy and optional OpenClaw gateway.",
 };
-
-function CodeBlock({ children }: { children: string }) {
-  return (
-    <pre className="overflow-x-auto rounded-lg border border-border bg-surface p-4 font-mono text-sm leading-relaxed text-muted">
-      <code>{children}</code>
-    </pre>
-  );
-}
 
 function Section({
   id,
@@ -65,13 +58,7 @@ function InlineCode({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Table({
-  headers,
-  rows,
-}: {
-  headers: string[];
-  rows: string[][];
-}) {
+function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
   return (
     <div className="overflow-x-auto mb-4">
       <table className="w-full text-sm">
@@ -113,7 +100,8 @@ export default function DeployPage() {
           Deploy to Railway
         </h1>
         <p className="text-sm text-dim mb-8">
-          Keyring proxy from a Dockerfile, optional OpenClaw gateway alongside it.
+          Keyring proxy from a Dockerfile, optional OpenClaw gateway alongside
+          it.
         </p>
 
         {/* Deploy Buttons */}
@@ -136,12 +124,11 @@ export default function DeployPage() {
               Keyring Proxy Only
             </h4>
             <p className="text-xs text-muted">
-              Deploy the signing proxy. Connect your own agent or OpenClaw instance externally.
+              Deploy the signing proxy. Connect your own agent or OpenClaw
+              instance externally.
             </p>
           </a>
-          <div
-            className="rounded-lg border border-border bg-surface p-5 opacity-50 cursor-default block"
-          >
+          <div className="rounded-lg border border-border bg-surface p-5 opacity-50 cursor-default block">
             <div className="flex items-center gap-3 mb-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -154,32 +141,46 @@ export default function DeployPage() {
               Keyring Proxy + OpenClaw
             </h4>
             <p className="text-xs text-muted">
-              Full stack: signing proxy and AI agent gateway with the SIWA skill pre-installed.
+              Full stack: signing proxy and AI agent gateway with the SIWA skill
+              pre-installed.
             </p>
-            <p className="text-xs text-dim mt-2 italic">
-              Coming soon
-            </p>
+            <p className="text-xs text-dim mt-2 italic">Coming soon</p>
           </div>
         </div>
 
         {/* Overview */}
         <Section id="overview" title="Overview">
           <P>
-            The core deployment is a single <InlineCode>keyring-proxy</InlineCode> service built from <InlineCode>packages/keyring-proxy/Dockerfile</InlineCode>. Railway builds directly from your Git repository — no Docker Hub needed.
+            The core deployment is a single{" "}
+            <InlineCode>keyring-proxy</InlineCode> service built from{" "}
+            <InlineCode>packages/keyring-proxy/Dockerfile</InlineCode>. Railway
+            builds directly from your Git repository — no Docker Hub needed.
           </P>
           <P>
-            Optionally, you can add an <InlineCode>openclaw-gateway</InlineCode> service in the same Railway project. OpenClaw is an AI agent gateway that routes chat messages to agents — agents use the keyring proxy for all signing operations via <InlineCode>KEYSTORE_BACKEND=proxy</InlineCode>.
+            Optionally, you can add an <InlineCode>openclaw-gateway</InlineCode>{" "}
+            service in the same Railway project. OpenClaw is an AI agent gateway
+            that routes chat messages to agents — agents use the keyring proxy
+            for all signing operations via{" "}
+            <InlineCode>KEYSTORE_BACKEND=proxy</InlineCode>.
           </P>
 
           <SubSection id="architecture" title="Architecture">
             <Table
               headers={["Service", "Image", "Purpose"]}
               rows={[
-                ["keyring-proxy", "packages/keyring-proxy/Dockerfile", "Holds encrypted keys, policy engine, HMAC-auth signing API"],
-                ["openclaw-gateway", "Docker image (optional)", "AI agent gateway with SIWA skill installed"],
+                [
+                  "keyring-proxy",
+                  "packages/keyring-proxy/Dockerfile",
+                  "Holds encrypted keys, policy engine, HMAC-auth signing API",
+                ],
+                [
+                  "openclaw-gateway",
+                  "Docker image (optional)",
+                  "AI agent gateway with SIWA skill installed",
+                ],
               ]}
             />
-            <CodeBlock>{`Agent / OpenClaw
+            <CodeBlock language="text">{`Agent / OpenClaw
   |
   +---> keyring-proxy
   |     KEYSTORE_BACKEND=encrypted-file
@@ -190,35 +191,50 @@ export default function DeployPage() {
         KEYSTORE_BACKEND=proxy
         Delegates signing to keyring-proxy`}</CodeBlock>
             <P>
-              Railway auto-provisions private DNS between services in the same project. The openclaw-gateway reaches the keyring-proxy at its internal URL — no public exposure needed.
+              Railway auto-provisions private DNS between services in the same
+              project. The openclaw-gateway reaches the keyring-proxy at its
+              internal URL — no public exposure needed.
             </P>
             <P>
-              The keyring-proxy includes a <strong className="text-foreground">policy engine</strong> that validates every signing request against configurable rules. This provides guardrails — even if your agent is compromised, it can only sign operations allowed by its policies.
+              The keyring-proxy includes a{" "}
+              <strong className="text-foreground">policy engine</strong> that
+              validates every signing request against configurable rules. This
+              provides guardrails — even if your agent is compromised, it can
+              only sign operations allowed by its policies.
             </P>
           </SubSection>
         </Section>
 
         {/* Prerequisites */}
         <Section id="prerequisites" title="Prerequisites">
-          <P>
-            Before you begin, make sure you have:
-          </P>
+          <P>Before you begin, make sure you have:</P>
           <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
-            <li>A <a href="https://railway.com" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer">Railway</a> account</li>
+            <li>
+              A{" "}
+              <a
+                href="https://railway.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                Railway
+              </a>{" "}
+              account
+            </li>
             <li>The SIWA repo forked or cloned to your GitHub account</li>
             <li>A password for the encrypted-file keystore</li>
             <li>A shared HMAC secret for proxy authentication</li>
           </ul>
-          <P>
-            Generate a random HMAC secret:
-          </P>
-          <CodeBlock>{`openssl rand -hex 32`}</CodeBlock>
+          <P>Generate a random HMAC secret:</P>
+          <CodeBlock language="bash">{`openssl rand -hex 32`}</CodeBlock>
         </Section>
 
         {/* Create Project */}
         <Section id="create-project" title="Create Railway Project">
           <P>
-            The fastest way to create your project is with the deploy button — it sets up the keyring-proxy service with the correct Dockerfile and configuration automatically:
+            The fastest way to create your project is with the deploy button —
+            it sets up the keyring-proxy service with the correct Dockerfile and
+            configuration automatically:
           </P>
           <div className="mb-4">
             <a
@@ -236,25 +252,46 @@ export default function DeployPage() {
             </a>
           </div>
           <P>
-            If you prefer to set things up manually, or want to add an openclaw-gateway alongside it, follow the steps below.
+            If you prefer to set things up manually, or want to add an
+            openclaw-gateway alongside it, follow the steps below.
           </P>
 
-          <SubSection id="configure-keyring-proxy" title="Configure keyring-proxy (manual)">
+          <SubSection
+            id="configure-keyring-proxy"
+            title="Configure keyring-proxy (manual)"
+          >
             <P>
-              <strong className="text-foreground">1.</strong> Add a new service from your SIWA repo. Railway will detect the <InlineCode>railway.json</InlineCode> and use <InlineCode>packages/keyring-proxy/Dockerfile</InlineCode>.
+              <strong className="text-foreground">1.</strong> Add a new service
+              from your SIWA repo. Railway will detect the{" "}
+              <InlineCode>railway.json</InlineCode> and use{" "}
+              <InlineCode>packages/keyring-proxy/Dockerfile</InlineCode>.
             </P>
             <P>
-              <strong className="text-foreground">2.</strong> Name the service <InlineCode>keyring-proxy</InlineCode>.
+              <strong className="text-foreground">2.</strong> Name the service{" "}
+              <InlineCode>keyring-proxy</InlineCode>.
             </P>
             <P>
-              <strong className="text-foreground">3.</strong> No start command override needed — the Dockerfile&apos;s default <InlineCode>CMD</InlineCode> runs <InlineCode>pnpm run start</InlineCode>.
+              <strong className="text-foreground">3.</strong> No start command
+              override needed — the Dockerfile&apos;s default{" "}
+              <InlineCode>CMD</InlineCode> runs{" "}
+              <InlineCode>pnpm run start</InlineCode>.
             </P>
             <P>
-              <strong className="text-foreground">4.</strong> If the openclaw-gateway (or your agent) runs in the <strong className="text-foreground">same Railway project</strong>, keep this service private — it&apos;s reachable via internal networking. If your agent or OpenClaw instance runs <strong className="text-foreground">outside Railway</strong>, assign a public domain so it can reach the proxy over the internet.
+              <strong className="text-foreground">4.</strong> If the
+              openclaw-gateway (or your agent) runs in the{" "}
+              <strong className="text-foreground">same Railway project</strong>,
+              keep this service private — it&apos;s reachable via internal
+              networking. If your agent or OpenClaw instance runs{" "}
+              <strong className="text-foreground">outside Railway</strong>,
+              assign a public domain so it can reach the proxy over the
+              internet.
             </P>
           </SubSection>
 
-          <SubSection id="configure-openclaw" title="Configure openclaw-gateway (optional)">
+          <SubSection
+            id="configure-openclaw"
+            title="Configure openclaw-gateway (optional)"
+          >
             <P>
               OpenClaw is an open-source AI agent gateway. Follow the{" "}
               <a
@@ -264,11 +301,12 @@ export default function DeployPage() {
                 className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
               >
                 OpenClaw Railway installation guide
-              </a>
-              {" "}to deploy it. Once running, connect it to the keyring-proxy by setting these environment variables on the OpenClaw service:
+              </a>{" "}
+              to deploy it. Once running, connect it to the keyring-proxy by
+              setting these environment variables on the OpenClaw service:
             </P>
-            <CodeBlock>{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
-KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
+            <CodeBlock language="bash">{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
+OPENCLAW_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
           </SubSection>
         </Section>
 
@@ -278,16 +316,47 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
             <Table
               headers={["Variable", "Required", "Description"]}
               rows={[
-                ["KEYRING_PROXY_SECRET", "Yes", "Shared HMAC secret. Must match openclaw-gateway (if deployed)."],
-                ["KEYRING_POLICY_ADMIN_SECRET", "No", "Separate secret for policy management. If not set, KEYRING_PROXY_SECRET is used."],
-                ["KEYSTORE_BACKEND", "No", "Defaults to encrypted-file. Set to 'env' to use AGENT_PRIVATE_KEY."],
-                ["KEYSTORE_PASSWORD", "Conditional", "Required when KEYSTORE_BACKEND=encrypted-file."],
-                ["AGENT_PRIVATE_KEY", "Conditional", "Required when KEYSTORE_BACKEND=env. Hex-encoded private key (0x...)."],
-                ["POLICY_STORE_PATH", "No", "Path to policies JSON file. Defaults to ./data/policies.json."],
+                [
+                  "OPENCLAW_PROXY_SECRET",
+                  "Yes",
+                  "Shared HMAC secret. Must match openclaw-gateway (if deployed).",
+                ],
+                [
+                  "KEYRING_POLICY_ADMIN_SECRET",
+                  "No",
+                  "Separate secret for policy management. If not set, OPENCLAW_PROXY_SECRET is used.",
+                ],
+                [
+                  "KEYSTORE_BACKEND",
+                  "No",
+                  "Defaults to encrypted-file. Set to 'env' to use AGENT_PRIVATE_KEY.",
+                ],
+                [
+                  "KEYSTORE_PASSWORD",
+                  "Conditional",
+                  "Required when KEYSTORE_BACKEND=encrypted-file.",
+                ],
+                [
+                  "AGENT_PRIVATE_KEY",
+                  "Conditional",
+                  "Required when KEYSTORE_BACKEND=env. Hex-encoded private key (0x...).",
+                ],
+                [
+                  "POLICY_STORE_PATH",
+                  "No",
+                  "Path to policies JSON file. Defaults to ./data/policies.json.",
+                ],
               ]}
             />
             <P>
-              <strong className="text-foreground">Two-tier authentication:</strong> When <InlineCode>KEYRING_POLICY_ADMIN_SECRET</InlineCode> is set, you get separate access levels. The regular secret can sign and read policies; the admin secret can also create, update, and delete policies. This lets your agent sign messages while restricting who can change the guardrails.
+              <strong className="text-foreground">
+                Two-tier authentication:
+              </strong>{" "}
+              When <InlineCode>KEYRING_POLICY_ADMIN_SECRET</InlineCode> is set,
+              you get separate access levels. The regular secret can sign and
+              read policies; the admin secret can also create, update, and
+              delete policies. This lets your agent sign messages while
+              restricting who can change the guardrails.
             </P>
           </SubSection>
 
@@ -295,25 +364,52 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
             <Table
               headers={["Variable", "Required", "Description"]}
               rows={[
-                ["KEYRING_PROXY_URL", "Yes", "Public URL of the keyring proxy (e.g. https://your-keyring-proxy.up.railway.app)."],
-                ["KEYRING_PROXY_SECRET", "Yes", "Shared HMAC secret. Must match keyring-proxy."],
+                [
+                  "KEYRING_PROXY_URL",
+                  "Yes",
+                  "Public URL of the keyring proxy (e.g. https://your-keyring-proxy.up.railway.app).",
+                ],
+                [
+                  "OPENCLAW_PROXY_SECRET",
+                  "Yes",
+                  "Shared HMAC secret. Must match keyring-proxy.",
+                ],
               ]}
             />
             <P>
-              Use Railway&apos;s shared variables to keep <InlineCode>KEYRING_PROXY_SECRET</InlineCode> in sync between both services.
+              Use Railway&apos;s shared variables to keep{" "}
+              <InlineCode>OPENCLAW_PROXY_SECRET</InlineCode> in sync between
+              both services.
             </P>
+            <div className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-5 py-4">
+              <p className="text-sm text-muted leading-relaxed">
+                <strong className="text-yellow-500">Important:</strong> Do{" "}
+                <strong className="text-foreground">not</strong> set{" "}
+                <InlineCode>KEYRING_POLICY_ADMIN_SECRET</InlineCode> on OpenClaw
+                or your agent. The policy admin secret should only be configured
+                on the keyring-proxy itself. Your agent only needs{" "}
+                <InlineCode>OPENCLAW_PROXY_SECRET</InlineCode> to sign messages
+                — it should not have the ability to modify its own security
+                policies.
+              </p>
+            </div>
           </SubSection>
         </Section>
 
         {/* Signing Policies */}
         <Section id="signing-policies" title="Signing Policies">
           <P>
-            The keyring-proxy includes a policy engine that controls what your agent can sign. Policies are automatically persisted to <InlineCode>POLICY_STORE_PATH</InlineCode> (defaults to <InlineCode>./data/policies.json</InlineCode>).
+            The keyring-proxy includes a policy engine that controls what your
+            agent can sign. Policies are automatically persisted to{" "}
+            <InlineCode>POLICY_STORE_PATH</InlineCode> (defaults to{" "}
+            <InlineCode>./data/policies.json</InlineCode>).
           </P>
 
           <SubSection id="default-policy" title="Default Policy">
             <P>
-              When you create a wallet via <InlineCode>POST /create-wallet</InlineCode>, a default policy is automatically attached that allows:
+              When you create a wallet via{" "}
+              <InlineCode>POST /create-wallet</InlineCode>, a default policy is
+              automatically attached that allows:
             </P>
             <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
               <li>Transactions up to 0.1 ETH in value</li>
@@ -321,66 +417,94 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
               <li>All EIP-7702 authorization signing</li>
             </ul>
             <P>
-              To skip the default policy and use your own, pass <InlineCode>{`{ "skip_default_policy": true }`}</InlineCode> when creating the wallet.
+              To skip the default policy and use your own, pass{" "}
+              <InlineCode>{`{ "skip_default_policy": true }`}</InlineCode> when
+              creating the wallet.
             </P>
           </SubSection>
 
           <SubSection id="policy-admin" title="Policy Administration">
             <P>
-              Policy management endpoints (create, update, delete) require authentication. You have two options:
+              Policy management endpoints (create, update, delete) require
+              authentication. You have two options:
             </P>
             <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
-              <li><strong className="text-foreground">Single secret:</strong> Use <InlineCode>KEYRING_PROXY_SECRET</InlineCode> for both signing and policy management.</li>
-              <li><strong className="text-foreground">Two-tier:</strong> Set <InlineCode>KEYRING_POLICY_ADMIN_SECRET</InlineCode> for a separate admin secret. Your agent uses the regular secret for signing; only admins with the policy secret can change the rules.</li>
+              <li>
+                <strong className="text-foreground">Single secret:</strong> Use{" "}
+                <InlineCode>OPENCLAW_PROXY_SECRET</InlineCode> for both signing
+                and policy management.
+              </li>
+              <li>
+                <strong className="text-foreground">Two-tier:</strong> Set{" "}
+                <InlineCode>KEYRING_POLICY_ADMIN_SECRET</InlineCode> for a
+                separate admin secret. Your agent uses the regular secret for
+                signing; only admins with the policy secret can change the
+                rules.
+              </li>
             </ul>
-            <CodeBlock>{`# Generate separate secrets
-KEYRING_PROXY_SECRET=$(openssl rand -hex 32)
+            <CodeBlock language="bash">{`# Generate separate secrets
+OPENCLAW_PROXY_SECRET=$(openssl rand -hex 32)
 KEYRING_POLICY_ADMIN_SECRET=$(openssl rand -hex 32)`}</CodeBlock>
           </SubSection>
 
           <SubSection id="policy-persistence" title="Persistence">
             <P>
-              Policies and wallet-policy bindings are stored in a JSON file. On Railway, this file persists across deploys if you attach a volume to <InlineCode>/app/data</InlineCode>.
+              Policies and wallet-policy bindings are stored in a JSON file. On
+              Railway, this file persists across deploys if you attach a volume
+              to <InlineCode>/app/data</InlineCode>.
             </P>
             <P>
-              Without a volume, policies will reset on each deploy. For production, either:
+              Without a volume, policies will reset on each deploy. For
+              production, either:
             </P>
             <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
               <li>Attach a Railway volume to persist the policy store</li>
-              <li>Use the API to recreate policies programmatically on startup</li>
+              <li>
+                Use the API to recreate policies programmatically on startup
+              </li>
             </ul>
           </SubSection>
 
           <P>
-            For full policy documentation including rule structure, field sources, and examples, see{" "}
+            For full policy documentation including rule structure, field
+            sources, and examples, see{" "}
             <a
               href="/docs#policies"
               className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
             >
               Signing Policies
-            </a>
-            {" "}in the main documentation.
+            </a>{" "}
+            in the main documentation.
           </P>
         </Section>
 
         {/* Use an Existing Wallet */}
         <Section id="existing-wallet" title="Use an Existing Wallet">
           <P>
-            By default the keyring proxy generates and manages its own encrypted keystore. If you already have a wallet you want to use, you can pass the private key directly via environment variable instead.
+            By default the keyring proxy generates and manages its own encrypted
+            keystore. If you already have a wallet you want to use, you can pass
+            the private key directly via environment variable instead.
           </P>
-          <P>
-            Set these two variables on your keyring-proxy service:
-          </P>
-          <CodeBlock>{`KEYSTORE_BACKEND=env
+          <P>Set these two variables on your keyring-proxy service:</P>
+          <CodeBlock language="bash">{`KEYSTORE_BACKEND=env
 AGENT_PRIVATE_KEY=0x<your-private-key>`}</CodeBlock>
           <P>
-            When <InlineCode>AGENT_PRIVATE_KEY</InlineCode> is set, the proxy automatically uses the <InlineCode>env</InlineCode> backend — you can omit <InlineCode>KEYSTORE_BACKEND</InlineCode> entirely. No <InlineCode>KEYSTORE_PASSWORD</InlineCode> is needed in this mode.
+            When <InlineCode>AGENT_PRIVATE_KEY</InlineCode> is set, the proxy
+            automatically uses the <InlineCode>env</InlineCode> backend — you
+            can omit <InlineCode>KEYSTORE_BACKEND</InlineCode> entirely. No{" "}
+            <InlineCode>KEYSTORE_PASSWORD</InlineCode> is needed in this mode.
           </P>
           <P>
-            This is useful when you want to plug in an existing wallet (e.g. one that already holds funds or is registered onchain) without going through the encrypted-file keystore flow.
+            This is useful when you want to plug in an existing wallet (e.g. one
+            that already holds funds or is registered onchain) without going
+            through the encrypted-file keystore flow.
           </P>
           <P>
-            <strong className="text-foreground">Security note:</strong> the private key is held in memory at runtime. Make sure Railway&apos;s variable storage meets your security requirements. For higher security, prefer <InlineCode>encrypted-file</InlineCode> with a strong <InlineCode>KEYSTORE_PASSWORD</InlineCode>.
+            <strong className="text-foreground">Security note:</strong> the
+            private key is held in memory at runtime. Make sure Railway&apos;s
+            variable storage meets your security requirements. For higher
+            security, prefer <InlineCode>encrypted-file</InlineCode> with a
+            strong <InlineCode>KEYSTORE_PASSWORD</InlineCode>.
           </P>
         </Section>
 
@@ -388,25 +512,29 @@ AGENT_PRIVATE_KEY=0x<your-private-key>`}</CodeBlock>
         <Section id="verify" title="Verify Deployment">
           <SubSection id="health-checks" title="Health Checks">
             <P>
-              The keyring-proxy exposes a <InlineCode>/health</InlineCode> endpoint. Railway uses this for automatic health checks (configured in <InlineCode>railway.json</InlineCode>).
+              The keyring-proxy exposes a <InlineCode>/health</InlineCode>{" "}
+              endpoint. Railway uses this for automatic health checks
+              (configured in <InlineCode>railway.json</InlineCode>).
             </P>
-            <CodeBlock>{`curl https://your-keyring-proxy.up.railway.app/health
+            <CodeBlock language="bash">{`curl https://your-keyring-proxy.up.railway.app/health
 
 # Expected: { "status": "ok", ... }`}</CodeBlock>
           </SubSection>
 
           <SubSection id="test-curl" title="Test with curl">
             <P>
-              If you gave the keyring-proxy a public domain for debugging, you can test signing:
+              If you gave the keyring-proxy a public domain for debugging, you
+              can test signing:
             </P>
-            <CodeBlock>{`# Check health
+            <CodeBlock language="bash">{`# Check health
 curl https://your-keyring-proxy.up.railway.app/health
 
 # Check address (requires valid HMAC headers)
 # In production, only the openclaw-gateway or your agent
 # should call the proxy — never expose it publicly.`}</CodeBlock>
             <P>
-              In production, remove any public domain from the keyring-proxy. It should only be reachable via Railway&apos;s internal network.
+              In production, remove any public domain from the keyring-proxy. It
+              should only be reachable via Railway&apos;s internal network.
             </P>
           </SubSection>
         </Section>
@@ -414,12 +542,15 @@ curl https://your-keyring-proxy.up.railway.app/health
         {/* Connect Your Agent */}
         <Section id="connect-agent" title="Connect Your Agent">
           <P>
-            Point your agent at the deployed keyring-proxy by setting these environment variables:
+            Point your agent at the deployed keyring-proxy by setting these
+            environment variables:
           </P>
-          <CodeBlock>{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
-KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
+          <CodeBlock language="bash">{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
+OPENCLAW_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
           <P>
-            Use the public domain Railway assigns to your keyring-proxy service. The HMAC secret ensures only authorized clients can request signatures.
+            Use the public domain Railway assigns to your keyring-proxy service.
+            The HMAC secret ensures only authorized clients can request
+            signatures.
           </P>
           <P>
             For the full authentication flow, see the{" "}
@@ -428,7 +559,8 @@ KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
               className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
             >
               Sign In documentation
-            </a>.
+            </a>
+            .
           </P>
         </Section>
 
@@ -442,7 +574,8 @@ KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
               Documentation
             </h4>
             <p className="text-xs text-muted">
-              SDK reference, protocol spec, security model, and contract addresses.
+              SDK reference, protocol spec, security model, and contract
+              addresses.
             </p>
           </a>
           <a
@@ -453,7 +586,8 @@ KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
               API Endpoints
             </h4>
             <p className="text-xs text-muted">
-              Live HTTP endpoints you can call right now to try the full SIWA auth flow.
+              Live HTTP endpoints you can call right now to try the full SIWA
+              auth flow.
             </p>
           </a>
         </div>

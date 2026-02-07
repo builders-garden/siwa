@@ -12,11 +12,11 @@
  *   - Optional separate admin secret for policy management
  *
  * Usage:
- *   KEYRING_PROXY_SECRET=<secret> KEYSTORE_BACKEND=encrypted-file \
+ *   OPENCLAW_PROXY_SECRET=<secret> KEYSTORE_BACKEND=encrypted-file \
  *     KEYSTORE_PASSWORD=<password> tsx src/index.ts
  *
  * Environment:
- *   KEYRING_PROXY_SECRET        — Required. Shared HMAC secret for signing operations.
+ *   OPENCLAW_PROXY_SECRET        — Required. Shared HMAC secret for signing operations.
  *   KEYRING_POLICY_ADMIN_SECRET — Optional. Separate secret for policy management.
  *   KEYRING_PROXY_PORT          — Listen port (default: 3100)
  *   KEYSTORE_BACKEND            — Backend for the proxy's own keystore (must NOT be "proxy")
@@ -25,45 +25,65 @@
  *   POLICY_STORE_PATH           — Path to policies JSON file (default: ./data/policies.json)
  */
 
-import 'dotenv/config';
-import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
-import { verifyHmac } from '@buildersgarden/siwa/proxy-auth';
+import "dotenv/config";
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
+import { verifyHmac } from "@buildersgarden/siwa/proxy-auth";
 import {
-  createWallet, hasWallet, getAddress, signMessage,
-  signTransaction, signAuthorization,
-  type KeystoreConfig, type KeystoreBackend,
-} from '@buildersgarden/siwa/keystore';
+  createWallet,
+  hasWallet,
+  getAddress,
+  signMessage,
+  signTransaction,
+  signAuthorization,
+  type KeystoreConfig,
+  type KeystoreBackend,
+} from "@buildersgarden/siwa/keystore";
 
 // Policy system imports
-import type { Policy, Rule, EvaluationContext, RuleMethod } from './types.js';
+import type { Policy, Rule, EvaluationContext, RuleMethod } from "./types.js";
 import {
-  getAllPolicies, getPolicy, savePolicy, deletePolicy,
-  getWalletPolicies, attachPolicy, detachPolicy, generatePolicyId,
-} from './policy-store.js';
-import { evaluatePolicies } from './policy-engine.js';
+  getAllPolicies,
+  getPolicy,
+  savePolicy,
+  deletePolicy,
+  getWalletPolicies,
+  attachPolicy,
+  detachPolicy,
+  generatePolicyId,
+} from "./policy-store.js";
+import { evaluatePolicies } from "./policy-engine.js";
 import {
-  buildTransactionContext, buildMessageContext, buildAuthorizationContext,
-  buildSystemContext, decodeCalldata,
-} from './field-extractors.js';
-import { createDefaultPolicy } from './default-policy.js';
+  buildTransactionContext,
+  buildMessageContext,
+  buildAuthorizationContext,
+  buildSystemContext,
+  decodeCalldata,
+} from "./field-extractors.js";
+import { createDefaultPolicy } from "./default-policy.js";
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
-const SECRET = process.env.KEYRING_PROXY_SECRET;
+const SECRET = process.env.OPENCLAW_PROXY_SECRET;
 if (!SECRET) {
-  console.error('FATAL: KEYRING_PROXY_SECRET is required');
+  console.error("FATAL: OPENCLAW_PROXY_SECRET is required");
   process.exit(1);
 }
 
 const ADMIN_SECRET = process.env.KEYRING_POLICY_ADMIN_SECRET;
-const PORT = parseInt(process.env.PORT || process.env.KEYRING_PROXY_PORT || '3100', 10);
+const PORT = parseInt(
+  process.env.PORT || process.env.KEYRING_PROXY_PORT || "3100",
+  10
+);
 
-const innerBackend = (process.env.KEYSTORE_BACKEND || 'encrypted-file') as KeystoreBackend;
-if (innerBackend === 'proxy') {
-  console.error('FATAL: Proxy server cannot use KEYSTORE_BACKEND=proxy (would create a loop)');
+const innerBackend = (process.env.KEYSTORE_BACKEND ||
+  "encrypted-file") as KeystoreBackend;
+if (innerBackend === "proxy") {
+  console.error(
+    "FATAL: Proxy server cannot use KEYSTORE_BACKEND=proxy (would create a loop)"
+  );
   process.exit(1);
 }
 
@@ -85,9 +105,9 @@ function getInnerConfig(): KeystoreConfig {
  */
 function serializeBigInt(obj: any): any {
   if (obj === null || obj === undefined) return obj;
-  if (typeof obj === 'bigint') return obj.toString();
+  if (typeof obj === "bigint") return obj.toString();
   if (Array.isArray(obj)) return obj.map(serializeBigInt);
-  if (typeof obj === 'object') {
+  if (typeof obj === "object") {
     const result: Record<string, any> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = serializeBigInt(value);
@@ -113,20 +133,27 @@ interface AuditEntry {
 
 export const auditLog: AuditEntry[] = [];
 
-function audit(req: Request, success: boolean, error?: string, policyViolation?: boolean) {
+function audit(
+  req: Request,
+  success: boolean,
+  error?: string,
+  policyViolation?: boolean
+) {
   const entry: AuditEntry = {
     timestamp: new Date().toISOString(),
     method: req.method,
     path: req.path,
-    sourceIp: req.ip || req.socket.remoteAddress || 'unknown',
+    sourceIp: req.ip || req.socket.remoteAddress || "unknown",
     success,
     error,
     policyViolation,
   };
   auditLog.push(entry);
-  const status = success ? 'OK' : (policyViolation ? 'POLICY_DENIED' : 'FAIL');
-  const errStr = error ? ` — ${error}` : '';
-  console.log(`[AUDIT] ${entry.timestamp} ${status} ${req.method} ${req.path} from ${entry.sourceIp}${errStr}`);
+  const status = success ? "OK" : policyViolation ? "POLICY_DENIED" : "FAIL";
+  const errStr = error ? ` — ${error}` : "";
+  console.log(
+    `[AUDIT] ${entry.timestamp} ${status} ${req.method} ${req.path} from ${entry.sourceIp}${errStr}`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -136,11 +163,13 @@ function audit(req: Request, success: boolean, error?: string, policyViolation?:
 const app = express();
 
 // Raw body capture for HMAC verification
-app.use(express.json({
-  verify: (req: any, _res, buf) => {
-    req.rawBody = buf.toString();
-  },
-}));
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  })
+);
 
 // ---------------------------------------------------------------------------
 // HMAC auth middleware
@@ -152,38 +181,53 @@ app.use(express.json({
  * Stores which secret was used in req.authType for later checks.
  */
 function hmacAuth(req: Request, res: Response, next: NextFunction) {
-  if (req.path === '/health') return next();
+  if (req.path === "/health") return next();
 
-  const timestamp = req.headers['x-keyring-timestamp'] as string;
-  const signature = req.headers['x-keyring-signature'] as string;
+  const timestamp = req.headers["x-keyring-timestamp"] as string;
+  const signature = req.headers["x-keyring-signature"] as string;
 
   if (!timestamp || !signature) {
-    audit(req, false, 'Missing HMAC headers');
+    audit(req, false, "Missing HMAC headers");
     res.status(401).json({
-      error: 'Missing HMAC headers',
+      error: "Missing HMAC headers",
       expected: {
-        'X-Keyring-Timestamp': '<milliseconds since epoch>',
-        'X-Keyring-Signature': '<HMAC-SHA256 hex of METHOD\\nPATH\\nTIMESTAMP\\nBODY>',
+        "X-Keyring-Timestamp": "<milliseconds since epoch>",
+        "X-Keyring-Signature":
+          "<HMAC-SHA256 hex of METHOD\\nPATH\\nTIMESTAMP\\nBODY>",
       },
       hint: "Use the SDK: import { computeHmac } from '@buildersgarden/siwa/proxy-auth'",
     });
     return;
   }
 
-  const rawBody = (req as any).rawBody || '';
+  const rawBody = (req as any).rawBody || "";
 
   // Try regular secret first
-  const regularResult = verifyHmac(SECRET!, req.method, req.path, rawBody, timestamp, signature);
+  const regularResult = verifyHmac(
+    SECRET!,
+    req.method,
+    req.path,
+    rawBody,
+    timestamp,
+    signature
+  );
   if (regularResult.valid) {
-    (req as any).authType = 'regular';
+    (req as any).authType = "regular";
     return next();
   }
 
   // If admin secret is configured, try it
   if (ADMIN_SECRET) {
-    const adminResult = verifyHmac(ADMIN_SECRET, req.method, req.path, rawBody, timestamp, signature);
+    const adminResult = verifyHmac(
+      ADMIN_SECRET,
+      req.method,
+      req.path,
+      rawBody,
+      timestamp,
+      signature
+    );
     if (adminResult.valid) {
-      (req as any).authType = 'admin';
+      (req as any).authType = "admin";
       return next();
     }
   }
@@ -192,7 +236,7 @@ function hmacAuth(req: Request, res: Response, next: NextFunction) {
   audit(req, false, regularResult.error);
   res.status(401).json({
     error: regularResult.error,
-    payload_format: 'METHOD\\nPATH\\nTIMESTAMP\\nBODY',
+    payload_format: "METHOD\\nPATH\\nTIMESTAMP\\nBODY",
     hint: "Use the SDK: import { computeHmac } from '@buildersgarden/siwa/proxy-auth'",
   });
 }
@@ -206,12 +250,12 @@ function requireAdminAuth(req: Request, res: Response): boolean {
   if (!ADMIN_SECRET) return true;
 
   // If admin secret is configured, require admin auth
-  if ((req as any).authType === 'admin') return true;
+  if ((req as any).authType === "admin") return true;
 
-  audit(req, false, 'Admin authentication required');
+  audit(req, false, "Admin authentication required");
   res.status(403).json({
-    error: 'Admin authentication required for policy management',
-    hint: 'Use KEYRING_POLICY_ADMIN_SECRET for HMAC',
+    error: "Admin authentication required for policy management",
+    hint: "Use KEYRING_POLICY_ADMIN_SECRET for HMAC",
   });
   return false;
 }
@@ -226,7 +270,12 @@ async function evaluateRequest(
   method: RuleMethod,
   context: EvaluationContext,
   walletAddress: string
-): Promise<{ allowed: boolean; reason: string; denied_by?: string; policy_id?: string }> {
+): Promise<{
+  allowed: boolean;
+  reason: string;
+  denied_by?: string;
+  policy_id?: string;
+}> {
   const policies = await getWalletPolicies(walletAddress);
   return evaluatePolicies(policies, method, context);
 }
@@ -235,9 +284,9 @@ async function evaluateRequest(
 // Health endpoint
 // ---------------------------------------------------------------------------
 
-app.get('/health', (_req: Request, res: Response) => {
+app.get("/health", (_req: Request, res: Response) => {
   res.json({
-    status: 'ok',
+    status: "ok",
     backend: innerBackend,
     policies_enabled: true,
     admin_secret_configured: !!ADMIN_SECRET,
@@ -248,7 +297,7 @@ app.get('/health', (_req: Request, res: Response) => {
 // Wallet endpoints
 // ---------------------------------------------------------------------------
 
-app.post('/create-wallet', async (req: Request, res: Response) => {
+app.post("/create-wallet", async (req: Request, res: Response) => {
   try {
     const { defaultPolicy, skipDefaultPolicy } = req.body || {};
 
@@ -263,8 +312,8 @@ app.post('/create-wallet', async (req: Request, res: Response) => {
         policy = {
           ...defaultPolicy,
           id: defaultPolicy.id || generatePolicyId(),
-          version: defaultPolicy.version || '1.0',
-          chain_type: defaultPolicy.chain_type || 'ethereum',
+          version: defaultPolicy.version || "1.0",
+          chain_type: defaultPolicy.chain_type || "ethereum",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -295,7 +344,7 @@ app.post('/create-wallet', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/has-wallet', async (req: Request, res: Response) => {
+app.post("/has-wallet", async (req: Request, res: Response) => {
   try {
     const exists = await hasWallet(getInnerConfig());
     audit(req, true);
@@ -306,7 +355,7 @@ app.post('/has-wallet', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/get-address', async (req: Request, res: Response) => {
+app.post("/get-address", async (req: Request, res: Response) => {
   try {
     const address = await getAddress(getInnerConfig());
     audit(req, true);
@@ -321,11 +370,11 @@ app.post('/get-address', async (req: Request, res: Response) => {
 // Signing endpoints (with policy evaluation)
 // ---------------------------------------------------------------------------
 
-app.post('/sign-message', async (req: Request, res: Response) => {
+app.post("/sign-message", async (req: Request, res: Response) => {
   try {
     const { message } = req.body;
-    if (typeof message !== 'string') {
-      audit(req, false, 'Missing message field');
+    if (typeof message !== "string") {
+      audit(req, false, "Missing message field");
       res.status(400).json({ error: 'Missing "message" field' });
       return;
     }
@@ -333,8 +382,8 @@ app.post('/sign-message', async (req: Request, res: Response) => {
     // Get wallet address for policy lookup
     const walletAddress = await getAddress(getInnerConfig());
     if (!walletAddress) {
-      audit(req, false, 'No wallet found');
-      res.status(400).json({ error: 'No wallet found' });
+      audit(req, false, "No wallet found");
+      res.status(400).json({ error: "No wallet found" });
       return;
     }
 
@@ -345,12 +394,16 @@ app.post('/sign-message', async (req: Request, res: Response) => {
     };
 
     // Evaluate policies
-    const evaluation = await evaluateRequest('sign_message', context, walletAddress);
+    const evaluation = await evaluateRequest(
+      "sign_message",
+      context,
+      walletAddress
+    );
 
     if (!evaluation.allowed) {
       audit(req, false, evaluation.reason, true);
       res.status(403).json({
-        error: 'Policy violation',
+        error: "Policy violation",
         reason: evaluation.reason,
         denied_by: evaluation.denied_by,
         policy_id: evaluation.policy_id,
@@ -368,11 +421,11 @@ app.post('/sign-message', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/sign-transaction', async (req: Request, res: Response) => {
+app.post("/sign-transaction", async (req: Request, res: Response) => {
   try {
     const { tx, abi } = req.body;
-    if (!tx || typeof tx !== 'object') {
-      audit(req, false, 'Missing tx field');
+    if (!tx || typeof tx !== "object") {
+      audit(req, false, "Missing tx field");
       res.status(400).json({ error: 'Missing "tx" field' });
       return;
     }
@@ -380,8 +433,8 @@ app.post('/sign-transaction', async (req: Request, res: Response) => {
     // Get wallet address for policy lookup
     const walletAddress = await getAddress(getInnerConfig());
     if (!walletAddress) {
-      audit(req, false, 'No wallet found');
-      res.status(400).json({ error: 'No wallet found' });
+      audit(req, false, "No wallet found");
+      res.status(400).json({ error: "No wallet found" });
       return;
     }
 
@@ -396,12 +449,16 @@ app.post('/sign-transaction', async (req: Request, res: Response) => {
     };
 
     // Evaluate policies
-    const evaluation = await evaluateRequest('sign_transaction', context, walletAddress);
+    const evaluation = await evaluateRequest(
+      "sign_transaction",
+      context,
+      walletAddress
+    );
 
     if (!evaluation.allowed) {
       audit(req, false, evaluation.reason, true);
       res.status(403).json({
-        error: 'Policy violation',
+        error: "Policy violation",
         reason: evaluation.reason,
         denied_by: evaluation.denied_by,
         policy_id: evaluation.policy_id,
@@ -419,11 +476,11 @@ app.post('/sign-transaction', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/sign-authorization', async (req: Request, res: Response) => {
+app.post("/sign-authorization", async (req: Request, res: Response) => {
   try {
     const { auth } = req.body;
-    if (!auth || typeof auth !== 'object') {
-      audit(req, false, 'Missing auth field');
+    if (!auth || typeof auth !== "object") {
+      audit(req, false, "Missing auth field");
       res.status(400).json({ error: 'Missing "auth" field' });
       return;
     }
@@ -431,8 +488,8 @@ app.post('/sign-authorization', async (req: Request, res: Response) => {
     // Get wallet address for policy lookup
     const walletAddress = await getAddress(getInnerConfig());
     if (!walletAddress) {
-      audit(req, false, 'No wallet found');
-      res.status(400).json({ error: 'No wallet found' });
+      audit(req, false, "No wallet found");
+      res.status(400).json({ error: "No wallet found" });
       return;
     }
 
@@ -443,12 +500,16 @@ app.post('/sign-authorization', async (req: Request, res: Response) => {
     };
 
     // Evaluate policies
-    const evaluation = await evaluateRequest('sign_authorization', context, walletAddress);
+    const evaluation = await evaluateRequest(
+      "sign_authorization",
+      context,
+      walletAddress
+    );
 
     if (!evaluation.allowed) {
       audit(req, false, evaluation.reason, true);
       res.status(403).json({
-        error: 'Policy violation',
+        error: "Policy violation",
         reason: evaluation.reason,
         denied_by: evaluation.denied_by,
         policy_id: evaluation.policy_id,
@@ -472,7 +533,7 @@ app.post('/sign-authorization', async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 
 // List all policies (regular auth)
-app.get('/policies', async (req: Request, res: Response) => {
+app.get("/policies", async (req: Request, res: Response) => {
   try {
     const policies = await getAllPolicies();
     audit(req, true);
@@ -484,12 +545,12 @@ app.get('/policies', async (req: Request, res: Response) => {
 });
 
 // Get a policy by ID (regular auth)
-app.get('/policies/:id', async (req: Request, res: Response) => {
+app.get("/policies/:id", async (req: Request, res: Response) => {
   try {
     const policy = await getPolicy(req.params.id);
     if (!policy) {
-      audit(req, false, 'Policy not found');
-      res.status(404).json({ error: 'Policy not found' });
+      audit(req, false, "Policy not found");
+      res.status(404).json({ error: "Policy not found" });
       return;
     }
     audit(req, true);
@@ -501,29 +562,29 @@ app.get('/policies/:id', async (req: Request, res: Response) => {
 });
 
 // Create a policy (admin auth if configured)
-app.post('/policies', async (req: Request, res: Response) => {
+app.post("/policies", async (req: Request, res: Response) => {
   if (!requireAdminAuth(req, res)) return;
 
   try {
     const { name, rules, version, chain_type } = req.body;
 
-    if (!name || typeof name !== 'string') {
-      audit(req, false, 'Missing name field');
+    if (!name || typeof name !== "string") {
+      audit(req, false, "Missing name field");
       res.status(400).json({ error: 'Missing "name" field' });
       return;
     }
 
     if (!rules || !Array.isArray(rules)) {
-      audit(req, false, 'Missing rules field');
+      audit(req, false, "Missing rules field");
       res.status(400).json({ error: 'Missing "rules" field (must be array)' });
       return;
     }
 
     const policy: Policy = {
       id: generatePolicyId(),
-      version: version || '1.0',
+      version: version || "1.0",
       name,
-      chain_type: chain_type || 'ethereum',
+      chain_type: chain_type || "ethereum",
       rules: rules as Rule[],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -539,14 +600,14 @@ app.post('/policies', async (req: Request, res: Response) => {
 });
 
 // Update a policy (admin auth if configured)
-app.put('/policies/:id', async (req: Request, res: Response) => {
+app.put("/policies/:id", async (req: Request, res: Response) => {
   if (!requireAdminAuth(req, res)) return;
 
   try {
     const existing = await getPolicy(req.params.id);
     if (!existing) {
-      audit(req, false, 'Policy not found');
-      res.status(404).json({ error: 'Policy not found' });
+      audit(req, false, "Policy not found");
+      res.status(404).json({ error: "Policy not found" });
       return;
     }
 
@@ -571,14 +632,14 @@ app.put('/policies/:id', async (req: Request, res: Response) => {
 });
 
 // Delete a policy (admin auth if configured)
-app.delete('/policies/:id', async (req: Request, res: Response) => {
+app.delete("/policies/:id", async (req: Request, res: Response) => {
   if (!requireAdminAuth(req, res)) return;
 
   try {
     const deleted = await deletePolicy(req.params.id);
     if (!deleted) {
-      audit(req, false, 'Policy not found');
-      res.status(404).json({ error: 'Policy not found' });
+      audit(req, false, "Policy not found");
+      res.status(404).json({ error: "Policy not found" });
       return;
     }
     audit(req, true);
@@ -594,7 +655,7 @@ app.delete('/policies/:id', async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 
 // List policies for a wallet (regular auth)
-app.get('/wallets/:address/policies', async (req: Request, res: Response) => {
+app.get("/wallets/:address/policies", async (req: Request, res: Response) => {
   try {
     const policies = await getWalletPolicies(req.params.address);
     audit(req, true);
@@ -606,37 +667,46 @@ app.get('/wallets/:address/policies', async (req: Request, res: Response) => {
 });
 
 // Attach a policy to a wallet (admin auth if configured)
-app.post('/wallets/:address/policies/:policyId', async (req: Request, res: Response) => {
-  if (!requireAdminAuth(req, res)) return;
+app.post(
+  "/wallets/:address/policies/:policyId",
+  async (req: Request, res: Response) => {
+    if (!requireAdminAuth(req, res)) return;
 
-  try {
-    await attachPolicy(req.params.address, req.params.policyId);
-    audit(req, true);
-    res.json({ attached: true });
-  } catch (err: any) {
-    audit(req, false, err.message);
-    res.status(400).json({ error: err.message });
+    try {
+      await attachPolicy(req.params.address, req.params.policyId);
+      audit(req, true);
+      res.json({ attached: true });
+    } catch (err: any) {
+      audit(req, false, err.message);
+      res.status(400).json({ error: err.message });
+    }
   }
-});
+);
 
 // Detach a policy from a wallet (admin auth if configured)
-app.delete('/wallets/:address/policies/:policyId', async (req: Request, res: Response) => {
-  if (!requireAdminAuth(req, res)) return;
+app.delete(
+  "/wallets/:address/policies/:policyId",
+  async (req: Request, res: Response) => {
+    if (!requireAdminAuth(req, res)) return;
 
-  try {
-    const detached = await detachPolicy(req.params.address, req.params.policyId);
-    if (!detached) {
-      audit(req, false, 'Policy binding not found');
-      res.status(404).json({ error: 'Policy binding not found' });
-      return;
+    try {
+      const detached = await detachPolicy(
+        req.params.address,
+        req.params.policyId
+      );
+      if (!detached) {
+        audit(req, false, "Policy binding not found");
+        res.status(404).json({ error: "Policy binding not found" });
+        return;
+      }
+      audit(req, true);
+      res.json({ detached: true });
+    } catch (err: any) {
+      audit(req, false, err.message);
+      res.status(500).json({ error: err.message });
     }
-    audit(req, true);
-    res.json({ detached: true });
-  } catch (err: any) {
-    audit(req, false, err.message);
-    res.status(500).json({ error: err.message });
   }
-});
+);
 
 // ---------------------------------------------------------------------------
 // Start
@@ -647,5 +717,11 @@ app.listen(PORT, () => {
   console.log(`Backend: ${innerBackend}`);
   console.log(`HMAC auth: enabled`);
   console.log(`Policy system: enabled`);
-  console.log(`Admin secret: ${ADMIN_SECRET ? 'configured (separate from signing secret)' : 'not configured (using signing secret)'}`);
+  console.log(
+    `Admin secret: ${
+      ADMIN_SECRET
+        ? "configured (separate from signing secret)"
+        : "not configured (using signing secret)"
+    }`
+  );
 });

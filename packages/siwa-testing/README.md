@@ -27,6 +27,7 @@ The `full-flow` command runs a 4-step agent lifecycle:
 2. **Mock Registration** — Simulates onchain registration by writing mock agent identity data (Agent ID, Registry address, Chain ID) to `MEMORY.md`. No actual transaction is made.
 
 3. **SIWA Sign-In** — The full authentication round-trip:
+
    - Agent requests a nonce from the server
    - Agent builds a SIWA message and signs it using the keystore (private key is loaded, used, and discarded)
    - Agent submits the signature to the server
@@ -40,16 +41,16 @@ Open [http://localhost:3000](http://localhost:3000) to see the SIWA test dashboa
 
 ## Individual Commands
 
-| Command | Description |
-|---------|-------------|
-| `pnpm run server` | Start the SIWA relying-party server on port 3000 |
-| `pnpm run agent:create` | Create a wallet and write address to MEMORY.md |
-| `pnpm run agent:register` | Mock-register the agent |
-| `pnpm run agent:signin` | Run the full SIWA sign-in flow |
-| `pnpm run agent:flow` | Run all 4 steps sequentially |
-| `pnpm run agent:status` | Print current agent state |
-| `pnpm run reset` | Clean up keystore and MEMORY.md |
-| `pnpm run dev` | Start server + run full flow concurrently |
+| Command                   | Description                                      |
+| ------------------------- | ------------------------------------------------ |
+| `pnpm run server`         | Start the SIWA relying-party server on port 3000 |
+| `pnpm run agent:create`   | Create a wallet and write address to MEMORY.md   |
+| `pnpm run agent:register` | Mock-register the agent                          |
+| `pnpm run agent:signin`   | Run the full SIWA sign-in flow                   |
+| `pnpm run agent:flow`     | Run all 4 steps sequentially                     |
+| `pnpm run agent:status`   | Print current agent state                        |
+| `pnpm run reset`          | Clean up keystore and MEMORY.md                  |
+| `pnpm run dev`            | Start server + run full flow concurrently        |
 
 ## Reset
 
@@ -108,7 +109,7 @@ cd packages/siwa-testing
 pnpm run reset
 KEYSTORE_BACKEND=proxy \
   KEYRING_PROXY_URL=http://localhost:3100 \
-  KEYRING_PROXY_SECRET=test-secret-123 \
+  OPENCLAW_PROXY_SECRET=test-secret-123 \
   SERVER_URL=http://localhost:3000 \
   SERVER_DOMAIN=localhost:3000 \
   pnpm run agent:flow
