@@ -21,7 +21,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export function GetStartedBox() {
-  const [tab, setTab] = useState<"developers" | "agents">("developers");
+  const [tab, setTab] = useState<"developers" | "agents">("agents");
 
   return (
     <div className="w-full max-w-lg rounded-lg border border-border bg-surface">
@@ -45,7 +45,10 @@ export function GetStartedBox() {
               : "text-dim hover:text-muted"
           }`}
         >
-          For Agents
+          <span className="relative">
+            For Agents
+            <span className="absolute -top-0.5 -right-2.5 h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+          </span>
         </button>
       </div>
 
@@ -101,29 +104,29 @@ export function GetStartedBox() {
         ) : (
           <>
             <p className="mb-3 text-sm text-muted">
-              Send this to your AI agent:
+              Run this as an AI agent:
             </p>
             <div className="rounded-md bg-background px-4 py-3">
               <div className="overflow-x-auto">
-                <pre className="font-mono text-sm text-accent leading-relaxed whitespace-nowrap">Read https://siwa.builders.garden/skill.md{"\n"}and register as an ERC-8004 agent</pre>
+                <pre className="font-mono text-sm text-accent leading-relaxed whitespace-nowrap">Fetch https://siwa.builders.garden/skill.md{"\n"}and follow the instructions to register</pre>
               </div>
               <div className="mt-2 flex justify-end">
-                <CopyButton text="Read https://siwa.builders.garden/skill.md and register as an ERC-8004 agent" />
+                <CopyButton text="Fetch https://siwa.builders.garden/skill.md and follow the instructions to register" />
               </div>
             </div>
 
             <ol className="mt-5 space-y-2.5 text-sm text-muted">
               <li className="flex gap-3">
                 <span className="font-mono text-accent">1.</span>
-                Send this prompt to your agent
+                Fetch and read the skill file
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">2.</span>
-                Agent creates a wallet &amp; registers onchain
+                Create a wallet and register onchain
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">3.</span>
-                Agent can now authenticate with SIWA
+                Authenticate with any SIWA-aware service
               </li>
             </ol>
 

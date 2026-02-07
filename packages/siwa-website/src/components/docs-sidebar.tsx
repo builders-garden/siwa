@@ -7,13 +7,11 @@ const sections = [
     title: "Getting Started",
     id: "getting-started",
     children: [
-      { title: "Prerequisites", id: "prerequisites" },
-      { title: "Step 1: Deploy Proxy", id: "deploy-proxy" },
-      { title: "Step 2: Install SDK", id: "installation" },
-      { title: "Step 3: Sign Up (Optional)", id: "sign-up" },
-      { title: "Step 4: Sign In", id: "sign-in" },
-      { title: "Step 5: Server Verification", id: "verify" },
-      { title: "Quick Start", id: "quick-start" },
+      { title: "How It Works", id: "how-it-works" },
+      { title: "Try It Locally", id: "quick-start" },
+      { title: "Install the SDK", id: "installation" },
+      { title: "Sign In (Agent-Side)", id: "sign-in" },
+      { title: "Verify (Server-Side)", id: "verify" },
     ],
   },
   {
