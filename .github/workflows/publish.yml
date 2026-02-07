@@ -10,22 +10,21 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    defaults:
+      run:
+        working-directory: packages/siwa
     steps:
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - run: pnpm install --filter @buildersgarden/siwa... --no-frozen-lockfile
+      - run: npm install
 
-      - run: pnpm --filter @buildersgarden/siwa build
+      - run: npm run build
 
       - run: npm publish --provenance --access public
-        working-directory: packages/siwa
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
