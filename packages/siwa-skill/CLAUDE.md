@@ -83,9 +83,23 @@ Clears MEMORY.md and keystore state to start fresh.
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
 ```
 
+## Signing Policies
+
+The keyring proxy includes a **policy engine** that controls what you can sign. Policies act as guardrails — even if you are compromised, you can only sign operations that match the defined rules.
+
+**Default policy** (auto-attached on wallet creation):
+- Transactions up to 0.1 ETH
+- All message signing (for SIWA authentication)
+- All EIP-7702 authorization signing
+
+Policies can restrict by chain, contract allowlist, spending limits, message patterns, and more. See the full documentation for policy structure and examples: [https://siwa.builders.garden/docs#policies](https://siwa.builders.garden/docs#policies)
+
+**Environment variable**: Set `KEYRING_POLICY_ADMIN_SECRET` on the proxy for a separate admin secret that can create/update/delete policies, while the regular `KEYRING_PROXY_SECRET` can only sign and read policies.
+
 ## Important Notes
 
 - **Private keys are NEVER accessible to you.** All signing is delegated to the keyring proxy over HMAC-authenticated HTTP. This is by design — even if you are compromised, the key cannot be extracted.
+- **Signing is policy-controlled.** The proxy evaluates every signing request against attached policies before using the key. If no ALLOW rule matches (or any DENY rule fires), the request is rejected.
 - **NEVER call the keyring proxy HTTP endpoints directly.** Always use the SDK functions (`createWallet()`, `signMessage()`, etc. from `@buildersgarden/siwa/keystore`) or the CLI commands listed above. The proxy uses a specific HMAC-SHA256 authentication protocol that the SDK handles internally — hand-crafting HTTP requests to the proxy will fail. If you cannot install the SDK, see the "Fallback: Manual HMAC authentication" section in SKILL.md for the exact protocol specification.
 - **MEMORY.md** in `siwa/packages/siwa-testing/` contains your public identity state (address, agentId, registration status). Read it to know your current state.
 - **Proxy backend is auto-detected** from `KEYRING_PROXY_URL` — no need to set `KEYSTORE_BACKEND` manually.
@@ -96,8 +110,10 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
 ```
 You (OpenClaw Agent)          Keyring Proxy (keyring-proxy:3100)     SIWA Server (siwa-server:3000)
   |                             |                                      |
-  +-- signMessage() ----------> | Signs with real private key          |
-  |   (via proxy backend)       | Returns signature only               |
+  +-- signMessage() ----------> | 1. Validates HMAC auth               |
+  |   (via proxy backend)       | 2. Evaluates policies                |
+  |                             | 3. Signs (if policy allows)          |
+  |                             | Returns signature only               |
   |                             |                                      |
   +-- SIWA sign-in -------------|------------------------------------> |
   |   (signed challenge)        |                                      | Verifies signature
@@ -109,3 +125,4 @@ You (OpenClaw Agent)          Keyring Proxy (keyring-proxy:3100)     SIWA Server
 - Full skill documentation: `siwa/SKILL.md`
 - Security model: `siwa/references/security-model.md`
 - SIWA protocol spec: `siwa/references/siwa-spec.md`
+- Signing policies: [https://siwa.builders.garden/docs#policies](https://siwa.builders.garden/docs#policies)

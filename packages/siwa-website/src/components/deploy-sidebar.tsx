@@ -32,6 +32,15 @@ const sections = [
     ],
   },
   {
+    title: "Signing Policies",
+    id: "signing-policies",
+    children: [
+      { title: "Default Policy", id: "default-policy" },
+      { title: "Policy Admin", id: "policy-admin" },
+      { title: "Persistence", id: "policy-persistence" },
+    ],
+  },
+  {
     title: "Existing Wallet",
     id: "existing-wallet",
     children: [],

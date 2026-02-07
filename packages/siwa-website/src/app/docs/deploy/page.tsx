@@ -175,7 +175,7 @@ export default function DeployPage() {
             <Table
               headers={["Service", "Image", "Purpose"]}
               rows={[
-                ["keyring-proxy", "packages/keyring-proxy/Dockerfile", "Holds encrypted keys, HMAC-auth signing API"],
+                ["keyring-proxy", "packages/keyring-proxy/Dockerfile", "Holds encrypted keys, policy engine, HMAC-auth signing API"],
                 ["openclaw-gateway", "Docker image (optional)", "AI agent gateway with SIWA skill installed"],
               ]}
             />
@@ -183,7 +183,7 @@ export default function DeployPage() {
   |
   +---> keyring-proxy
   |     KEYSTORE_BACKEND=encrypted-file
-  |     Signs messages, never exposes keys
+  |     Policy engine + signing
   |     (private networking)
   |
   +---> openclaw-gateway   [optional]
@@ -191,6 +191,9 @@ export default function DeployPage() {
         Delegates signing to keyring-proxy`}</CodeBlock>
             <P>
               Railway auto-provisions private DNS between services in the same project. The openclaw-gateway reaches the keyring-proxy at its internal URL — no public exposure needed.
+            </P>
+            <P>
+              The keyring-proxy includes a <strong className="text-foreground">policy engine</strong> that validates every signing request against configurable rules. This provides guardrails — even if your agent is compromised, it can only sign operations allowed by its policies.
             </P>
           </SubSection>
         </Section>
@@ -276,11 +279,16 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
               headers={["Variable", "Required", "Description"]}
               rows={[
                 ["KEYRING_PROXY_SECRET", "Yes", "Shared HMAC secret. Must match openclaw-gateway (if deployed)."],
+                ["KEYRING_POLICY_ADMIN_SECRET", "No", "Separate secret for policy management. If not set, KEYRING_PROXY_SECRET is used."],
                 ["KEYSTORE_BACKEND", "No", "Defaults to encrypted-file. Set to 'env' to use AGENT_PRIVATE_KEY."],
                 ["KEYSTORE_PASSWORD", "Conditional", "Required when KEYSTORE_BACKEND=encrypted-file."],
                 ["AGENT_PRIVATE_KEY", "Conditional", "Required when KEYSTORE_BACKEND=env. Hex-encoded private key (0x...)."],
+                ["POLICY_STORE_PATH", "No", "Path to policies JSON file. Defaults to ./data/policies.json."],
               ]}
             />
+            <P>
+              <strong className="text-foreground">Two-tier authentication:</strong> When <InlineCode>KEYRING_POLICY_ADMIN_SECRET</InlineCode> is set, you get separate access levels. The regular secret can sign and read policies; the admin secret can also create, update, and delete policies. This lets your agent sign messages while restricting who can change the guardrails.
+            </P>
           </SubSection>
 
           <SubSection id="env-openclaw" title="openclaw-gateway (optional)">
@@ -295,6 +303,64 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
               Use Railway&apos;s shared variables to keep <InlineCode>KEYRING_PROXY_SECRET</InlineCode> in sync between both services.
             </P>
           </SubSection>
+        </Section>
+
+        {/* Signing Policies */}
+        <Section id="signing-policies" title="Signing Policies">
+          <P>
+            The keyring-proxy includes a policy engine that controls what your agent can sign. Policies are automatically persisted to <InlineCode>POLICY_STORE_PATH</InlineCode> (defaults to <InlineCode>./data/policies.json</InlineCode>).
+          </P>
+
+          <SubSection id="default-policy" title="Default Policy">
+            <P>
+              When you create a wallet via <InlineCode>POST /create-wallet</InlineCode>, a default policy is automatically attached that allows:
+            </P>
+            <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
+              <li>Transactions up to 0.1 ETH in value</li>
+              <li>All message signing (for SIWA authentication)</li>
+              <li>All EIP-7702 authorization signing</li>
+            </ul>
+            <P>
+              To skip the default policy and use your own, pass <InlineCode>{`{ "skip_default_policy": true }`}</InlineCode> when creating the wallet.
+            </P>
+          </SubSection>
+
+          <SubSection id="policy-admin" title="Policy Administration">
+            <P>
+              Policy management endpoints (create, update, delete) require authentication. You have two options:
+            </P>
+            <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
+              <li><strong className="text-foreground">Single secret:</strong> Use <InlineCode>KEYRING_PROXY_SECRET</InlineCode> for both signing and policy management.</li>
+              <li><strong className="text-foreground">Two-tier:</strong> Set <InlineCode>KEYRING_POLICY_ADMIN_SECRET</InlineCode> for a separate admin secret. Your agent uses the regular secret for signing; only admins with the policy secret can change the rules.</li>
+            </ul>
+            <CodeBlock>{`# Generate separate secrets
+KEYRING_PROXY_SECRET=$(openssl rand -hex 32)
+KEYRING_POLICY_ADMIN_SECRET=$(openssl rand -hex 32)`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="policy-persistence" title="Persistence">
+            <P>
+              Policies and wallet-policy bindings are stored in a JSON file. On Railway, this file persists across deploys if you attach a volume to <InlineCode>/app/data</InlineCode>.
+            </P>
+            <P>
+              Without a volume, policies will reset on each deploy. For production, either:
+            </P>
+            <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
+              <li>Attach a Railway volume to persist the policy store</li>
+              <li>Use the API to recreate policies programmatically on startup</li>
+            </ul>
+          </SubSection>
+
+          <P>
+            For full policy documentation including rule structure, field sources, and examples, see{" "}
+            <a
+              href="/docs#policies"
+              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+            >
+              Signing Policies
+            </a>
+            {" "}in the main documentation.
+          </P>
         </Section>
 
         {/* Use an Existing Wallet */}
