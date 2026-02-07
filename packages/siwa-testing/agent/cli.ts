@@ -5,6 +5,8 @@ import { registerFlow } from './flows/register.js';
 import { signInFlow, callApiFlow } from './flows/sign-in.js';
 import { testKeystoreFlow } from './flows/test-keystore.js';
 import { testProxyFlow } from './flows/test-proxy.js';
+import { testProxyPoliciesFlow } from './flows/test-proxy-policies.js';
+import { testAdvancedPoliciesFlow } from './flows/test-proxy-policies-advanced.js';
 import { readMemory, hasWalletRecord, isRegistered } from '@buildersgarden/siwa/memory';
 import { hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
 import { config, getKeystoreConfig } from './config.js';
@@ -29,6 +31,8 @@ function printUsage(): void {
   console.log('  status         Print current MEMORY.md state + keystore status');
   console.log('  test-keystore  Run keystore encryption/decryption tests');
   console.log('  test-proxy     Run keyring proxy tests (requires running proxy server)');
+  console.log('  test-policies  Run keyring proxy policy tests (requires running proxy server)');
+  console.log('  test-policies-advanced  Run advanced policy tests (calldata, message, 7702)');
   console.log('');
 }
 
@@ -163,6 +167,16 @@ async function main(): Promise<void> {
       }
       case 'test-proxy': {
         const ok = await testProxyFlow();
+        if (!ok) process.exit(1);
+        break;
+      }
+      case 'test-policies': {
+        const ok = await testProxyPoliciesFlow();
+        if (!ok) process.exit(1);
+        break;
+      }
+      case 'test-policies-advanced': {
+        const ok = await testAdvancedPoliciesFlow();
         if (!ok) process.exit(1);
         break;
       }

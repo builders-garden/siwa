@@ -13,6 +13,9 @@ agent-keystore.json
 # Agent state (generated per-agent)
 MEMORY.md
 
+# Policy storage (runtime data)
+packages/keyring-proxy/data/
+
 # Build output
 dist/
 *.tsbuildinfo

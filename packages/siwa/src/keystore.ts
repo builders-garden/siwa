@@ -381,7 +381,7 @@ export async function signAuthorization(
     return data as SignedAuthorization;
   }
 
-  const wallet = await _loadWalletInternal(config);
+  let wallet = await _loadWalletInternal(config);
   if (!wallet) throw new Error('No wallet found. Run createWallet() first.');
 
   // ethers v6.14.3+ exposes wallet.authorize()
@@ -390,6 +390,16 @@ export async function signAuthorization(
       'wallet.authorize() not available. EIP-7702 requires ethers >= 6.14.3. ' +
       'Run: pnpm add ethers@latest'
     );
+  }
+
+  // ethers.authorize() calls getTransactionCount even with explicit nonce
+  // Add a mock provider to enable offline signing when no provider is attached
+  if (!wallet.provider) {
+    const nonceToUse = auth.nonce ?? 0;
+    const mockProvider = {
+      getTransactionCount: async () => nonceToUse,
+    } as unknown as ethers.Provider;
+    wallet = wallet.connect(mockProvider);
   }
 
   const authorization = await (wallet as any).authorize({

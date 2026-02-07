@@ -69,8 +69,8 @@ export function verifyHmac(
     .digest('hex');
 
   // Constant-time comparison
-  const sigBuf = Buffer.from(signature, 'utf-8');
-  const expBuf = Buffer.from(expected, 'utf-8');
+  const sigBuf = new Uint8Array(Buffer.from(signature, 'utf-8'));
+  const expBuf = new Uint8Array(Buffer.from(expected, 'utf-8'));
   if (sigBuf.length !== expBuf.length) {
     return { valid: false, error: 'Signature mismatch' };
   }
