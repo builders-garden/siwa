@@ -11,7 +11,7 @@
 #
 # Run standalone:
 #   docker run -d --name keyring-proxy \
-#     -e OPENCLAW_PROXY_SECRET=<your-secret> \
+#     -e KEYRING_PROXY_SECRET=<your-secret> \
 #     -e KEYSTORE_BACKEND=encrypted-file \
 #     -e KEYSTORE_PASSWORD=<your-password> \
 #     -v siwa-keystore:/app/packages/siwa-testing \

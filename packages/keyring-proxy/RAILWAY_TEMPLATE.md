@@ -29,7 +29,7 @@ The keyring proxy requires these environment variables:
 
 | Variable                | Required    | Description                                                        |
 | ----------------------- | ----------- | ------------------------------------------------------------------ |
-| `OPENCLAW_PROXY_SECRET` | Yes         | Shared HMAC-SHA256 secret. Must match your agent.                  |
+| `KEYRING_PROXY_SECRET` | Yes         | Shared HMAC-SHA256 secret. Must match your agent.                  |
 | `KEYSTORE_PASSWORD`     | Conditional | Password for the encrypted-file keystore (default backend).        |
 | `AGENT_PRIVATE_KEY`     | Conditional | Hex-encoded private key (0x...) to use an existing wallet instead. |
 

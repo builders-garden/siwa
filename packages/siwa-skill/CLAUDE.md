@@ -10,11 +10,11 @@ Before using any signing capabilities, a **keyring proxy** must be running — i
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W)
 
-Set `OPENCLAW_PROXY_SECRET` (shared HMAC secret) and either `KEYSTORE_PASSWORD` (for encrypted-file backend) or `AGENT_PRIVATE_KEY` (to use an existing wallet). After deployment, configure your agent with:
+Set `KEYRING_PROXY_SECRET` (shared HMAC secret) and either `KEYSTORE_PASSWORD` (for encrypted-file backend) or `AGENT_PRIVATE_KEY` (to use an existing wallet). After deployment, configure your agent with:
 
 ```
 KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
-OPENCLAW_PROXY_SECRET=<your-shared-secret>
+KEYRING_PROXY_SECRET=<your-shared-secret>
 ```
 
 For full deployment instructions (Docker, local dev, OpenClaw gateway): [https://siwa.builders.garden/docs/deploy](https://siwa.builders.garden/docs/deploy)
@@ -111,7 +111,7 @@ The keyring proxy includes a **policy engine** that controls what you can sign. 
 
 Policies can restrict by chain, contract allowlist, spending limits, message patterns, and more. See the full documentation for policy structure and examples: [https://siwa.builders.garden/docs#policies](https://siwa.builders.garden/docs#policies)
 
-**Environment variable**: Set `KEYRING_POLICY_ADMIN_SECRET` on the proxy for a separate admin secret that can create/update/delete policies, while the regular `OPENCLAW_PROXY_SECRET` can only sign and read policies.
+**Environment variable**: Set `KEYRING_POLICY_ADMIN_SECRET` on the proxy for a separate admin secret that can create/update/delete policies, while the regular `KEYRING_PROXY_SECRET` can only sign and read policies.
 
 ## Important Notes
 

@@ -26,7 +26,7 @@ services:
     ports:
       - "${KEYRING_PROXY_PORT:-3100}:3100"
     environment:
-      - OPENCLAW_PROXY_SECRET=${OPENCLAW_PROXY_SECRET}
+      - KEYRING_PROXY_SECRET=${KEYRING_PROXY_SECRET}
       - KEYRING_PROXY_PORT=3100
       - KEYSTORE_BACKEND=encrypted-file
       - KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}
@@ -57,7 +57,7 @@ services:
       - "${OPENCLAW_PORT:-18789}:18789"
     environment:
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
-      - OPENCLAW_PROXY_SECRET=${OPENCLAW_PROXY_SECRET}
+      - KEYRING_PROXY_SECRET=${KEYRING_PROXY_SECRET}
     volumes:
       - openclaw-home:/home/node
       - openclaw-config:/home/node/.openclaw
@@ -73,7 +73,7 @@ services:
     profiles: ["cli"]
     environment:
       - KEYRING_PROXY_URL=http://keyring-proxy:3100
-      - OPENCLAW_PROXY_SECRET=${OPENCLAW_PROXY_SECRET}
+      - KEYRING_PROXY_SECRET=${KEYRING_PROXY_SECRET}
     volumes:
       - openclaw-home:/home/node
       - openclaw-config:/home/node/.openclaw

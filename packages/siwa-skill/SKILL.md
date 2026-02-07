@@ -75,8 +75,8 @@ signMessage("hello")
 | Variable                      | Used by      | Purpose                                                                               |
 | ----------------------------- | ------------ | ------------------------------------------------------------------------------------- |
 | `KEYRING_PROXY_URL`           | Agent        | Proxy server URL — private (e.g. `http://keyring-proxy:3100`) or public               |
-| `OPENCLAW_PROXY_SECRET`       | Both         | HMAC shared secret for signing operations                                             |
-| `KEYRING_POLICY_ADMIN_SECRET` | Proxy server | Separate secret for policy management (optional, defaults to `OPENCLAW_PROXY_SECRET`) |
+| `KEYRING_PROXY_SECRET`       | Both         | HMAC shared secret for signing operations                                             |
+| `KEYRING_POLICY_ADMIN_SECRET` | Proxy server | Separate secret for policy management (optional, defaults to `KEYRING_PROXY_SECRET`) |
 | `KEYRING_PROXY_PORT`          | Proxy server | Listen port (default: 3100)                                                           |
 | `AGENT_PRIVATE_KEY`           | Proxy server | Hex-encoded private key (0x...) — use an existing wallet instead of generating one    |
 | `KEYSTORE_PASSWORD`           | Proxy server | Password for the encrypted-file keystore (not needed with `AGENT_PRIVATE_KEY`)        |
@@ -115,7 +115,7 @@ npm install @buildersgarden/siwa
 
 ```
 KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
-OPENCLAW_PROXY_SECRET=<your-shared-secret>
+KEYRING_PROXY_SECRET=<your-shared-secret>
 ```
 
 **Step 3 — Use the SDK functions** (never call the proxy HTTP endpoints directly):
@@ -132,7 +132,7 @@ const { signature } = await signMessage(msg); // SDK handles HMAC auth internall
 const address = await getAddress(); // SDK handles HMAC auth internally
 ```
 
-The SDK reads `KEYRING_PROXY_URL` and `OPENCLAW_PROXY_SECRET` from environment variables and constructs the correct HMAC headers automatically.
+The SDK reads `KEYRING_PROXY_URL` and `KEYRING_PROXY_SECRET` from environment variables and constructs the correct HMAC headers automatically.
 
 ### Fallback: Manual HMAC authentication (without SDK)
 
@@ -173,7 +173,7 @@ HMAC-SHA256(secret, "POST\n/create-wallet\n1738792800000\n{}") → hex digest
 import crypto from "crypto";
 
 const PROXY_URL = process.env.KEYRING_PROXY_URL;
-const SECRET = process.env.OPENCLAW_PROXY_SECRET;
+const SECRET = process.env.KEYRING_PROXY_SECRET;
 
 async function proxyRequest(path: string, body: Record<string, unknown> = {}) {
   const bodyStr = JSON.stringify(body);
@@ -211,7 +211,7 @@ const sig = await proxyRequest("/sign-message", { message: "hello" }); // { sign
 import hmac, hashlib, json, time, requests, os
 
 PROXY_URL = os.environ["KEYRING_PROXY_URL"]
-SECRET = os.environ["OPENCLAW_PROXY_SECRET"]
+SECRET = os.environ["KEYRING_PROXY_SECRET"]
 
 def proxy_request(path, body=None):
     if body is None:
@@ -425,7 +425,7 @@ Policies are managed via the keyring proxy API. All endpoints require HMAC authe
 | `POST /wallets/:address/policies`       | Admin   | Attach a policy to a wallet        |
 | `DELETE /wallets/:address/policies/:id` | Admin   | Detach a policy from a wallet      |
 
-**Two-tier authentication**: If `KEYRING_POLICY_ADMIN_SECRET` is set, the regular secret (`OPENCLAW_PROXY_SECRET`) can only read policies and sign, while the admin secret can also create, update, and delete policies.
+**Two-tier authentication**: If `KEYRING_POLICY_ADMIN_SECRET` is set, the regular secret (`KEYRING_PROXY_SECRET`) can only read policies and sign, while the admin secret can also create, update, and delete policies.
 
 > Full policy documentation: [https://siwa.builders.garden/docs#policies](https://siwa.builders.garden/docs#policies)
 
@@ -445,7 +445,7 @@ This deploys a single `keyring-proxy` service built from `packages/keyring-proxy
 
 | Variable                | Required    | Description                                                        |
 | ----------------------- | ----------- | ------------------------------------------------------------------ |
-| `OPENCLAW_PROXY_SECRET` | Yes         | Shared HMAC-SHA256 secret. Must match your agent.                  |
+| `KEYRING_PROXY_SECRET` | Yes         | Shared HMAC-SHA256 secret. Must match your agent.                  |
 | `KEYSTORE_PASSWORD`     | Conditional | Password for the encrypted-file keystore (default backend).        |
 | `AGENT_PRIVATE_KEY`     | Conditional | Hex-encoded private key (0x...) to use an existing wallet instead. |
 
@@ -458,7 +458,7 @@ After deployment, note the proxy URL (e.g. `https://your-keyring-proxy.up.railwa
 ```bash
 docker build -f packages/keyring-proxy/Dockerfile -t keyring-proxy .
 docker run -p 3100:3100 \
-  -e OPENCLAW_PROXY_SECRET=your-secret \
+  -e KEYRING_PROXY_SECRET=your-secret \
   -e KEYSTORE_PASSWORD=your-password \
   keyring-proxy
 ```
@@ -474,7 +474,7 @@ Once the proxy is running, set these environment variables on the agent:
 
 ```
 KEYRING_PROXY_URL=http://localhost:3100   # or your Railway URL
-OPENCLAW_PROXY_SECRET=your-shared-secret
+KEYRING_PROXY_SECRET=your-shared-secret
 ```
 
 The `proxy` keystore backend is auto-detected when `KEYRING_PROXY_URL` is set — no need to set `KEYSTORE_BACKEND` manually.

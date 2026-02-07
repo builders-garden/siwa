@@ -109,7 +109,7 @@ cd packages/siwa-testing
 pnpm run reset
 KEYSTORE_BACKEND=proxy \
   KEYRING_PROXY_URL=http://localhost:3100 \
-  OPENCLAW_PROXY_SECRET=test-secret-123 \
+  KEYRING_PROXY_SECRET=test-secret-123 \
   SERVER_URL=http://localhost:3000 \
   SERVER_DOMAIN=localhost:3000 \
   pnpm run agent:flow

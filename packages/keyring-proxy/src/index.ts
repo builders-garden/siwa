@@ -12,11 +12,11 @@
  *   - Optional separate admin secret for policy management
  *
  * Usage:
- *   OPENCLAW_PROXY_SECRET=<secret> KEYSTORE_BACKEND=encrypted-file \
+ *   KEYRING_PROXY_SECRET=<secret> KEYSTORE_BACKEND=encrypted-file \
  *     KEYSTORE_PASSWORD=<password> tsx src/index.ts
  *
  * Environment:
- *   OPENCLAW_PROXY_SECRET        — Required. Shared HMAC secret for signing operations.
+ *   KEYRING_PROXY_SECRET        — Required. Shared HMAC secret for signing operations.
  *   KEYRING_POLICY_ADMIN_SECRET — Optional. Separate secret for policy management.
  *   KEYRING_PROXY_PORT          — Listen port (default: 3100)
  *   KEYSTORE_BACKEND            — Backend for the proxy's own keystore (must NOT be "proxy")
@@ -66,9 +66,9 @@ import { createDefaultPolicy } from "./default-policy.js";
 // Config
 // ---------------------------------------------------------------------------
 
-const SECRET = process.env.OPENCLAW_PROXY_SECRET;
+const SECRET = process.env.KEYRING_PROXY_SECRET;
 if (!SECRET) {
-  console.error("FATAL: OPENCLAW_PROXY_SECRET is required");
+  console.error("FATAL: KEYRING_PROXY_SECRET is required");
   process.exit(1);
 }
 

@@ -45,7 +45,7 @@ export const config = {
       ? "proxy"
       : "encrypted-file")) as KeystoreBackend,
   keyringProxyUrl: process.env.KEYRING_PROXY_URL || "",
-  keyringProxySecret: process.env.OPENCLAW_PROXY_SECRET || "",
+  keyringProxySecret: process.env.KEYRING_PROXY_SECRET || "",
   templatePath: path.resolve(skillRoot, "assets", "MEMORY.template.md"),
   registrationFile:
     process.env.REGISTRATION_FILE ||
