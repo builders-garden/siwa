@@ -21,9 +21,9 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm install --filter @buildersgarden/siwa... --no-frozen-lockfile
 
-      - run: pnpm build
+      - run: pnpm --filter @buildersgarden/siwa build
 
       - run: npm publish --provenance --access public
         working-directory: packages/siwa
