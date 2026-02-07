@@ -5,10 +5,20 @@
  * Provides message building, signing (agent-side), and verification (server-side).
  *
  * Dependencies:
- *   npm install ethers
+ *   npm install viem
  */
 
-import { ethers } from 'ethers';
+import {
+  createPublicClient,
+  http,
+  verifyMessage,
+  hashMessage,
+  getAddress as checksumAddress,
+  type PublicClient,
+  type Hex,
+  type Address,
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import * as crypto from 'crypto';
 import { AgentProfile, getAgent, getReputation, ServiceType, TrustModel } from './registry.js';
 
@@ -199,14 +209,15 @@ export async function signSIWAMessageUnsafe(
   privateKey: string,
   fields: SIWAMessageFields
 ): Promise<{ message: string; signature: string }> {
-  const wallet = new ethers.Wallet(privateKey);
+  const hexKey = (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) as Hex;
+  const account = privateKeyToAccount(hexKey);
 
-  if (wallet.address.toLowerCase() !== fields.address.toLowerCase()) {
-    throw new Error(`Address mismatch: wallet is ${wallet.address}, message says ${fields.address}`);
+  if (account.address.toLowerCase() !== fields.address.toLowerCase()) {
+    throw new Error(`Address mismatch: wallet is ${account.address}, message says ${fields.address}`);
   }
 
   const message = buildSIWAMessage(fields);
-  const signature = await wallet.signMessage(message);
+  const signature = await account.signMessage({ message });
 
   return { message, signature };
 }
@@ -229,7 +240,7 @@ export async function signSIWAMessageUnsafe(
  * @param signature  EIP-191 signature hex string
  * @param expectedDomain  The server's domain (for domain binding)
  * @param nonceValid  Callback that returns true if the nonce is valid and unconsumed
- * @param provider   ethers Provider for onchain verification
+ * @param client   viem PublicClient for onchain verification
  * @param criteria   Optional criteria to validate agent profile/reputation after ownership check
  */
 export async function verifySIWA(
@@ -237,7 +248,7 @@ export async function verifySIWA(
   signature: string,
   expectedDomain: string,
   nonceValid: (nonce: string) => boolean | Promise<boolean>,
-  provider: ethers.Provider,
+  client: PublicClient,
   criteria?: SIWAVerifyCriteria
 ): Promise<SIWAVerificationResult> {
   try {
@@ -245,12 +256,19 @@ export async function verifySIWA(
     const fields = parseSIWAMessage(message);
 
     // 2. Recover signer
-    const recovered = ethers.verifyMessage(message, signature);
+    const isValid = await verifyMessage({
+      address: fields.address as Address,
+      message,
+      signature: signature as Hex,
+    });
 
-    // 3. Address match
-    if (recovered.toLowerCase() !== fields.address.toLowerCase()) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Recovered address does not match message address' };
+    if (!isValid) {
+      return { valid: false, address: fields.address, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Invalid signature' };
     }
+
+    const recovered = fields.address;
+
+    // 3. Address match is implicit in verifyMessage (it checks against the address)
 
     // 4. Domain binding
     if (fields.domain !== expectedDomain) {
@@ -277,27 +295,27 @@ export async function verifySIWA(
     if (registryParts.length !== 3 || registryParts[0] !== 'eip155') {
       return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Invalid agentRegistry format' };
     }
-    const registryAddress = registryParts[2];
+    const registryAddress = registryParts[2] as Address;
 
-    const registry = new ethers.Contract(
-      registryAddress,
-      ['function ownerOf(uint256) view returns (address)'],
-      provider
-    );
-    const owner = await registry.ownerOf(fields.agentId);
+    const owner = await client.readContract({
+      address: registryAddress,
+      abi: [{ name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] }] as const,
+      functionName: 'ownerOf',
+      args: [BigInt(fields.agentId)],
+    });
 
-    if (owner.toLowerCase() !== recovered.toLowerCase()) {
+    if ((owner as string).toLowerCase() !== recovered.toLowerCase()) {
       // 7b. ERC-1271 fallback for smart contract wallets / EIP-7702 delegated accounts.
       // If ecrecover doesn't match the NFT owner, the owner may be a contract
       // that validates signatures via isValidSignature (ERC-1271).
-      const messageHash = ethers.hashMessage(message);
+      const messageHash = hashMessage(message);
       try {
-        const ownerContract = new ethers.Contract(
-          owner,
-          ['function isValidSignature(bytes32, bytes) view returns (bytes4)'],
-          provider
-        );
-        const magicValue = await ownerContract.isValidSignature(messageHash, signature);
+        const magicValue = await client.readContract({
+          address: owner as Address,
+          abi: [{ name: 'isValidSignature', type: 'function', stateMutability: 'view', inputs: [{ name: 'hash', type: 'bytes32' }, { name: 'signature', type: 'bytes' }], outputs: [{ name: '', type: 'bytes4' }] }] as const,
+          functionName: 'isValidSignature',
+          args: [messageHash, signature as Hex],
+        });
         // ERC-1271 magic value: 0x1626ba7e
         if (magicValue !== '0x1626ba7e') {
           return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)' };
@@ -322,7 +340,7 @@ export async function verifySIWA(
 
     const agent = await getAgent(fields.agentId, {
       registryAddress: registryAddress,
-      provider,
+      client,
       fetchMetadata: true,
     });
     baseResult.agent = agent;
@@ -357,7 +375,7 @@ export async function verifySIWA(
       }
       const rep = await getReputation(fields.agentId, {
         reputationRegistryAddress: criteria.reputationRegistryAddress,
-        provider,
+        client,
       });
       if (criteria.minFeedbackCount !== undefined && rep.count < criteria.minFeedbackCount) {
         return { ...baseResult, valid: false, error: `Agent feedback count ${rep.count} below minimum ${criteria.minFeedbackCount}` };

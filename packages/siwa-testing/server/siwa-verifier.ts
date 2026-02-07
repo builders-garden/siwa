@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { verifyMessage, hashMessage, type PublicClient, type Address, type Hex } from 'viem';
 import { parseSIWAMessage } from '@buildersgarden/siwa/siwa';
 
 export interface SIWAVerifyResult {
@@ -16,29 +16,34 @@ export async function verifySIWARequest(
   signature: string,
   domain: string,
   nonceValidator: (nonce: string) => boolean,
-  provider?: ethers.Provider | null
+  client?: PublicClient | null
 ): Promise<SIWAVerifyResult> {
   try {
     // 1. Parse the SIWA message
     const fields = parseSIWAMessage(message);
 
-    // 2. Recover signer from EIP-191 signature
-    const recovered = ethers.verifyMessage(message, signature);
+    // 2. Verify EIP-191 signature
+    const isValidSignature = await verifyMessage({
+      address: fields.address as Address,
+      message,
+      signature: signature as Hex,
+    });
 
-    // 3. Check recovered address matches message address
-    if (recovered.toLowerCase() !== fields.address.toLowerCase()) {
+    if (!isValidSignature) {
       return {
         valid: false,
-        address: recovered,
+        address: fields.address,
         agentId: fields.agentId,
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
-        error: 'Recovered address does not match message address',
+        error: 'Invalid signature',
       };
     }
 
-    // 4. Validate domain matches expected domain
+    const recovered = fields.address;
+
+    // 3. Validate domain matches expected domain
     if (fields.domain !== domain) {
       return {
         valid: false,
@@ -51,7 +56,7 @@ export async function verifySIWARequest(
       };
     }
 
-    // 5. Validate nonce
+    // 4. Validate nonce
     if (!nonceValidator(fields.nonce)) {
       return {
         valid: false,
@@ -64,7 +69,7 @@ export async function verifySIWARequest(
       };
     }
 
-    // 6. Check time window
+    // 5. Check time window
     const now = new Date();
     if (fields.expirationTime && now > new Date(fields.expirationTime)) {
       return {
@@ -89,8 +94,8 @@ export async function verifySIWARequest(
       };
     }
 
-    // 7. Onchain verification (live mode only)
-    if (provider) {
+    // 6. Onchain verification (live mode only)
+    if (client) {
       const registryParts = fields.agentRegistry.split(':');
       if (registryParts.length !== 3 || registryParts[0] !== 'eip155') {
         return {
@@ -103,27 +108,27 @@ export async function verifySIWARequest(
           error: 'Invalid agentRegistry format',
         };
       }
-      const registryAddress = registryParts[2];
+      const registryAddress = registryParts[2] as Address;
 
-      const registry = new ethers.Contract(
-        registryAddress,
-        ['function ownerOf(uint256) view returns (address)'],
-        provider
-      );
-      const owner = await registry.ownerOf(fields.agentId);
+      const owner = await client.readContract({
+        address: registryAddress,
+        abi: [{ name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] }] as const,
+        functionName: 'ownerOf',
+        args: [BigInt(fields.agentId)],
+      });
 
-      if (owner.toLowerCase() !== recovered.toLowerCase()) {
+      if ((owner as string).toLowerCase() !== recovered.toLowerCase()) {
         // ERC-1271 fallback for smart contract wallets / EIP-7702 delegated accounts.
         // If ecrecover doesn't match the NFT owner, the owner may be a contract
         // that validates signatures via isValidSignature (ERC-1271).
-        const messageHash = ethers.hashMessage(message);
+        const messageHash = hashMessage(message);
         try {
-          const ownerContract = new ethers.Contract(
-            owner,
-            ['function isValidSignature(bytes32, bytes) view returns (bytes4)'],
-            provider
-          );
-          const magicValue = await ownerContract.isValidSignature(messageHash, signature);
+          const magicValue = await client.readContract({
+            address: owner as Address,
+            abi: [{ name: 'isValidSignature', type: 'function', stateMutability: 'view', inputs: [{ name: 'hash', type: 'bytes32' }, { name: 'signature', type: 'bytes' }], outputs: [{ name: '', type: 'bytes4' }] }] as const,
+            functionName: 'isValidSignature',
+            args: [messageHash, signature as Hex],
+          });
           // ERC-1271 magic value: 0x1626ba7e
           if (magicValue !== '0x1626ba7e') {
             return {

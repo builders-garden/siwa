@@ -54,15 +54,15 @@ Uses the same encrypted format as MetaMask, Geth, and MyEtherWallet:
 - **MAC**: Keccak-256 integrity check
 - **File on disk**: `agent-keystore.json` — contains only ciphertext, never the raw key
 
-This is built into ethers.js:
+This is implemented using viem with @noble/hashes (scrypt KDF) and @noble/ciphers (AES-128-CTR):
 
 ```typescript
-// Encrypt (on wallet creation)
-const json = await wallet.encrypt(password);
-fs.writeFileSync('./agent-keystore.json', json, { mode: 0o600 });
+import { scrypt } from '@noble/hashes/scrypt';
+import { ctr } from '@noble/ciphers/aes';
+import { keccak_256 } from '@noble/hashes/sha3';
 
-// Decrypt (on signing)
-const wallet = await ethers.Wallet.fromEncryptedJson(json, password);
+// Encrypt (on wallet creation) - see keystore.ts for full implementation
+// Decrypt (on signing) - key is loaded, used, and discarded immediately
 ```
 
 **How it resists prompt injection**: Even if an injection reads `agent-keystore.json`, it gets AES-encrypted ciphertext like:
@@ -144,7 +144,7 @@ hasWallet()              → boolean
 signMessage(msg)         → { signature, address }          // Key loaded, used, discarded
 signTransaction(tx)      → { signedTx, address }           // Key loaded, used, discarded
 signAuthorization(auth)  → SignedAuthorization              // EIP-7702 delegation signing
-getSigner(provider)      → ethers.Wallet                   // For contract calls (not available with proxy)
+getWalletClient(chain)   → WalletClient                     // For contract calls (not available with proxy)
 ```
 
 The private key exists in memory only during a signing call. With the proxy backend, the key never enters the agent process at all — it stays in the proxy server. With local backends, the key is loaded from the backend, used for the cryptographic operation, and then the `Wallet` object falls out of scope and is eligible for garbage collection. It is **never returned** to the calling code.
@@ -203,6 +203,8 @@ To rotate the agent's key while preserving its onchain identity:
 
 | Package | Required? | Purpose |
 |---|---|---|
-| `ethers` | **Yes** | Wallet operations, V3 keystore encryption, signing |
+| `viem` | **Yes** | Wallet operations, signing, contract interaction |
+| `@noble/hashes` | **Yes** | scrypt KDF for V3 keystore encryption |
+| `@noble/ciphers` | **Yes** | AES-128-CTR for V3 keystore encryption |
 
-No other dependencies are needed. The encrypted-file backend uses only `ethers` built-in functions.
+No other dependencies are needed. The encrypted-file backend uses viem for wallet operations and @noble libraries for V3 keystore encryption.

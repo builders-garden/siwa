@@ -118,8 +118,17 @@ await agent.registerIPFS(); // re-uploads and updates onchain
 Agent NFTs are standard ERC-721 and can be transferred:
 
 ```typescript
-const registry = new ethers.Contract(registryAddress, ['function transferFrom(address,address,uint256)'], signer);
-await registry.transferFrom(currentOwner, newOwner, agentId);
+import { createWalletClient, http } from 'viem';
+import { baseSepolia } from 'viem/chains';
+
+const walletClient = createWalletClient({ chain: baseSepolia, transport: http() });
+await walletClient.writeContract({
+  address: registryAddress,
+  abi: [{ name: 'transferFrom', type: 'function', inputs: [{ name: 'from', type: 'address' }, { name: 'to', type: 'address' }, { name: 'tokenId', type: 'uint256' }] }],
+  functionName: 'transferFrom',
+  args: [currentOwner, newOwner, agentId],
+  account
+});
 ```
 
 **Important**: On transfer, the `agentWallet` metadata is automatically cleared and must be re-verified by the new owner.

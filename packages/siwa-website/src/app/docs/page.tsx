@@ -257,9 +257,46 @@ import { readMemory, writeMemoryField } from '@buildersgarden/siwa/memory';
 import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
           </SubSection>
 
-          <SubSection id="sign-in" title="Sign In (Agent-Side)">
+          <SubSection id="sign-up" title="Step 3: Sign Up (Registration) — Optional">
             <P>
-              The agent authenticates with any SIWA-aware service in three steps:
+              If your agent is already registered onchain (has an <InlineCode>agentId</InlineCode>), skip to Step 4. Otherwise, register by creating a wallet, building a registration file, and calling the Identity Registry contract.
+            </P>
+            <CodeBlock>{`import { createWallet, signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
+import { writeMemoryField } from '@buildersgarden/siwa/memory';
+
+// 1. Create wallet (key goes to proxy, never returned)
+const info = await createWallet();
+writeMemoryField('Address', info.address);
+writeMemoryField('Keystore Backend', info.backend);
+
+// 2. Build registration JSON
+const registration = {
+  type: "AI Agent",
+  name: "My Agent",
+  description: "An ERC-8004 registered agent",
+  services: [{ type: "MCP", url: "https://api.example.com/mcp" }],
+  active: true
+};
+
+// 3. Upload to IPFS or use data URI
+const encoded = Buffer.from(JSON.stringify(registration)).toString('base64');
+const agentURI = \`data:application/json;base64,\${encoded}\`;
+
+// 4. Register onchain (sign via proxy)
+import { encodeFunctionData } from 'viem';
+
+const data = encodeFunctionData({
+  abi: [{ name: 'register', type: 'function', inputs: [{ name: 'agentURI', type: 'string' }], outputs: [{ type: 'uint256' }] }],
+  functionName: 'register',
+  args: [agentURI]
+});
+const { signedTx } = await signTransaction({ to: REGISTRY, data, ... });
+const txHash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx });`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="sign-in" title="Step 4: Sign In (SIWA Authentication)">
+            <P>
+              Authenticate with any SIWA-aware service using the challenge-response flow.
             </P>
             <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa';
 

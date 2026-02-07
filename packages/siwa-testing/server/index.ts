@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { ethers } from 'ethers';
+import { createPublicClient, http, type PublicClient } from 'viem';
 import { createNonce, validateNonce, getNonceCount } from './nonce-store.js';
 import { createSession, validateToken, getSessions, getSessionCount } from './session-store.js';
 import { verifySIWARequest } from './siwa-verifier.js';
@@ -13,9 +13,11 @@ const RPC_URL = process.env.RPC_URL;
 
 // Determine verification mode
 const isLiveMode = !!(RPC_URL && (process.env.VERIFICATION_MODE === 'live' || process.argv.includes('--live')));
-let provider: ethers.Provider | null = null;
+let client: PublicClient | null = null;
 if (isLiveMode && RPC_URL) {
-  provider = new ethers.JsonRpcProvider(RPC_URL);
+  client = createPublicClient({
+    transport: http(RPC_URL),
+  });
 }
 
 // Middleware
@@ -81,7 +83,7 @@ app.post('/siwa/verify', async (req, res) => {
     signature,
     SERVER_DOMAIN,
     validateNonce,
-    isLiveMode ? provider : null
+    isLiveMode ? client : null
   );
 
   if (!result.valid) {

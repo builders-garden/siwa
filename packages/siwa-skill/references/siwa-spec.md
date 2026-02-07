@@ -144,7 +144,7 @@ Content-Type: application/json
 The server MUST perform ALL of the following:
 
 1. **Parse** — Validate the message conforms to the SIWA ABNF format.
-2. **Recover** — Use `ecrecover` (via `ethers.verifyMessage`) to recover the signer address from the signature.
+2. **Recover** — Use `ecrecover` (via viem's `verifyMessage`) to recover the signer address from the signature.
 3. **Address match** — Confirm recovered address matches the `address` field in the message.
 4. **Domain binding** — Confirm the `domain` field matches the server's own origin.
 5. **Nonce** — Confirm the `nonce` was issued by this server and has not been consumed.
