@@ -15,6 +15,7 @@ COPY packages/keyring-proxy/src/ src/
 
 ENV KEYRING_PROXY_PORT=3100
 ENV KEYSTORE_BACKEND=encrypted-file
+ENV KEYSTORE_PATH=/data/agent-keystore.json
 
 EXPOSE 3100
 
