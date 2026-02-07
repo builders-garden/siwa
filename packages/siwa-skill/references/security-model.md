@@ -19,13 +19,13 @@ The key is then compromised, and the attacker controls the agent's onchain ident
 
 ### What we defend against
 
-| Threat | Description | Mitigation |
-|---|---|---|
-| **Prompt injection exfiltration** | Malicious input instructs the agent to read and leak the private key | Key is never in any file the agent reads into context |
-| **Context window leakage** | Key appears in the agent's working memory / LLM context | Key is loaded inside a function, used, and discarded — never returned |
-| **File system snooping** | Another process reads the key from disk | OS keychain uses encrypted storage with access controls; V3 keystore is AES-encrypted |
-| **Log / error exposure** | Key appears in stack traces, console output, or error messages | Signing functions return only signatures, never raw keys |
-| **Accidental commit** | Key is committed to version control | No file in the project ever contains the plaintext key |
+| Threat                            | Description                                                          | Mitigation                                                                            |
+| --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **Prompt injection exfiltration** | Malicious input instructs the agent to read and leak the private key | Key is never in any file the agent reads into context                                 |
+| **Context window leakage**        | Key appears in the agent's working memory / LLM context              | Key is loaded inside a function, used, and discarded — never returned                 |
+| **File system snooping**          | Another process reads the key from disk                              | OS keychain uses encrypted storage with access controls; V3 keystore is AES-encrypted |
+| **Log / error exposure**          | Key appears in stack traces, console output, or error messages       | Signing functions return only signatures, never raw keys                              |
+| **Accidental commit**             | Key is committed to version control                                  | No file in the project ever contains the plaintext key                                |
 
 ### What we do NOT defend against
 
@@ -57,9 +57,9 @@ Uses the same encrypted format as MetaMask, Geth, and MyEtherWallet:
 This is implemented using viem with @noble/hashes (scrypt KDF) and @noble/ciphers (AES-128-CTR):
 
 ```typescript
-import { scrypt } from '@noble/hashes/scrypt';
-import { ctr } from '@noble/ciphers/aes';
-import { keccak_256 } from '@noble/hashes/sha3';
+import { scrypt } from "@noble/hashes/scrypt";
+import { ctr } from "@noble/ciphers/aes";
+import { keccak_256 } from "@noble/hashes/sha3";
 
 // Encrypt (on wallet creation) - see keystore.ts for full implementation
 // Decrypt (on signing) - key is loaded, used, and discarded immediately
@@ -85,12 +85,12 @@ This is useless without the password. The password can itself be stored in the O
 
 The agent delegates all signing to a separate **keyring proxy server** over HMAC-authenticated HTTP. The proxy server holds the real keystore (any of the backends above) and performs all cryptographic operations. Even full agent compromise (arbitrary code execution) cannot extract the key — only request signatures.
 
-| Property | Detail |
-|---|---|
-| **Transport** | HMAC-SHA256 authenticated HTTP (30s replay window) |
-| **Key isolation** | Private key lives in a separate process; never enters agent memory |
-| **Audit** | Every signing request is logged with timestamp, path, source IP |
-| **Limitation** | `getSigner()` is not available — use `signMessage()` / `signTransaction()` |
+| Property          | Detail                                                                     |
+| ----------------- | -------------------------------------------------------------------------- |
+| **Transport**     | HMAC-SHA256 authenticated HTTP (30s replay window)                         |
+| **Key isolation** | Private key lives in a separate process; never enters agent memory         |
+| **Audit**         | Every signing request is logged with timestamp, path, source IP            |
+| **Limitation**    | `getSigner()` is not available — use `signMessage()` / `signTransaction()` |
 
 **Architecture:**
 
@@ -112,11 +112,11 @@ signMessage("hello")
 
 **Env vars:**
 
-| Variable | Used by | Purpose |
-|---|---|---|
-| `KEYRING_PROXY_URL` | Agent | Proxy server URL (e.g. `http://localhost:3100`) |
-| `KEYRING_PROXY_SECRET` | Both | HMAC shared secret |
-| `KEYRING_PROXY_PORT` | Proxy server | Listen port (default: 3100) |
+| Variable                | Used by      | Purpose                                         |
+| ----------------------- | ------------ | ----------------------------------------------- |
+| `KEYRING_PROXY_URL`     | Agent        | Proxy server URL (e.g. `http://localhost:3100`) |
+| `OPENCLAW_PROXY_SECRET` | Both         | HMAC shared secret                              |
+| `KEYRING_PROXY_PORT`    | Proxy server | Listen port (default: 3100)                     |
 
 **Deployment:** Deploy the keyring proxy to Railway with one click using the [Railway template](https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W), or run it via Docker / locally. Full deployment guide: [https://siwa.builders.garden/docs/deploy](https://siwa.builders.garden/docs/deploy).
 
@@ -159,16 +159,16 @@ This means:
 
 After this redesign, MEMORY.md stores only:
 
-| Field | Sensitive? | Example |
-|---|---|---|
-| Address | No (public) | `0x1234...abcd` |
-| Keystore Backend | No | `encrypted-file` |
-| Keystore Path | Low risk | `./agent-keystore.json` |
-| Agent ID | No (public) | `42` |
-| Agent Registry | No (public) | `eip155:84532:0x8004AA63...` |
-| Agent URI | No (public) | `ipfs://Qm...` |
-| Chain ID | No (public) | `84532` |
-| Sessions | Medium | Session tokens (short-lived) |
+| Field            | Sensitive?  | Example                      |
+| ---------------- | ----------- | ---------------------------- |
+| Address          | No (public) | `0x1234...abcd`              |
+| Keystore Backend | No          | `encrypted-file`             |
+| Keystore Path    | Low risk    | `./agent-keystore.json`      |
+| Agent ID         | No (public) | `42`                         |
+| Agent Registry   | No (public) | `eip155:84532:0x8004AA63...` |
+| Agent URI        | No (public) | `ipfs://Qm...`               |
+| Chain ID         | No (public) | `84532`                      |
+| Sessions         | Medium      | Session tokens (short-lived) |
 
 The **Private Key** field has been removed entirely.
 
@@ -201,10 +201,10 @@ To rotate the agent's key while preserving its onchain identity:
 
 ## Dependencies
 
-| Package | Required? | Purpose |
-|---|---|---|
-| `viem` | **Yes** | Wallet operations, signing, contract interaction |
-| `@noble/hashes` | **Yes** | scrypt KDF for V3 keystore encryption |
-| `@noble/ciphers` | **Yes** | AES-128-CTR for V3 keystore encryption |
+| Package          | Required? | Purpose                                          |
+| ---------------- | --------- | ------------------------------------------------ |
+| `viem`           | **Yes**   | Wallet operations, signing, contract interaction |
+| `@noble/hashes`  | **Yes**   | scrypt KDF for V3 keystore encryption            |
+| `@noble/ciphers` | **Yes**   | AES-128-CTR for V3 keystore encryption           |
 
 No other dependencies are needed. The encrypted-file backend uses viem for wallet operations and @noble libraries for V3 keystore encryption.

@@ -1,19 +1,12 @@
 import { Metadata } from "next";
 import { EndpointsSidebar } from "@/components/endpoints-sidebar";
+import { CodeBlock } from "@/components/code-block";
 
 export const metadata: Metadata = {
   title: "API Endpoints — SIWA",
   description:
     "Live SIWA server endpoints you can call to run the full Sign In With Agent authentication flow.",
 };
-
-function CodeBlock({ children }: { children: string }) {
-  return (
-    <pre className="overflow-x-auto rounded-lg border border-border bg-surface p-4 font-mono text-sm leading-relaxed text-muted">
-      <code>{children}</code>
-    </pre>
-  );
-}
 
 function Section({
   id,
@@ -166,7 +159,7 @@ export default function EndpointsPage() {
           </P>
 
           <SubSection id="base-url" title="Base URL">
-            <CodeBlock>{`https://siwa.builders.garden`}</CodeBlock>
+            <CodeBlock language="text">{`https://siwa.builders.garden`}</CodeBlock>
             <P>
               All endpoints accept and return <InlineCode>application/json</InlineCode>. CORS is enabled for all origins. You can also run a local instance with the{" "}
               <a
@@ -244,7 +237,7 @@ export default function EndpointsPage() {
             />
 
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
-            <CodeBlock>{`{
+            <CodeBlock language="json">{`{
   "nonce": "a1b2c3d4e5f6g7h8",
   "issuedAt": "2026-02-05T12:00:00.000Z",
   "expirationTime": "2026-02-05T12:05:00.000Z",
@@ -254,7 +247,7 @@ export default function EndpointsPage() {
 }`}</CodeBlock>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 400</h4>
-            <CodeBlock>{`{ "error": "Missing address" }`}</CodeBlock>
+            <CodeBlock language="json">{`{ "error": "Missing address" }`}</CodeBlock>
           </SubSection>
 
           <SubSection id="post-siwa-verify" title="Verify Signature">
@@ -273,7 +266,7 @@ export default function EndpointsPage() {
             />
 
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
-            <CodeBlock>{`{
+            <CodeBlock language="json">{`{
   "success": true,
   "token": "eyJhbGciOiJIUzI1NiIs...",
   "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
@@ -289,10 +282,10 @@ export default function EndpointsPage() {
             </P>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 400</h4>
-            <CodeBlock>{`{ "success": false, "error": "Missing message or signature" }`}</CodeBlock>
+            <CodeBlock language="json">{`{ "success": false, "error": "Missing message or signature" }`}</CodeBlock>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 401</h4>
-            <CodeBlock>{`{ "success": false, "error": "Signature mismatch" }`}</CodeBlock>
+            <CodeBlock language="json">{`{ "success": false, "error": "Signature mismatch" }`}</CodeBlock>
             <P>
               Other possible errors: <InlineCode>Invalid nonce</InlineCode>,{" "}
               <InlineCode>Message expired</InlineCode>,{" "}
@@ -308,7 +301,7 @@ export default function EndpointsPage() {
             These endpoints require a valid JWT token in the <InlineCode>Authorization</InlineCode> header.
             Get a token by completing the nonce + verify flow above.
           </P>
-          <CodeBlock>{`Authorization: Bearer <token>`}</CodeBlock>
+          <CodeBlock language="text">{`Authorization: Bearer <token>`}</CodeBlock>
 
           <SubSection id="get-api-protected" title="Test Auth">
             <EndpointHeader method="GET" path="/api/protected" auth />
@@ -317,7 +310,7 @@ export default function EndpointsPage() {
             </P>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
-            <CodeBlock>{`{
+            <CodeBlock language="json">{`{
   "message": "Hello Agent #42!",
   "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
   "agentId": 42,
@@ -325,7 +318,7 @@ export default function EndpointsPage() {
 }`}</CodeBlock>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 401</h4>
-            <CodeBlock>{`{ "error": "Unauthorized" }`}</CodeBlock>
+            <CodeBlock language="json">{`{ "error": "Unauthorized" }`}</CodeBlock>
           </SubSection>
 
           <SubSection id="post-api-agent-action" title="Agent Action">
@@ -344,7 +337,7 @@ export default function EndpointsPage() {
             />
 
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
-            <CodeBlock>{`{
+            <CodeBlock language="json">{`{
   "received": {
     "action": "transfer",
     "data": { "to": "0xabc...", "amount": "1.0" }
@@ -358,7 +351,7 @@ export default function EndpointsPage() {
 }`}</CodeBlock>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 401</h4>
-            <CodeBlock>{`{ "error": "Unauthorized" }`}</CodeBlock>
+            <CodeBlock language="json">{`{ "error": "Unauthorized" }`}</CodeBlock>
           </SubSection>
         </Section>
 
@@ -372,7 +365,7 @@ export default function EndpointsPage() {
             <P>
               <strong className="text-foreground">Step 1</strong> — Request a nonce:
             </P>
-            <CodeBlock>{`curl -s -X POST https://siwa.builders.garden/api/siwa/nonce \\
+            <CodeBlock language="bash">{`curl -s -X POST https://siwa.builders.garden/api/siwa/nonce \\
   -H "Content-Type: application/json" \\
   -d '{
     "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
@@ -383,7 +376,7 @@ export default function EndpointsPage() {
             <P>
               <strong className="text-foreground">Step 2</strong> — Build and sign the SIWA message using the nonce from step 1. Use the SDK or any EIP-191 signer:
             </P>
-            <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa';
+            <CodeBlock language="typescript">{`import { signSIWAMessage } from '@buildersgarden/siwa';
 
 const { message, signature } = await signSIWAMessage({
   domain: 'siwa.builders.garden',
@@ -401,7 +394,7 @@ const { message, signature } = await signSIWAMessage({
             <P>
               <strong className="text-foreground">Step 3</strong> — Submit message + signature for verification:
             </P>
-            <CodeBlock>{`curl -s -X POST https://siwa.builders.garden/api/siwa/verify \\
+            <CodeBlock language="bash">{`curl -s -X POST https://siwa.builders.garden/api/siwa/verify \\
   -H "Content-Type: application/json" \\
   -d '{
     "message": "<siwa-message-from-step-2>",
@@ -411,13 +404,13 @@ const { message, signature } = await signSIWAMessage({
             <P>
               <strong className="text-foreground">Step 4</strong> — Use the JWT token for authenticated requests:
             </P>
-            <CodeBlock>{`curl -s https://siwa.builders.garden/api/protected \\
+            <CodeBlock language="bash">{`curl -s https://siwa.builders.garden/api/protected \\
   -H "Authorization: Bearer <token-from-step-3>"`}</CodeBlock>
 
             <P>
               <strong className="text-foreground">Step 5</strong> — Submit an agent action:
             </P>
-            <CodeBlock>{`curl -s -X POST https://siwa.builders.garden/api/agent-action \\
+            <CodeBlock language="bash">{`curl -s -X POST https://siwa.builders.garden/api/agent-action \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <token-from-step-3>" \\
   -d '{

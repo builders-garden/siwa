@@ -1,15 +1,26 @@
-import type { KeystoreBackend } from '@buildersgarden/siwa/keystore';
+import type { KeystoreBackend } from "@buildersgarden/siwa/keystore";
 import {
-  REGISTRY_ADDRESSES, REPUTATION_ADDRESSES,
-  RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, BLOCK_EXPLORERS,
-} from '@buildersgarden/siwa/addresses';
-import * as path from 'path';
+  REGISTRY_ADDRESSES,
+  REPUTATION_ADDRESSES,
+  RPC_ENDPOINTS,
+  CHAIN_NAMES,
+  FAUCETS,
+  BLOCK_EXPLORERS,
+} from "@buildersgarden/siwa/addresses";
+import * as path from "path";
 
-const projectRoot = path.resolve(import.meta.dirname, '..');
-const skillRoot = path.resolve(projectRoot, '..', 'siwa-skill');
+const projectRoot = path.resolve(import.meta.dirname, "..");
+const skillRoot = path.resolve(projectRoot, "..", "siwa-skill");
 
 // Re-export address constants from SDK for consumers of this module
-export { REGISTRY_ADDRESSES, REPUTATION_ADDRESSES, RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, BLOCK_EXPLORERS };
+export {
+  REGISTRY_ADDRESSES,
+  REPUTATION_ADDRESSES,
+  RPC_ENDPOINTS,
+  CHAIN_NAMES,
+  FAUCETS,
+  BLOCK_EXPLORERS,
+};
 
 export function txUrl(chainId: number, txHash: string): string {
   const base = BLOCK_EXPLORERS[chainId];
@@ -22,27 +33,36 @@ export function addressUrl(chainId: number, address: string): string {
 }
 
 export const config = {
-  serverUrl: process.env.SERVER_URL || 'http://localhost:3000',
-  serverDomain: process.env.SERVER_DOMAIN || 'localhost:3000',
-  memoryPath: process.env.MEMORY_PATH || path.resolve(projectRoot, 'MEMORY.md'),
-  keystorePath: process.env.KEYSTORE_PATH || path.resolve(projectRoot, 'agent-keystore.json'),
-  keystorePassword: process.env.KEYSTORE_PASSWORD || 'test-password-local-only',
-  keystoreBackend: (process.env.KEYSTORE_BACKEND || (process.env.KEYRING_PROXY_URL ? 'proxy' : 'encrypted-file')) as KeystoreBackend,
-  keyringProxyUrl: process.env.KEYRING_PROXY_URL || '',
-  keyringProxySecret: process.env.KEYRING_PROXY_SECRET || '',
-  templatePath: path.resolve(skillRoot, 'assets', 'MEMORY.template.md'),
-  registrationFile: process.env.REGISTRATION_FILE || path.resolve(skillRoot, 'assets', 'registration-template.json'),
+  serverUrl: process.env.SERVER_URL || "http://localhost:3000",
+  serverDomain: process.env.SERVER_DOMAIN || "localhost:3000",
+  memoryPath: process.env.MEMORY_PATH || path.resolve(projectRoot, "MEMORY.md"),
+  keystorePath:
+    process.env.KEYSTORE_PATH ||
+    path.resolve(projectRoot, "agent-keystore.json"),
+  keystorePassword: process.env.KEYSTORE_PASSWORD || "test-password-local-only",
+  keystoreBackend: (process.env.KEYSTORE_BACKEND ||
+    (process.env.KEYRING_PROXY_URL
+      ? "proxy"
+      : "encrypted-file")) as KeystoreBackend,
+  keyringProxyUrl: process.env.KEYRING_PROXY_URL || "",
+  keyringProxySecret: process.env.OPENCLAW_PROXY_SECRET || "",
+  templatePath: path.resolve(skillRoot, "assets", "MEMORY.template.md"),
+  registrationFile:
+    process.env.REGISTRATION_FILE ||
+    path.resolve(skillRoot, "assets", "registration-template.json"),
 
   // Onchain settings
-  rpcUrl: process.env.RPC_URL || '',
-  chainId: parseInt(process.env.CHAIN_ID || '84532'),
-  storageMode: (process.env.STORAGE_MODE || 'base64') as 'ipfs' | 'base64',
-  pinataJwt: process.env.PINATA_JWT || '',
+  rpcUrl: process.env.RPC_URL || "",
+  chainId: parseInt(process.env.CHAIN_ID || "84532"),
+  storageMode: (process.env.STORAGE_MODE || "base64") as "ipfs" | "base64",
+  pinataJwt: process.env.PINATA_JWT || "",
 
   // Mock registration defaults (used when --live is not set)
-  mockAgentId: parseInt(process.env.MOCK_AGENT_ID || '1'),
-  mockAgentRegistry: process.env.MOCK_AGENT_REGISTRY || 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e',
-  mockChainId: parseInt(process.env.MOCK_CHAIN_ID || '84532'),
+  mockAgentId: parseInt(process.env.MOCK_AGENT_ID || "1"),
+  mockAgentRegistry:
+    process.env.MOCK_AGENT_REGISTRY ||
+    "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  mockChainId: parseInt(process.env.MOCK_CHAIN_ID || "84532"),
 };
 
 export function getKeystoreConfig() {
@@ -56,5 +76,5 @@ export function getKeystoreConfig() {
 }
 
 export function isLiveMode(): boolean {
-  return process.argv.includes('--live') || !!config.rpcUrl;
+  return process.argv.includes("--live") || !!config.rpcUrl;
 }

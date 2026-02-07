@@ -51,36 +51,36 @@ import {
   toBytes,
   toHex,
   concat,
-} from 'viem';
-import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
-import { hashAuthorization } from 'viem/experimental';
-import { scrypt } from '@noble/hashes/scrypt';
-import { randomBytes } from '@noble/hashes/utils';
-import { ctr } from '@noble/ciphers/aes';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as crypto from 'crypto';
-import * as os from 'os';
-import { computeHmac } from './proxy-auth.js';
+} from "viem";
+import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
+import { hashAuthorization } from "viem/experimental";
+import { scrypt } from "@noble/hashes/scrypt";
+import { randomBytes } from "@noble/hashes/utils";
+import { ctr } from "@noble/ciphers/aes";
+import * as fs from "fs";
+import * as path from "path";
+import * as crypto from "crypto";
+import * as os from "os";
+import { computeHmac } from "./proxy-auth.js";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type KeystoreBackend = 'encrypted-file' | 'env' | 'proxy';
+export type KeystoreBackend = "encrypted-file" | "env" | "proxy";
 
 export interface KeystoreConfig {
   backend?: KeystoreBackend;
   keystorePath?: string;
-  password?: string;             // For encrypted-file backend
-  proxyUrl?: string;             // For proxy backend — keyring proxy server URL
-  proxySecret?: string;          // For proxy backend — HMAC shared secret
+  password?: string; // For encrypted-file backend
+  proxyUrl?: string; // For proxy backend — keyring proxy server URL
+  proxySecret?: string; // For proxy backend — HMAC shared secret
 }
 
 export interface WalletInfo {
   address: string;
   backend: KeystoreBackend;
-  keystorePath?: string;         // Only for encrypted-file backend
+  keystorePath?: string; // Only for encrypted-file backend
 }
 
 export interface SignResult {
@@ -89,13 +89,13 @@ export interface SignResult {
 }
 
 export interface AuthorizationRequest {
-  address: string;       // Contract address to delegate to
-  chainId?: number;      // Optional; auto-detected if omitted
-  nonce?: number;        // Optional; use current_nonce + 1 for self-sent txns
+  address: string; // Contract address to delegate to
+  chainId?: number; // Optional; auto-detected if omitted
+  nonce?: number; // Optional; use current_nonce + 1 for self-sent txns
 }
 
 export interface SignedAuthorization {
-  address: string;       // Delegated contract address
+  address: string; // Delegated contract address
   nonce: number;
   chainId: number;
   yParity: number;
@@ -123,7 +123,7 @@ export interface TransactionLike {
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEFAULT_KEYSTORE_PATH = './agent-keystore.json';
+const DEFAULT_KEYSTORE_PATH = "./agent-keystore.json";
 
 // ---------------------------------------------------------------------------
 // V3 Keystore Implementation (using noble-ciphers)
@@ -154,7 +154,10 @@ function generateUUID(): string {
   bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
   bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
   const hex = toHex(bytes).slice(2);
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
+    12,
+    16
+  )}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
 async function encryptKeystore(
@@ -172,7 +175,12 @@ async function encryptKeystore(
   const dklen = 32;
 
   // Derive key using scrypt
-  const derivedKey = scrypt(new TextEncoder().encode(password), salt, { N: n, r, p, dkLen: dklen });
+  const derivedKey = scrypt(new TextEncoder().encode(password), salt, {
+    N: n,
+    r,
+    p,
+    dkLen: dklen,
+  });
 
   // Encrypt private key with AES-128-CTR
   const encryptionKey = derivedKey.slice(0, 16);
@@ -180,7 +188,10 @@ async function encryptKeystore(
   const ciphertext = cipher.encrypt(privateKeyBytes);
 
   // Calculate MAC: keccak256(derivedKey[16:32] + ciphertext)
-  const macData = concat([toHex(derivedKey.slice(16, 32)) as Hex, toHex(ciphertext) as Hex]);
+  const macData = concat([
+    toHex(derivedKey.slice(16, 32)) as Hex,
+    toHex(ciphertext) as Hex,
+  ]);
   const mac = keccak256(macData);
 
   // Get address from private key
@@ -193,8 +204,8 @@ async function encryptKeystore(
     crypto: {
       ciphertext: toHex(ciphertext).slice(2),
       cipherparams: { iv: toHex(iv).slice(2) },
-      cipher: 'aes-128-ctr',
-      kdf: 'scrypt',
+      cipher: "aes-128-ctr",
+      kdf: "scrypt",
       kdfparams: {
         dklen,
         salt: toHex(salt).slice(2),
@@ -209,10 +220,7 @@ async function encryptKeystore(
   return JSON.stringify(keystore);
 }
 
-async function decryptKeystore(
-  json: string,
-  password: string
-): Promise<Hex> {
+async function decryptKeystore(json: string, password: string): Promise<Hex> {
   const keystore: V3Keystore = JSON.parse(json);
 
   if (keystore.version !== 3) {
@@ -221,11 +229,11 @@ async function decryptKeystore(
 
   const { crypto: cryptoData } = keystore;
 
-  if (cryptoData.kdf !== 'scrypt') {
+  if (cryptoData.kdf !== "scrypt") {
     throw new Error(`Unsupported KDF: ${cryptoData.kdf}`);
   }
 
-  if (cryptoData.cipher !== 'aes-128-ctr') {
+  if (cryptoData.cipher !== "aes-128-ctr") {
     throw new Error(`Unsupported cipher: ${cryptoData.cipher}`);
   }
 
@@ -235,18 +243,22 @@ async function decryptKeystore(
   const ciphertext = toBytes(`0x${cryptoData.ciphertext}`);
 
   // Derive key using scrypt
-  const derivedKey = scrypt(
-    new TextEncoder().encode(password),
-    salt,
-    { N: kdfparams.n, r: kdfparams.r, p: kdfparams.p, dkLen: kdfparams.dklen }
-  );
+  const derivedKey = scrypt(new TextEncoder().encode(password), salt, {
+    N: kdfparams.n,
+    r: kdfparams.r,
+    p: kdfparams.p,
+    dkLen: kdfparams.dklen,
+  });
 
   // Verify MAC
-  const macData = concat([toHex(derivedKey.slice(16, 32)) as Hex, toHex(ciphertext) as Hex]);
+  const macData = concat([
+    toHex(derivedKey.slice(16, 32)) as Hex,
+    toHex(ciphertext) as Hex,
+  ]);
   const calculatedMac = keccak256(macData).slice(2);
 
   if (calculatedMac.toLowerCase() !== cryptoData.mac.toLowerCase()) {
-    throw new Error('Invalid password or corrupted keystore');
+    throw new Error("Invalid password or corrupted keystore");
   }
 
   // Decrypt private key with AES-128-CTR
@@ -264,22 +276,28 @@ async function decryptKeystore(
 async function proxyRequest(
   config: KeystoreConfig,
   endpoint: string,
-  body: Record<string, unknown> = {},
+  body: Record<string, unknown> = {}
 ): Promise<any> {
   const url = config.proxyUrl || process.env.KEYRING_PROXY_URL;
-  const secret = config.proxySecret || process.env.KEYRING_PROXY_SECRET;
-  if (!url) throw new Error('Proxy backend requires KEYRING_PROXY_URL or config.proxyUrl');
-  if (!secret) throw new Error('Proxy backend requires KEYRING_PROXY_SECRET or config.proxySecret');
+  const secret = config.proxySecret || process.env.OPENCLAW_PROXY_SECRET;
+  if (!url)
+    throw new Error(
+      "Proxy backend requires KEYRING_PROXY_URL or config.proxyUrl"
+    );
+  if (!secret)
+    throw new Error(
+      "Proxy backend requires OPENCLAW_PROXY_SECRET or config.proxySecret"
+    );
 
   const bodyStr = JSON.stringify(body, (_key, value) =>
-    typeof value === 'bigint' ? '0x' + value.toString(16) : value
+    typeof value === "bigint" ? "0x" + value.toString(16) : value
   );
-  const hmacHeaders = computeHmac(secret, 'POST', endpoint, bodyStr);
+  const hmacHeaders = computeHmac(secret, "POST", endpoint, bodyStr);
 
   const res = await fetch(`${url}${endpoint}`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...hmacHeaders,
     },
     body: bodyStr,
@@ -299,18 +317,18 @@ async function proxyRequest(
 
 export async function detectBackend(): Promise<KeystoreBackend> {
   // 0. Proxy backend (if URL is set)
-  if (process.env.KEYRING_PROXY_URL) return 'proxy';
+  if (process.env.KEYRING_PROXY_URL) return "proxy";
 
   // 1. Check for existing encrypted keystore file
   if (fs.existsSync(process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH)) {
-    return 'encrypted-file';
+    return "encrypted-file";
   }
 
   // 2. Check for env var
-  if (process.env.AGENT_PRIVATE_KEY) return 'env';
+  if (process.env.AGENT_PRIVATE_KEY) return "env";
 
   // 3. Default to encrypted-file (will be created on first use)
-  return 'encrypted-file';
+  return "encrypted-file";
 }
 
 // ---------------------------------------------------------------------------
@@ -326,9 +344,12 @@ async function encryptedFileStore(
   fs.writeFileSync(filePath, json, { mode: 0o600 }); // Owner-only read/write
 }
 
-async function encryptedFileLoad(password: string, filePath: string): Promise<Hex | null> {
+async function encryptedFileLoad(
+  password: string,
+  filePath: string
+): Promise<Hex | null> {
   if (!fs.existsSync(filePath)) return null;
-  const json = fs.readFileSync(filePath, 'utf-8');
+  const json = fs.readFileSync(filePath, "utf-8");
   return decryptKeystore(json, password);
 }
 
@@ -347,15 +368,12 @@ function encryptedFileExists(filePath: string): boolean {
 
 function deriveMachinePassword(): string {
   const factors = [
-    process.env.USER || process.env.USERNAME || 'agent',
-    process.env.HOME || process.env.USERPROFILE || '/tmp',
+    process.env.USER || process.env.USERNAME || "agent",
+    process.env.HOME || process.env.USERPROFILE || "/tmp",
     os.hostname(),
     os.platform(),
   ];
-  return crypto
-    .createHash('sha256')
-    .update(factors.join(':'))
-    .digest('hex');
+  return crypto.createHash("sha256").update(factors.join(":")).digest("hex");
 }
 
 // ---------------------------------------------------------------------------
@@ -366,12 +384,15 @@ function deriveMachinePassword(): string {
  * Create a new random wallet and store it securely.
  * Returns only the public address — NEVER the private key.
  */
-export async function createWallet(config: KeystoreConfig = {}): Promise<WalletInfo> {
-  const backend = config.backend || await detectBackend();
-  const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
+export async function createWallet(
+  config: KeystoreConfig = {}
+): Promise<WalletInfo> {
+  const backend = config.backend || (await detectBackend());
+  const keystorePath =
+    config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
-  if (backend === 'proxy') {
-    const data = await proxyRequest(config, '/create-wallet');
+  if (backend === "proxy") {
+    const data = await proxyRequest(config, "/create-wallet");
     return { address: data.address, backend, keystorePath: undefined };
   }
 
@@ -380,26 +401,29 @@ export async function createWallet(config: KeystoreConfig = {}): Promise<WalletI
   const address = account.address;
 
   switch (backend) {
-    case 'encrypted-file': {
-      const password = config.password || process.env.KEYSTORE_PASSWORD || deriveMachinePassword();
+    case "encrypted-file": {
+      const password =
+        config.password ||
+        process.env.KEYSTORE_PASSWORD ||
+        deriveMachinePassword();
       await encryptedFileStore(privateKey, password, keystorePath);
       break;
     }
 
-    case 'env':
+    case "env":
       // For env backend, we print the key ONCE for the operator to capture.
       // This is the ONLY time the raw key is ever exposed.
-      console.log('=== ENV BACKEND (testing only) ===');
+      console.log("=== ENV BACKEND (testing only) ===");
       console.log(`Set this in your environment:`);
       console.log(`  export AGENT_PRIVATE_KEY="${privateKey}"`);
-      console.log('=================================');
+      console.log("=================================");
       break;
   }
 
   return {
     address,
     backend,
-    keystorePath: backend === 'encrypted-file' ? keystorePath : undefined,
+    keystorePath: backend === "encrypted-file" ? keystorePath : undefined,
   };
 }
 
@@ -412,25 +436,33 @@ export async function importWallet(
   privateKey: string,
   config: KeystoreConfig = {}
 ): Promise<WalletInfo> {
-  const backend = config.backend || await detectBackend();
-  if (backend === 'proxy') {
-    throw new Error('importWallet() is not supported via proxy. Import the wallet on the proxy server directly.');
+  const backend = config.backend || (await detectBackend());
+  if (backend === "proxy") {
+    throw new Error(
+      "importWallet() is not supported via proxy. Import the wallet on the proxy server directly."
+    );
   }
 
-  const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
+  const keystorePath =
+    config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
-  const hexKey = (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) as Hex;
+  const hexKey = (
+    privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`
+  ) as Hex;
   const account = privateKeyToAccount(hexKey);
   const address = account.address;
 
   switch (backend) {
-    case 'encrypted-file': {
-      const password = config.password || process.env.KEYSTORE_PASSWORD || deriveMachinePassword();
+    case "encrypted-file": {
+      const password =
+        config.password ||
+        process.env.KEYSTORE_PASSWORD ||
+        deriveMachinePassword();
       await encryptedFileStore(hexKey, password, keystorePath);
       break;
     }
 
-    case 'env':
+    case "env":
       // Nothing to persist for env backend
       break;
   }
@@ -438,7 +470,7 @@ export async function importWallet(
   return {
     address,
     backend,
-    keystorePath: backend === 'encrypted-file' ? keystorePath : undefined,
+    keystorePath: backend === "encrypted-file" ? keystorePath : undefined,
   };
 }
 
@@ -446,18 +478,19 @@ export async function importWallet(
  * Check if a wallet is available in any backend.
  */
 export async function hasWallet(config: KeystoreConfig = {}): Promise<boolean> {
-  const backend = config.backend || await detectBackend();
-  if (backend === 'proxy') {
-    const data = await proxyRequest(config, '/has-wallet');
+  const backend = config.backend || (await detectBackend());
+  if (backend === "proxy") {
+    const data = await proxyRequest(config, "/has-wallet");
     return data.hasWallet;
   }
 
-  const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
+  const keystorePath =
+    config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
   switch (backend) {
-    case 'encrypted-file':
+    case "encrypted-file":
       return encryptedFileExists(keystorePath);
-    case 'env':
+    case "env":
       return !!process.env.AGENT_PRIVATE_KEY;
   }
 }
@@ -465,10 +498,12 @@ export async function hasWallet(config: KeystoreConfig = {}): Promise<boolean> {
 /**
  * Get the wallet's public address (no private key exposed).
  */
-export async function getAddress(config: KeystoreConfig = {}): Promise<string | null> {
-  const backend = config.backend || await detectBackend();
-  if (backend === 'proxy') {
-    const data = await proxyRequest(config, '/get-address');
+export async function getAddress(
+  config: KeystoreConfig = {}
+): Promise<string | null> {
+  const backend = config.backend || (await detectBackend());
+  if (backend === "proxy") {
+    const data = await proxyRequest(config, "/get-address");
     return data.address;
   }
 
@@ -487,14 +522,15 @@ export async function signMessage(
   message: string,
   config: KeystoreConfig = {}
 ): Promise<SignResult> {
-  const backend = config.backend || await detectBackend();
-  if (backend === 'proxy') {
-    const data = await proxyRequest(config, '/sign-message', { message });
+  const backend = config.backend || (await detectBackend());
+  if (backend === "proxy") {
+    const data = await proxyRequest(config, "/sign-message", { message });
     return { signature: data.signature, address: data.address };
   }
 
   const privateKey = await _loadPrivateKeyInternal(config);
-  if (!privateKey) throw new Error('No wallet found. Run createWallet() first.');
+  if (!privateKey)
+    throw new Error("No wallet found. Run createWallet() first.");
 
   const account = privateKeyToAccount(privateKey);
   const signature = await account.signMessage({ message });
@@ -508,19 +544,19 @@ export async function signMessage(
  */
 function parseBigIntFromJson(value: unknown): bigint | undefined {
   if (value === null || value === undefined) return undefined;
-  
+
   let result: bigint;
-  if (typeof value === 'bigint') {
+  if (typeof value === "bigint") {
     result = value;
-  } else if (typeof value === 'number') {
+  } else if (typeof value === "number") {
     result = BigInt(value);
-  } else if (typeof value === 'string') {
+  } else if (typeof value === "string") {
     // Handle hex strings (0x...) and decimal strings
     result = BigInt(value);
   } else {
     return undefined;
   }
-  
+
   // Return undefined for zero so viem encodes it as empty (0x80)
   // instead of 0x00 which is non-canonical RLP
   return result === 0n ? undefined : result;
@@ -531,11 +567,11 @@ function parseBigIntFromJson(value: unknown): bigint | undefined {
  */
 function parseBigIntKeepZero(value: unknown): bigint | undefined {
   if (value === null || value === undefined) return undefined;
-  
-  if (typeof value === 'bigint') return value;
-  if (typeof value === 'number') return BigInt(value);
-  if (typeof value === 'string') return BigInt(value);
-  
+
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") return BigInt(value);
+  if (typeof value === "string") return BigInt(value);
+
   return undefined;
 }
 
@@ -548,14 +584,17 @@ export async function signTransaction(
   tx: TransactionLike,
   config: KeystoreConfig = {}
 ): Promise<{ signedTx: string; address: string }> {
-  const backend = config.backend || await detectBackend();
-  if (backend === 'proxy') {
-    const data = await proxyRequest(config, '/sign-transaction', { tx: tx as Record<string, unknown> });
+  const backend = config.backend || (await detectBackend());
+  if (backend === "proxy") {
+    const data = await proxyRequest(config, "/sign-transaction", {
+      tx: tx as Record<string, unknown>,
+    });
     return { signedTx: data.signedTx, address: data.address };
   }
 
   const privateKey = await _loadPrivateKeyInternal(config);
-  if (!privateKey) throw new Error('No wallet found. Run createWallet() first.');
+  if (!privateKey)
+    throw new Error("No wallet found. Run createWallet() first.");
 
   const account = privateKeyToAccount(privateKey);
 
@@ -580,11 +619,11 @@ export async function signTransaction(
 
   // Handle EIP-1559 vs legacy transactions
   if (tx.type === 2 || tx.maxFeePerGas !== undefined) {
-    viemTx.type = 'eip1559';
+    viemTx.type = "eip1559";
     viemTx.maxFeePerGas = maxFeePerGas;
     viemTx.maxPriorityFeePerGas = maxPriorityFeePerGas;
   } else if (tx.gasPrice !== undefined) {
-    viemTx.type = 'legacy';
+    viemTx.type = "legacy";
     viemTx.gasPrice = gasPrice;
   }
 
@@ -610,14 +649,15 @@ export async function signAuthorization(
   auth: AuthorizationRequest,
   config: KeystoreConfig = {}
 ): Promise<SignedAuthorization> {
-  const backend = config.backend || await detectBackend();
-  if (backend === 'proxy') {
-    const data = await proxyRequest(config, '/sign-authorization', { auth });
+  const backend = config.backend || (await detectBackend());
+  if (backend === "proxy") {
+    const data = await proxyRequest(config, "/sign-authorization", { auth });
     return data as SignedAuthorization;
   }
 
   const privateKey = await _loadPrivateKeyInternal(config);
-  if (!privateKey) throw new Error('No wallet found. Run createWallet() first.');
+  if (!privateKey)
+    throw new Error("No wallet found. Run createWallet() first.");
 
   const account = privateKeyToAccount(privateKey);
 
@@ -661,13 +701,16 @@ export async function getWalletClient(
   rpcUrl: string,
   config: KeystoreConfig = {}
 ): Promise<WalletClient<Transport, Chain | undefined, Account>> {
-  const backend = config.backend || await detectBackend();
-  if (backend === 'proxy') {
-    throw new Error('getWalletClient() is not supported via proxy. The private key cannot be serialized over HTTP. Use signMessage() or signTransaction() instead.');
+  const backend = config.backend || (await detectBackend());
+  if (backend === "proxy") {
+    throw new Error(
+      "getWalletClient() is not supported via proxy. The private key cannot be serialized over HTTP. Use signMessage() or signTransaction() instead."
+    );
   }
 
   const privateKey = await _loadPrivateKeyInternal(config);
-  if (!privateKey) throw new Error('No wallet found. Run createWallet() first.');
+  if (!privateKey)
+    throw new Error("No wallet found. Run createWallet() first.");
 
   const account = privateKeyToAccount(privateKey);
   return createWalletClient({
@@ -680,23 +723,30 @@ export async function getWalletClient(
  * Delete the stored wallet from the active backend.
  * DESTRUCTIVE — the identity is lost if no backup exists.
  */
-export async function deleteWallet(config: KeystoreConfig = {}): Promise<boolean> {
-  const backend = config.backend || await detectBackend();
-  if (backend === 'proxy') {
-    throw new Error('deleteWallet() is not supported via proxy. Delete the wallet on the proxy server directly.');
+export async function deleteWallet(
+  config: KeystoreConfig = {}
+): Promise<boolean> {
+  const backend = config.backend || (await detectBackend());
+  if (backend === "proxy") {
+    throw new Error(
+      "deleteWallet() is not supported via proxy. Delete the wallet on the proxy server directly."
+    );
   }
 
-  const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
+  const keystorePath =
+    config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
   switch (backend) {
-    case 'encrypted-file':
+    case "encrypted-file":
       if (fs.existsSync(keystorePath)) {
         fs.unlinkSync(keystorePath);
         return true;
       }
       return false;
-    case 'env':
-      console.warn('Cannot delete env-based wallet. Unset AGENT_PRIVATE_KEY manually.');
+    case "env":
+      console.warn(
+        "Cannot delete env-based wallet. Unset AGENT_PRIVATE_KEY manually."
+      );
       return false;
   }
 }
@@ -705,23 +755,29 @@ export async function deleteWallet(config: KeystoreConfig = {}): Promise<boolean
 // Internal — loads the private key. NEVER exposed publicly.
 // ---------------------------------------------------------------------------
 
-async function _loadPrivateKeyInternal(config: KeystoreConfig = {}): Promise<Hex | null> {
-  const backend = config.backend || await detectBackend();
-  const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
+async function _loadPrivateKeyInternal(
+  config: KeystoreConfig = {}
+): Promise<Hex | null> {
+  const backend = config.backend || (await detectBackend());
+  const keystorePath =
+    config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
   let privateKey: Hex | null = null;
 
   switch (backend) {
-    case 'encrypted-file': {
-      const password = config.password || process.env.KEYSTORE_PASSWORD || deriveMachinePassword();
+    case "encrypted-file": {
+      const password =
+        config.password ||
+        process.env.KEYSTORE_PASSWORD ||
+        deriveMachinePassword();
       privateKey = await encryptedFileLoad(password, keystorePath);
       break;
     }
 
-    case 'env': {
+    case "env": {
       const envKey = process.env.AGENT_PRIVATE_KEY || null;
       if (envKey) {
-        privateKey = (envKey.startsWith('0x') ? envKey : `0x${envKey}`) as Hex;
+        privateKey = (envKey.startsWith("0x") ? envKey : `0x${envKey}`) as Hex;
       }
       break;
     }

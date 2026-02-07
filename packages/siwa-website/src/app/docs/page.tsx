@@ -1,20 +1,13 @@
 import { Metadata } from "next";
 import { DocsSidebar } from "@/components/docs-sidebar";
 import { CopyableAddress } from "@/components/copyable-address";
+import { CodeBlock } from "@/components/code-block";
 
 export const metadata: Metadata = {
   title: "Docs — SIWA",
   description:
     "Documentation for SIWA (Sign In With Agent) — getting started, API reference, security model, protocol spec, and contract addresses.",
 };
-
-function CodeBlock({ children }: { children: string }) {
-  return (
-    <pre className="overflow-x-auto rounded-lg border border-border bg-surface p-4 font-mono text-sm leading-relaxed text-muted">
-      <code>{children}</code>
-    </pre>
-  );
-}
 
 function Section({
   id,
@@ -233,17 +226,17 @@ export default function DocsPage() {
             <P>
               Run the full flow (wallet creation, registration, SIWA sign-in) without deploying anything:
             </P>
-            <CodeBlock>{`git clone https://github.com/builders-garden/siwa
+            <CodeBlock language="bash">{`git clone https://github.com/builders-garden/siwa
 cd siwa && pnpm install
 cd packages/siwa-testing && pnpm run dev`}</CodeBlock>
           </SubSection>
 
           <SubSection id="installation" title="Install the SDK">
-            <CodeBlock>{`npm install @buildersgarden/siwa`}</CodeBlock>
+            <CodeBlock language="bash">{`npm install @buildersgarden/siwa`}</CodeBlock>
             <P>
               The package exposes several modules:
             </P>
-            <CodeBlock>{`// Core — build & verify SIWA messages
+            <CodeBlock language="typescript">{`// Core — build & verify SIWA messages
 import { signSIWAMessage, verifySIWA } from '@buildersgarden/siwa';
 
 // Keystore — wallet creation & signing (agent never sees the private key)
@@ -261,7 +254,7 @@ import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
             <P>
               If your agent is already registered onchain (has an <InlineCode>agentId</InlineCode>), skip to Step 4. Otherwise, register by creating a wallet, building a registration file, and calling the Identity Registry contract.
             </P>
-            <CodeBlock>{`import { createWallet, signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
+            <CodeBlock language="typescript">{`import { createWallet, signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
 import { writeMemoryField } from '@buildersgarden/siwa/memory';
 
 // 1. Create wallet (key goes to proxy, never returned)
@@ -298,7 +291,7 @@ const txHash = await publicClient.sendRawTransaction({ serializedTransaction: si
             <P>
               Authenticate with any SIWA-aware service using the challenge-response flow.
             </P>
-            <CodeBlock>{`import { signSIWAMessage } from '@buildersgarden/siwa';
+            <CodeBlock language="typescript">{`import { signSIWAMessage } from '@buildersgarden/siwa';
 
 // 1. Request a nonce from the server
 const { nonce, issuedAt, expirationTime } = await fetch(
@@ -346,7 +339,7 @@ const { token } = await fetch('https://example.com/api/siwa/verify', {
             <P>
               On your server, validate the signature and issue a session:
             </P>
-            <CodeBlock>{`import { verifySIWA } from '@buildersgarden/siwa';
+            <CodeBlock language="typescript">{`import { verifySIWA } from '@buildersgarden/siwa';
 
 const { message, signature } = req.body;
 
@@ -462,7 +455,7 @@ const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
                 ["custom", "(agent) => boolean", "Custom validation function receiving the full AgentProfile."],
               ]}
             />
-            <CodeBlock>{`import { verifySIWA } from '@buildersgarden/siwa';
+            <CodeBlock language="typescript">{`import { verifySIWA } from '@buildersgarden/siwa';
 
 const result = await verifySIWA(
   message,
@@ -500,7 +493,7 @@ if (result.valid) {
             <P>
               <InlineCode>getAgent</InlineCode> fetches and parses the agent&apos;s metadata JSON from its <InlineCode>tokenURI</InlineCode>. Supported URI schemes: <InlineCode>ipfs://</InlineCode>, <InlineCode>data:application/json;base64,</InlineCode>, and <InlineCode>https://</InlineCode>.
             </P>
-            <CodeBlock>{`import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
+            <CodeBlock language="typescript">{`import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
 
 const agent = await getAgent(42, {
   registryAddress: '0x8004A169...a432',
@@ -579,7 +572,7 @@ const rep = await getReputation(42, {
             <P>
               All signing is delegated to a separate keyring proxy server over HMAC-authenticated HTTP. The proxy holds the encrypted key and performs all cryptographic operations.
             </P>
-            <CodeBlock>{`Agent Process                     Keyring Proxy
+            <CodeBlock language="text">{`Agent Process                     Keyring Proxy
 (KEYSTORE_BACKEND=proxy)          (holds encrypted key)
 
 signMessage("hello")
@@ -675,7 +668,7 @@ signMessage("hello")
             <P>
               A policy is a JSON object containing one or more rules. Each rule specifies which method it applies to, an action (ALLOW or DENY), and conditions that must all be true for the rule to fire.
             </P>
-            <CodeBlock>{`{
+            <CodeBlock language="json">{`{
   "name": "Spending limit policy",
   "version": "1.0",
   "chain_type": "ethereum",
@@ -689,7 +682,7 @@ signMessage("hello")
           "field_source": "ethereum_transaction",
           "field": "value",
           "operator": "lte",
-          "value": "100000000000000000"  // 0.1 ETH in wei
+          "value": "100000000000000000"
         }
       ]
     },
@@ -702,7 +695,7 @@ signMessage("hello")
           "field_source": "ethereum_transaction",
           "field": "value",
           "operator": "gt",
-          "value": "1000000000000000000"  // 1 ETH in wei
+          "value": "1000000000000000000"
         }
       ]
     }
@@ -742,7 +735,7 @@ signMessage("hello")
             <P>
               <strong className="text-foreground">Chain restriction</strong> — Only allow transactions on Base:
             </P>
-            <CodeBlock>{`{
+            <CodeBlock language="json">{`{
   "name": "Base only",
   "method": "sign_transaction",
   "action": "ALLOW",
@@ -756,7 +749,7 @@ signMessage("hello")
             <P>
               <strong className="text-foreground">Contract allowlist</strong> — Only allow interactions with specific contracts:
             </P>
-            <CodeBlock>{`{
+            <CodeBlock language="json">{`{
   "name": "Allowed contracts only",
   "method": "sign_transaction",
   "action": "ALLOW",
@@ -765,15 +758,15 @@ signMessage("hello")
     "field": "to",
     "operator": "in",
     "value": [
-      "0x1234...",  // Your allowed contract
-      "0x5678..."   // Another allowed contract
+      "0x1234...",
+      "0x5678..."
     ]
   }]
 }`}</CodeBlock>
             <P>
               <strong className="text-foreground">Block unlimited approvals</strong> — Deny ERC-20 approvals for max uint256:
             </P>
-            <CodeBlock>{`{
+            <CodeBlock language="json">{`{
   "name": "No unlimited approvals",
   "method": "sign_transaction",
   "action": "DENY",
@@ -783,7 +776,7 @@ signMessage("hello")
       "field": "function_name",
       "operator": "eq",
       "value": "approve",
-      "abi": [{ "name": "approve", "type": "function", ... }]
+      "abi": [{ "name": "approve", "type": "function" }]
     },
     {
       "field_source": "ethereum_calldata",
@@ -796,7 +789,7 @@ signMessage("hello")
             <P>
               <strong className="text-foreground">SIWA messages only</strong> — Only allow signing SIWA authentication messages:
             </P>
-            <CodeBlock>{`{
+            <CodeBlock language="json">{`{
   "name": "SIWA sign-in only",
   "method": "sign_message",
   "action": "ALLOW",
@@ -842,7 +835,7 @@ signMessage("hello")
         {/* Protocol Spec */}
         <Section id="protocol" title="Protocol Specification">
           <SubSection id="protocol-message" title="Message Format">
-            <CodeBlock>{`{domain} wants you to sign in with your Agent account:
+            <CodeBlock language="text">{`{domain} wants you to sign in with your Agent account:
 {address}
 
 {statement}
@@ -994,7 +987,7 @@ Issued At: {issuedAt}
           </SubSection>
 
           <SubSection id="contracts-format" title="Agent Registry String Format">
-            <CodeBlock>{`{namespace}:{chainId}:{identityRegistryAddress}
+            <CodeBlock language="text">{`{namespace}:{chainId}:{identityRegistryAddress}
 
 Examples:
   eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432    (Base)
