@@ -426,51 +426,53 @@ With the proxy backend, the agent builds the transaction and delegates signing t
 ```typescript
 import { signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
 import { writeMemoryField } from '@buildersgarden/siwa/memory';
+import { createPublicClient, http, encodeFunctionData, parseEventLogs } from 'viem';
+import { baseSepolia } from 'viem/chains';
 
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+const publicClient = createPublicClient({ chain: baseSepolia, transport: http(process.env.RPC_URL) });
 const address = await getAddress();
 
 const IDENTITY_REGISTRY_ABI = [
-  'function register(string agentURI) external returns (uint256 agentId)',
-  'event Registered(uint256 indexed agentId, string agentURI, address indexed owner)'
-];
+  { name: 'register', type: 'function', inputs: [{ name: 'agentURI', type: 'string' }], outputs: [{ name: 'agentId', type: 'uint256' }] },
+  { name: 'Registered', type: 'event', inputs: [{ name: 'agentId', type: 'uint256', indexed: true }, { name: 'agentURI', type: 'string' }, { name: 'owner', type: 'address', indexed: true }] }
+] as const;
 
 // Build the transaction
-const iface = new ethers.Interface(IDENTITY_REGISTRY_ABI);
-const data = iface.encodeFunctionData('register', [agentURI]);
-const nonce = await provider.getTransactionCount(address);
-const feeData = await provider.getFeeData();
+const data = encodeFunctionData({
+  abi: IDENTITY_REGISTRY_ABI,
+  functionName: 'register',
+  args: [agentURI]
+});
+const nonce = await publicClient.getTransactionCount({ address });
+const { maxFeePerGas, maxPriorityFeePerGas } = await publicClient.estimateFeesPerGas();
+const gasLimit = await publicClient.estimateGas({ to: REGISTRY_ADDRESS, data, account: address });
 
 const txReq = {
   to: REGISTRY_ADDRESS, data, nonce, chainId,
   type: 2,
-  maxFeePerGas: feeData.maxFeePerGas,
-  maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-  gasLimit: (await provider.estimateGas({ to: REGISTRY_ADDRESS, data, from: address })) * 120n / 100n,
+  maxFeePerGas,
+  maxPriorityFeePerGas,
+  gasLimit: gasLimit * 120n / 100n,
 };
 
 // Sign via proxy — key never enters this process
 const { signedTx } = await signTransaction(txReq);
-const txResponse = await provider.broadcastTransaction(signedTx);
-const receipt = await txResponse.wait();
+const txHash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx });
+const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
 // Parse event for agentId
-for (const log of receipt.logs) {
-  try {
-    const parsed = iface.parseLog({ topics: log.topics as string[], data: log.data });
-    if (parsed?.name === 'Registered') {
-      const agentId = parsed.args.agentId.toString();
-      const agentRegistry = `eip155:${chainId}:${REGISTRY_ADDRESS}`;
+const logs = parseEventLogs({ abi: IDENTITY_REGISTRY_ABI, logs: receipt.logs, eventName: 'Registered' });
+for (const log of logs) {
+  const agentId = log.args.agentId.toString();
+  const agentRegistry = `eip155:${chainId}:${REGISTRY_ADDRESS}`;
 
-      // Persist PUBLIC results to MEMORY.md
-      writeMemoryField('Status', 'registered');
-      writeMemoryField('Agent ID', agentId);
-      writeMemoryField('Agent Registry', agentRegistry);
-      writeMemoryField('Agent URI', agentURI);
-      writeMemoryField('Chain ID', chainId.toString());
-      writeMemoryField('Registered At', new Date().toISOString());
-    }
-  } catch { /* skip non-matching logs */ }
+  // Persist PUBLIC results to MEMORY.md
+  writeMemoryField('Status', 'registered');
+  writeMemoryField('Agent ID', agentId);
+  writeMemoryField('Agent Registry', agentRegistry);
+  writeMemoryField('Agent URI', agentURI);
+  writeMemoryField('Chain ID', chainId.toString());
+  writeMemoryField('Registered At', new Date().toISOString());
 }
 ```
 

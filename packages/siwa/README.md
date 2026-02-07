@@ -64,7 +64,7 @@ See [`references/security-model.md`](references/security-model.md) for the full 
 ## Tech Stack
 
 - **TypeScript** (ES modules, strict mode)
-- **ethers.js** v6 — wallet management and contract interaction
+- **viem** — wallet management and contract interaction
 - **pnpm** — package manager
 
 ## References

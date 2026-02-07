@@ -290,7 +290,7 @@ export function extractField(
 // ---------------------------------------------------------------------------
 
 /**
- * Build a transaction context from an ethers TransactionRequest-like object.
+ * Build a transaction context from a viem TransactionRequest-like object.
  */
 export function buildTransactionContext(tx: Record<string, unknown>): TransactionContext {
   return {

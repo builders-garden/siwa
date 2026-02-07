@@ -5,7 +5,7 @@
  *
  * Three backends, in order of preference:
  *   0. Keyring Proxy (via HMAC-authenticated HTTP) — key never enters agent process
- *   1. Ethereum V3 Encrypted JSON Keystore (via ethers.js) — password-encrypted file on disk
+ *   1. Ethereum V3 Encrypted JSON Keystore (via @noble/ciphers) — password-encrypted file on disk
  *   2. Environment variable fallback (AGENT_PRIVATE_KEY) — least secure, for CI/testing only
  *
  * The private key NEVER leaves this module as a return value.
@@ -18,15 +18,15 @@
  *   - getAddress()            → returns the public address
  *   - hasWallet()             → returns boolean
  *
- * EIP-7702 Support (requires ethers >= 6.14.3):
- *   Wallets are standard EOAs created via ethers.Wallet.createRandom().
+ * EIP-7702 Support:
+ *   Wallets are standard EOAs created via viem's generatePrivateKey().
  *   EIP-7702 allows these EOAs to temporarily delegate to smart contract
  *   implementations via authorization lists in type 4 transactions.
  *   Use signAuthorization() to sign delegation authorizations without
  *   exposing the private key.
  *
  * Dependencies:
- *   npm install ethers
+ *   npm install viem
  *
  * Configuration (via env vars or passed options):
  *   KEYSTORE_BACKEND      — "encrypted-file" | "env" | "proxy" (auto-detected if omitted)
@@ -35,7 +35,28 @@
  *   AGENT_PRIVATE_KEY     — Fallback for env backend only
  */
 
-import { ethers } from 'ethers';
+import {
+  createWalletClient,
+  http,
+  type WalletClient,
+  type TransactionRequest,
+  type Account,
+  type Chain,
+  type Transport,
+  type Hex,
+  type Address,
+  type SignableMessage,
+  serializeTransaction,
+  keccak256,
+  toBytes,
+  toHex,
+  concat,
+} from 'viem';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { hashAuthorization } from 'viem/experimental';
+import { scrypt } from '@noble/hashes/scrypt';
+import { randomBytes } from '@noble/hashes/utils';
+import { ctr } from '@noble/ciphers/aes';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -82,11 +103,159 @@ export interface SignedAuthorization {
   s: string;
 }
 
+// Transaction type compatible with viem
+export interface TransactionLike {
+  to?: string;
+  data?: string;
+  value?: bigint;
+  nonce?: number;
+  chainId?: number;
+  type?: number;
+  maxFeePerGas?: bigint | null;
+  maxPriorityFeePerGas?: bigint | null;
+  gasLimit?: bigint;
+  gas?: bigint;
+  gasPrice?: bigint | null;
+  accessList?: any[];
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const DEFAULT_KEYSTORE_PATH = './agent-keystore.json';
+
+// ---------------------------------------------------------------------------
+// V3 Keystore Implementation (using noble-ciphers)
+// ---------------------------------------------------------------------------
+
+interface V3Keystore {
+  version: 3;
+  id: string;
+  address: string;
+  crypto: {
+    ciphertext: string;
+    cipherparams: { iv: string };
+    cipher: string;
+    kdf: string;
+    kdfparams: {
+      dklen: number;
+      salt: string;
+      n: number;
+      r: number;
+      p: number;
+    };
+    mac: string;
+  };
+}
+
+function generateUUID(): string {
+  const bytes = randomBytes(16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
+  const hex = toHex(bytes).slice(2);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+async function encryptKeystore(
+  privateKey: Hex,
+  password: string
+): Promise<string> {
+  const privateKeyBytes = toBytes(privateKey);
+  const salt = randomBytes(32);
+  const iv = randomBytes(16);
+
+  // Scrypt parameters (standard for V3 keystores)
+  const n = 262144; // 2^18
+  const r = 8;
+  const p = 1;
+  const dklen = 32;
+
+  // Derive key using scrypt
+  const derivedKey = scrypt(new TextEncoder().encode(password), salt, { N: n, r, p, dkLen: dklen });
+
+  // Encrypt private key with AES-128-CTR
+  const encryptionKey = derivedKey.slice(0, 16);
+  const cipher = ctr(encryptionKey, iv);
+  const ciphertext = cipher.encrypt(privateKeyBytes);
+
+  // Calculate MAC: keccak256(derivedKey[16:32] + ciphertext)
+  const macData = concat([toHex(derivedKey.slice(16, 32)) as Hex, toHex(ciphertext) as Hex]);
+  const mac = keccak256(macData);
+
+  // Get address from private key
+  const account = privateKeyToAccount(privateKey);
+
+  const keystore: V3Keystore = {
+    version: 3,
+    id: generateUUID(),
+    address: account.address.toLowerCase().slice(2),
+    crypto: {
+      ciphertext: toHex(ciphertext).slice(2),
+      cipherparams: { iv: toHex(iv).slice(2) },
+      cipher: 'aes-128-ctr',
+      kdf: 'scrypt',
+      kdfparams: {
+        dklen,
+        salt: toHex(salt).slice(2),
+        n,
+        r,
+        p,
+      },
+      mac: mac.slice(2),
+    },
+  };
+
+  return JSON.stringify(keystore);
+}
+
+async function decryptKeystore(
+  json: string,
+  password: string
+): Promise<Hex> {
+  const keystore: V3Keystore = JSON.parse(json);
+
+  if (keystore.version !== 3) {
+    throw new Error(`Unsupported keystore version: ${keystore.version}`);
+  }
+
+  const { crypto: cryptoData } = keystore;
+
+  if (cryptoData.kdf !== 'scrypt') {
+    throw new Error(`Unsupported KDF: ${cryptoData.kdf}`);
+  }
+
+  if (cryptoData.cipher !== 'aes-128-ctr') {
+    throw new Error(`Unsupported cipher: ${cryptoData.cipher}`);
+  }
+
+  const { kdfparams } = cryptoData;
+  const salt = toBytes(`0x${kdfparams.salt}`);
+  const iv = toBytes(`0x${cryptoData.cipherparams.iv}`);
+  const ciphertext = toBytes(`0x${cryptoData.ciphertext}`);
+
+  // Derive key using scrypt
+  const derivedKey = scrypt(
+    new TextEncoder().encode(password),
+    salt,
+    { N: kdfparams.n, r: kdfparams.r, p: kdfparams.p, dkLen: kdfparams.dklen }
+  );
+
+  // Verify MAC
+  const macData = concat([toHex(derivedKey.slice(16, 32)) as Hex, toHex(ciphertext) as Hex]);
+  const calculatedMac = keccak256(macData).slice(2);
+
+  if (calculatedMac.toLowerCase() !== cryptoData.mac.toLowerCase()) {
+    throw new Error('Invalid password or corrupted keystore');
+  }
+
+  // Decrypt private key with AES-128-CTR
+  const encryptionKey = derivedKey.slice(0, 16);
+  const cipher = ctr(encryptionKey, iv);
+  const privateKeyBytes = cipher.decrypt(ciphertext);
+
+  return toHex(privateKeyBytes) as Hex;
+}
 
 // ---------------------------------------------------------------------------
 // Proxy backend — HMAC-authenticated HTTP to a keyring proxy server
@@ -145,26 +314,22 @@ export async function detectBackend(): Promise<KeystoreBackend> {
 }
 
 // ---------------------------------------------------------------------------
-// Encrypted V3 JSON Keystore backend (ethers.js built-in)
+// Encrypted V3 JSON Keystore backend
 // ---------------------------------------------------------------------------
 
 async function encryptedFileStore(
-  privateKey: string,
-  address: string,
+  privateKey: Hex,
   password: string,
   filePath: string
 ): Promise<void> {
-  const account: { address: string; privateKey: string } = { address, privateKey };
-  // ethers v6: encryptKeystoreJsonSync or encryptKeystoreJson
-  const json = await ethers.encryptKeystoreJson(account, password);
+  const json = await encryptKeystore(privateKey, password);
   fs.writeFileSync(filePath, json, { mode: 0o600 }); // Owner-only read/write
 }
 
-async function encryptedFileLoad(password: string, filePath: string): Promise<string | null> {
+async function encryptedFileLoad(password: string, filePath: string): Promise<Hex | null> {
   if (!fs.existsSync(filePath)) return null;
   const json = fs.readFileSync(filePath, 'utf-8');
-  const wallet = await ethers.Wallet.fromEncryptedJson(json, password);
-  return wallet.privateKey;
+  return decryptKeystore(json, password);
 }
 
 function encryptedFileExists(filePath: string): boolean {
@@ -210,14 +375,14 @@ export async function createWallet(config: KeystoreConfig = {}): Promise<WalletI
     return { address: data.address, backend, keystorePath: undefined };
   }
 
-  const wallet = ethers.Wallet.createRandom();
-  const privateKey = wallet.privateKey;
-  const address = wallet.address;
+  const privateKey = generatePrivateKey();
+  const account = privateKeyToAccount(privateKey);
+  const address = account.address;
 
   switch (backend) {
     case 'encrypted-file': {
       const password = config.password || process.env.KEYSTORE_PASSWORD || deriveMachinePassword();
-      await encryptedFileStore(privateKey, address, password, keystorePath);
+      await encryptedFileStore(privateKey, password, keystorePath);
       break;
     }
 
@@ -254,13 +419,14 @@ export async function importWallet(
 
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
-  const wallet = new ethers.Wallet(privateKey);
-  const address = wallet.address;
+  const hexKey = (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) as Hex;
+  const account = privateKeyToAccount(hexKey);
+  const address = account.address;
 
   switch (backend) {
     case 'encrypted-file': {
       const password = config.password || process.env.KEYSTORE_PASSWORD || deriveMachinePassword();
-      await encryptedFileStore(privateKey, address, password, keystorePath);
+      await encryptedFileStore(hexKey, password, keystorePath);
       break;
     }
 
@@ -306,11 +472,10 @@ export async function getAddress(config: KeystoreConfig = {}): Promise<string | 
     return data.address;
   }
 
-  const wallet = await _loadWalletInternal(config);
-  if (!wallet) return null;
-  const address = wallet.address;
-  // wallet goes out of scope and is GC'd — private key not returned
-  return address;
+  const privateKey = await _loadPrivateKeyInternal(config);
+  if (!privateKey) return null;
+  const account = privateKeyToAccount(privateKey);
+  return account.address;
 }
 
 /**
@@ -328,13 +493,12 @@ export async function signMessage(
     return { signature: data.signature, address: data.address };
   }
 
-  const wallet = await _loadWalletInternal(config);
-  if (!wallet) throw new Error('No wallet found. Run createWallet() first.');
+  const privateKey = await _loadPrivateKeyInternal(config);
+  if (!privateKey) throw new Error('No wallet found. Run createWallet() first.');
 
-  const signature = await wallet.signMessage(message);
-  const address = wallet.address;
-  // wallet goes out of scope — private key discarded
-  return { signature, address };
+  const account = privateKeyToAccount(privateKey);
+  const signature = await account.signMessage({ message });
+  return { signature, address: account.address };
 }
 
 /**
@@ -343,7 +507,7 @@ export async function signMessage(
  * Only the signed transaction is returned.
  */
 export async function signTransaction(
-  tx: ethers.TransactionRequest,
+  tx: TransactionLike,
   config: KeystoreConfig = {}
 ): Promise<{ signedTx: string; address: string }> {
   const backend = config.backend || await detectBackend();
@@ -352,17 +516,41 @@ export async function signTransaction(
     return { signedTx: data.signedTx, address: data.address };
   }
 
-  const wallet = await _loadWalletInternal(config);
-  if (!wallet) throw new Error('No wallet found. Run createWallet() first.');
+  const privateKey = await _loadPrivateKeyInternal(config);
+  if (!privateKey) throw new Error('No wallet found. Run createWallet() first.');
 
-  const signedTx = await wallet.signTransaction(tx);
-  const address = wallet.address;
-  return { signedTx, address };
+  const account = privateKeyToAccount(privateKey);
+
+  // Build transaction request for viem
+  const viemTx: any = {
+    to: tx.to as Address | undefined,
+    data: tx.data as Hex | undefined,
+    value: tx.value,
+    nonce: tx.nonce,
+    chainId: tx.chainId,
+    gas: tx.gasLimit ?? tx.gas,
+  };
+
+  // Handle EIP-1559 vs legacy transactions
+  if (tx.type === 2 || tx.maxFeePerGas !== undefined) {
+    viemTx.type = 'eip1559';
+    viemTx.maxFeePerGas = tx.maxFeePerGas;
+    viemTx.maxPriorityFeePerGas = tx.maxPriorityFeePerGas;
+  } else if (tx.gasPrice !== undefined) {
+    viemTx.type = 'legacy';
+    viemTx.gasPrice = tx.gasPrice;
+  }
+
+  if (tx.accessList) {
+    viemTx.accessList = tx.accessList;
+  }
+
+  const signedTx = await account.signTransaction(viemTx);
+  return { signedTx, address: account.address };
 }
 
 /**
  * Sign an EIP-7702 authorization for delegating the EOA to a contract.
- * Requires ethers >= 6.14.3.
  *
  * This allows the agent's EOA to temporarily act as a smart contract
  * during a type 4 transaction. The private key is loaded, used, and
@@ -381,55 +569,64 @@ export async function signAuthorization(
     return data as SignedAuthorization;
   }
 
-  let wallet = await _loadWalletInternal(config);
-  if (!wallet) throw new Error('No wallet found. Run createWallet() first.');
+  const privateKey = await _loadPrivateKeyInternal(config);
+  if (!privateKey) throw new Error('No wallet found. Run createWallet() first.');
 
-  // ethers v6.14.3+ exposes wallet.authorize()
-  if (typeof (wallet as any).authorize !== 'function') {
-    throw new Error(
-      'wallet.authorize() not available. EIP-7702 requires ethers >= 6.14.3. ' +
-      'Run: pnpm add ethers@latest'
-    );
-  }
+  const account = privateKeyToAccount(privateKey);
 
-  // ethers.authorize() calls getTransactionCount even with explicit nonce
-  // Add a mock provider to enable offline signing when no provider is attached
-  if (!wallet.provider) {
-    const nonceToUse = auth.nonce ?? 0;
-    const mockProvider = {
-      getTransactionCount: async () => nonceToUse,
-    } as unknown as ethers.Provider;
-    wallet = wallet.connect(mockProvider);
-  }
+  // EIP-7702 authorization signing using viem experimental
+  const chainId = auth.chainId ?? 1;
+  const nonce = auth.nonce ?? 0;
 
-  const authorization = await (wallet as any).authorize({
-    address: auth.address,
-    ...(auth.chainId !== undefined && { chainId: auth.chainId }),
-    ...(auth.nonce !== undefined && { nonce: auth.nonce }),
+  // Hash the authorization struct according to EIP-7702
+  const authHash = hashAuthorization({
+    contractAddress: auth.address as Address,
+    chainId,
+    nonce,
   });
 
-  // wallet goes out of scope — private key discarded
-  return authorization as SignedAuthorization;
+  // Sign the authorization hash
+  const signature = await account.sign({ hash: authHash });
+
+  // Parse signature into r, s, yParity
+  const r = signature.slice(0, 66) as Hex;
+  const s = `0x${signature.slice(66, 130)}` as Hex;
+  const v = parseInt(signature.slice(130, 132), 16);
+  const yParity = v - 27; // Convert v to yParity (0 or 1)
+
+  return {
+    address: auth.address,
+    nonce,
+    chainId,
+    yParity,
+    r,
+    s,
+  };
 }
 
 /**
- * Get a connected signer (for contract interactions).
- * NOTE: This returns a signer with the private key in memory.
+ * Get a wallet client for contract interactions.
+ * NOTE: This creates a client with the private key in memory.
  * Use only within a narrow scope and discard immediately.
  * Prefer signMessage() / signTransaction() when possible.
  */
-export async function getSigner(
-  provider: ethers.Provider,
+export async function getWalletClient(
+  rpcUrl: string,
   config: KeystoreConfig = {}
-): Promise<ethers.Wallet> {
+): Promise<WalletClient<Transport, Chain | undefined, Account>> {
   const backend = config.backend || await detectBackend();
   if (backend === 'proxy') {
-    throw new Error('getSigner() is not supported via proxy. The private key cannot be serialized over HTTP. Use signMessage() or signTransaction() instead.');
+    throw new Error('getWalletClient() is not supported via proxy. The private key cannot be serialized over HTTP. Use signMessage() or signTransaction() instead.');
   }
 
-  const wallet = await _loadWalletInternal(config);
-  if (!wallet) throw new Error('No wallet found. Run createWallet() first.');
-  return wallet.connect(provider);
+  const privateKey = await _loadPrivateKeyInternal(config);
+  if (!privateKey) throw new Error('No wallet found. Run createWallet() first.');
+
+  const account = privateKeyToAccount(privateKey);
+  return createWalletClient({
+    account,
+    transport: http(rpcUrl),
+  });
 }
 
 /**
@@ -458,14 +655,14 @@ export async function deleteWallet(config: KeystoreConfig = {}): Promise<boolean
 }
 
 // ---------------------------------------------------------------------------
-// Internal — loads the wallet. NEVER exposed publicly.
+// Internal — loads the private key. NEVER exposed publicly.
 // ---------------------------------------------------------------------------
 
-async function _loadWalletInternal(config: KeystoreConfig = {}): Promise<ethers.Wallet | null> {
+async function _loadPrivateKeyInternal(config: KeystoreConfig = {}): Promise<Hex | null> {
   const backend = config.backend || await detectBackend();
   const keystorePath = config.keystorePath || process.env.KEYSTORE_PATH || DEFAULT_KEYSTORE_PATH;
 
-  let privateKey: string | null = null;
+  let privateKey: Hex | null = null;
 
   switch (backend) {
     case 'encrypted-file': {
@@ -474,11 +671,14 @@ async function _loadWalletInternal(config: KeystoreConfig = {}): Promise<ethers.
       break;
     }
 
-    case 'env':
-      privateKey = process.env.AGENT_PRIVATE_KEY || null;
+    case 'env': {
+      const envKey = process.env.AGENT_PRIVATE_KEY || null;
+      if (envKey) {
+        privateKey = (envKey.startsWith('0x') ? envKey : `0x${envKey}`) as Hex;
+      }
       break;
+    }
   }
 
-  if (!privateKey) return null;
-  return new ethers.Wallet(privateKey);
+  return privateKey;
 }

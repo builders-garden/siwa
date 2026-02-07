@@ -239,12 +239,15 @@ const encoded = Buffer.from(JSON.stringify(registration)).toString('base64');
 const agentURI = \`data:application/json;base64,\${encoded}\`;
 
 // 4. Register onchain (sign via proxy)
-const iface = new ethers.Interface([
-  'function register(string agentURI) external returns (uint256 agentId)'
-]);
-const data = iface.encodeFunctionData('register', [agentURI]);
+import { encodeFunctionData } from 'viem';
+
+const data = encodeFunctionData({
+  abi: [{ name: 'register', type: 'function', inputs: [{ name: 'agentURI', type: 'string' }], outputs: [{ type: 'uint256' }] }],
+  functionName: 'register',
+  args: [agentURI]
+});
 const { signedTx } = await signTransaction({ to: REGISTRY, data, ... });
-const tx = await provider.broadcastTransaction(signedTx);`}</CodeBlock>
+const txHash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx });`}</CodeBlock>
           </SubSection>
 
           <SubSection id="sign-in" title="Step 4: Sign In (SIWA Authentication)">

@@ -140,6 +140,9 @@ export async function testProxyPoliciesFlow(): Promise<boolean> {
       to: '0x1234567890123456789012345678901234567890',
       value: '50000000000000000', // 0.05 ETH (under 0.1 ETH limit)
       chainId: 84532,
+      type: 2, // EIP-1559 transaction type required by viem
+      maxFeePerGas: '1000000000',
+      maxPriorityFeePerGas: '1000000000',
     };
     const { status, data } = await proxyRequest(proxyUrl, secret, 'POST', '/sign-transaction', { tx });
     if (status === 200 && data.signedTx) {
@@ -157,6 +160,9 @@ export async function testProxyPoliciesFlow(): Promise<boolean> {
       to: '0x1234567890123456789012345678901234567890',
       value: '500000000000000000', // 0.5 ETH (over 0.1 ETH limit)
       chainId: 84532,
+      type: 2, // EIP-1559 transaction type required by viem
+      maxFeePerGas: '1000000000',
+      maxPriorityFeePerGas: '1000000000',
     };
     const { status, data } = await proxyRequest(proxyUrl, secret, 'POST', '/sign-transaction', { tx });
     if (status === 403 && data.error === 'Policy violation') {
@@ -251,6 +257,9 @@ export async function testProxyPoliciesFlow(): Promise<boolean> {
         to: '0x1234567890123456789012345678901234567890',
         value: '500000000000000000', // 0.5 ETH (now under 1 ETH limit)
         chainId: 84532,
+        type: 2, // EIP-1559 transaction type required by viem
+        maxFeePerGas: '1000000000',
+        maxPriorityFeePerGas: '1000000000',
       };
       const { status, data } = await proxyRequest(proxyUrl, secret, 'POST', '/sign-transaction', { tx });
       if (status === 200 && data.signedTx) {
@@ -428,6 +437,9 @@ export async function testProxyPoliciesFlow(): Promise<boolean> {
         to: '0x1234567890123456789012345678901234567890',
         value: '10000000000000000', // 0.01 ETH
         chainId: 1, // Mainnet - should be denied
+        type: 2, // EIP-1559 transaction type required by viem
+        maxFeePerGas: '1000000000',
+        maxPriorityFeePerGas: '1000000000',
       };
       const txRes = await proxyRequest(proxyUrl, secret, 'POST', '/sign-transaction', { tx });
       if (txRes.status === 403) {

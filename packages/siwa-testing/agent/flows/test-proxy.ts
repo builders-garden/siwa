@@ -1,7 +1,7 @@
 import chalk from 'chalk';
-import { ethers } from 'ethers';
+import { isAddress, verifyMessage, type Hex, type Address } from 'viem';
 import {
-  hasWallet, getAddress, signMessage, getSigner, createWallet,
+  hasWallet, getAddress, signMessage, getWalletClient, createWallet,
 } from '@buildersgarden/siwa/keystore';
 import { computeHmac } from '@buildersgarden/siwa/proxy-auth';
 import { config, getKeystoreConfig } from '../config.js';
@@ -56,7 +56,7 @@ export async function testProxyFlow(): Promise<boolean> {
   try {
     const info = await createWallet(kc);
     createdAddress = info.address;
-    if (ethers.isAddress(createdAddress)) {
+    if (isAddress(createdAddress)) {
       pass(`createWallet() via proxy \u{2192} ${createdAddress}`);
     } else {
       fail('createWallet() via proxy', `Invalid address: ${createdAddress}`);
@@ -80,7 +80,7 @@ export async function testProxyFlow(): Promise<boolean> {
   // ── Test 4: getAddress() via proxy ────────────────────────────────
   try {
     const address = await getAddress(kc);
-    if (address && ethers.isAddress(address)) {
+    if (address && isAddress(address)) {
       pass(`getAddress() via proxy \u{2192} ${address}`);
     } else {
       fail('getAddress() via proxy', `Got: ${address}`);
@@ -93,11 +93,15 @@ export async function testProxyFlow(): Promise<boolean> {
   const testMessage = 'ERC-8004 proxy signing test';
   try {
     const result = await signMessage(testMessage, kc);
-    const recovered = ethers.verifyMessage(testMessage, result.signature);
-    if (recovered.toLowerCase() === result.address.toLowerCase()) {
+    const isValid = await verifyMessage({
+      address: result.address as Address,
+      message: testMessage,
+      signature: result.signature as Hex,
+    });
+    if (isValid) {
       pass('signMessage() via proxy \u{2192} signature recovers to correct address');
     } else {
-      fail('signMessage() via proxy', `Recovered ${recovered}, expected ${result.address}`);
+      fail('signMessage() via proxy', `Signature verification failed for ${result.address}`);
     }
   } catch (err: any) {
     fail('signMessage() via proxy', err.message);
@@ -127,16 +131,15 @@ export async function testProxyFlow(): Promise<boolean> {
     fail('HMAC rejection with wrong secret', err.message);
   }
 
-  // ── Test 7: getSigner() throws for proxy backend ──────────────────
+  // ── Test 7: getWalletClient() throws for proxy backend ──────────────────
   try {
-    const fakeProvider = new ethers.JsonRpcProvider('http://localhost:1234');
-    await getSigner(fakeProvider, kc);
-    fail('getSigner() throws for proxy', 'Did not throw');
+    await getWalletClient('http://localhost:1234', kc);
+    fail('getWalletClient() throws for proxy', 'Did not throw');
   } catch (err: any) {
     if (err.message.includes('not supported via proxy')) {
-      pass('getSigner() throws for proxy backend');
+      pass('getWalletClient() throws for proxy backend');
     } else {
-      fail('getSigner() throws for proxy', `Unexpected error: ${err.message}`);
+      fail('getWalletClient() throws for proxy', `Unexpected error: ${err.message}`);
     }
   }
 

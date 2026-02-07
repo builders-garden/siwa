@@ -1,7 +1,17 @@
 import chalk from 'chalk';
 import * as fs from 'fs';
-import { ethers } from 'ethers';
-import { hasWallet, getSigner, getAddress, signTransaction, type KeystoreConfig } from '@buildersgarden/siwa/keystore';
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  formatEther,
+  encodeFunctionData,
+  parseEventLogs,
+  type PublicClient,
+  type Address,
+  type Hex,
+} from 'viem';
+import { hasWallet, getWalletClient, getAddress, signTransaction, type KeystoreConfig } from '@buildersgarden/siwa/keystore';
 import {
   isRegistered, readMemory, writeMemoryField, appendToMemorySection,
 } from '@buildersgarden/siwa/memory';
@@ -10,9 +20,23 @@ import {
 } from '../config.js';
 
 const IDENTITY_REGISTRY_ABI = [
-  'function register(string agentURI) external returns (uint256 agentId)',
-  'event Registered(uint256 indexed agentId, string agentURI, address indexed owner)',
-];
+  {
+    name: 'register',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'agentURI', type: 'string' }],
+    outputs: [{ name: 'agentId', type: 'uint256' }],
+  },
+  {
+    name: 'Registered',
+    type: 'event',
+    inputs: [
+      { name: 'agentId', type: 'uint256', indexed: true },
+      { name: 'agentURI', type: 'string', indexed: false },
+      { name: 'owner', type: 'address', indexed: true },
+    ],
+  },
+] as const;
 
 async function uploadToIPFS(data: object, pinataJwt: string): Promise<string> {
   const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
@@ -100,8 +124,11 @@ async function registerLive(): Promise<void> {
     process.exit(1);
   }
 
-  // Connect provider and resolve address
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  // Create public client
+  const publicClient = createPublicClient({
+    transport: http(rpcUrl),
+  });
+
   const address = await getAddress(kc);
   if (!address) {
     console.log(chalk.red(`\u{274C} Could not resolve wallet address.`));
@@ -112,8 +139,8 @@ async function registerLive(): Promise<void> {
   console.log(chalk.dim(`   Wallet:  ${address}`));
   console.log(chalk.dim(`   ${addressUrl(chainId, address)}`));
 
-  const balance = await provider.getBalance(address);
-  const balanceEth = ethers.formatEther(balance);
+  const balance = await publicClient.getBalance({ address: address as Address });
+  const balanceEth = formatEther(balance);
   console.log(chalk.dim(`   Balance: ${balanceEth} ETH`));
 
   if (balance === 0n) {
@@ -173,20 +200,27 @@ async function registerLive(): Promise<void> {
   console.log(chalk.dim(`   From:      ${address}`));
   console.log(chalk.dim(`   AgentURI:  ${agentURI.slice(0, 80)}...`));
 
-  let receipt: ethers.TransactionReceipt;
   let txHash: string;
 
   if (kc.backend === 'proxy') {
     // Proxy path: build + sign tx via proxy, then broadcast raw
-    const iface = new ethers.Interface(IDENTITY_REGISTRY_ABI);
-    const data = iface.encodeFunctionData('register', [agentURI]);
-    const nonce = await provider.getTransactionCount(address);
-    const feeData = await provider.getFeeData();
+    const data = encodeFunctionData({
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'register',
+      args: [agentURI],
+    });
 
-    const gasEstimate = await provider.estimateGas({ to: registryAddress, data, from: address });
+    const nonce = await publicClient.getTransactionCount({ address: address as Address });
+    const feeData = await publicClient.estimateFeesPerGas();
+
+    const gasEstimate = await publicClient.estimateGas({
+      to: registryAddress as Address,
+      data,
+      account: address as Address,
+    });
     const gasLimit = gasEstimate * 120n / 100n; // 20% buffer
 
-    const txReq: ethers.TransactionLike = {
+    const txReq = {
       to: registryAddress,
       data,
       nonce,
@@ -204,61 +238,109 @@ async function registerLive(): Promise<void> {
     console.log(chalk.dim(`   ${agentURI}`));
 
     const { signedTx } = await signTransaction(txReq, kc);
-    const txResponse = await provider.broadcastTransaction(signedTx);
-    txHash = txResponse.hash;
+    txHash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx as Hex });
     console.log(chalk.dim(`   Tx hash: ${txHash}`));
     console.log(chalk.cyan(`   ${txUrl(chainId, txHash)}`));
     console.log(chalk.dim(`   Waiting for confirmation...`));
-    receipt = (await txResponse.wait())!;
-  } else {
-    // Direct signer path
-    const signer = await getSigner(provider, kc);
-    const registry = new ethers.Contract(registryAddress, IDENTITY_REGISTRY_ABI, signer);
-    const tx = await registry.register(agentURI);
-    txHash = tx.hash;
-    console.log(chalk.dim(`   Tx hash: ${txHash}`));
-    console.log(chalk.cyan(`   ${txUrl(chainId, txHash)}`));
-    console.log(chalk.dim(`   Waiting for confirmation...`));
-    receipt = (await tx.wait())!;
-  }
-  console.log(chalk.dim(`   Confirmed in block ${receipt.blockNumber}`));
 
-  // Parse event
-  const eventIface = new ethers.Interface(IDENTITY_REGISTRY_ABI);
-  for (const log of receipt.logs) {
-    try {
-      const parsed = eventIface.parseLog({ topics: log.topics as string[], data: log.data });
-      if (parsed?.name === 'Registered') {
-        const agentId = parsed.args.agentId.toString();
-        const agentRegistry = `eip155:${chainId}:${registryAddress}`;
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as Hex });
+    console.log(chalk.dim(`   Confirmed in block ${receipt.blockNumber}`));
 
-        writeMemoryField('Status', 'registered', config.memoryPath);
-        writeMemoryField('Agent ID', agentId, config.memoryPath);
-        writeMemoryField('Agent Registry', agentRegistry, config.memoryPath);
-        writeMemoryField('Agent URI', agentURI, config.memoryPath);
-        writeMemoryField('Chain ID', chainId.toString(), config.memoryPath);
-        writeMemoryField('Registered At', new Date().toISOString(), config.memoryPath);
+    // Parse event
+    const logs = parseEventLogs({
+      abi: IDENTITY_REGISTRY_ABI,
+      logs: receipt.logs,
+      eventName: 'Registered',
+    });
 
-        if (registrationData.name) writeMemoryField('Name', registrationData.name, config.memoryPath);
-        if (registrationData.description) writeMemoryField('Description', registrationData.description.slice(0, 100), config.memoryPath);
+    if (logs.length > 0) {
+      const log = logs[0];
+      const agentId = log.args.agentId.toString();
+      const agentRegistry = `eip155:${chainId}:${registryAddress}`;
 
-        if (registrationData.services) {
-          for (const svc of registrationData.services) {
-            appendToMemorySection('Services', `- **${svc.name}**: \`${svc.endpoint}\``, config.memoryPath);
-          }
+      writeMemoryField('Status', 'registered', config.memoryPath);
+      writeMemoryField('Agent ID', agentId, config.memoryPath);
+      writeMemoryField('Agent Registry', agentRegistry, config.memoryPath);
+      writeMemoryField('Agent URI', agentURI, config.memoryPath);
+      writeMemoryField('Chain ID', chainId.toString(), config.memoryPath);
+      writeMemoryField('Registered At', new Date().toISOString(), config.memoryPath);
+
+      if (registrationData.name) writeMemoryField('Name', registrationData.name, config.memoryPath);
+      if (registrationData.description) writeMemoryField('Description', registrationData.description.slice(0, 100), config.memoryPath);
+
+      if (registrationData.services) {
+        for (const svc of registrationData.services) {
+          appendToMemorySection('Services', `- **${svc.name}**: \`${svc.endpoint}\``, config.memoryPath);
         }
-
-        appendToMemorySection('Notes', `- Registered via tx \`${txHash}\` on block ${receipt.blockNumber}`, config.memoryPath);
-
-        console.log(chalk.green.bold(`\u{2705} Onchain registration complete`));
-        console.log(chalk.dim(`   Agent ID:       ${agentId}`));
-        console.log(chalk.dim(`   Agent Registry: ${agentRegistry}`));
-        console.log(chalk.dim(`   Chain ID:       ${chainId}`));
-        console.log(chalk.cyan(`   Tx:             ${txUrl(chainId, txHash)}`));
-        console.log(chalk.cyan(`   8004scan:       https://www.8004scan.io/`));
-        return;
       }
-    } catch { /* skip non-matching logs */ }
+
+      appendToMemorySection('Notes', `- Registered via tx \`${txHash}\` on block ${receipt.blockNumber}`, config.memoryPath);
+
+      console.log(chalk.green.bold(`\u{2705} Onchain registration complete`));
+      console.log(chalk.dim(`   Agent ID:       ${agentId}`));
+      console.log(chalk.dim(`   Agent Registry: ${agentRegistry}`));
+      console.log(chalk.dim(`   Chain ID:       ${chainId}`));
+      console.log(chalk.cyan(`   Tx:             ${txUrl(chainId, txHash)}`));
+      console.log(chalk.cyan(`   8004scan:       https://www.8004scan.io/`));
+      return;
+    }
+  } else {
+    // Direct wallet client path
+    const walletClient = await getWalletClient(rpcUrl, kc);
+
+    txHash = await walletClient.writeContract({
+      address: registryAddress as Address,
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'register',
+      args: [agentURI],
+      chain: { id: chainId } as any,
+    });
+
+    console.log(chalk.dim(`   Tx hash: ${txHash}`));
+    console.log(chalk.cyan(`   ${txUrl(chainId, txHash)}`));
+    console.log(chalk.dim(`   Waiting for confirmation...`));
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as Hex });
+    console.log(chalk.dim(`   Confirmed in block ${receipt.blockNumber}`));
+
+    // Parse event
+    const logs = parseEventLogs({
+      abi: IDENTITY_REGISTRY_ABI,
+      logs: receipt.logs,
+      eventName: 'Registered',
+    });
+
+    if (logs.length > 0) {
+      const log = logs[0];
+      const agentId = log.args.agentId.toString();
+      const agentRegistry = `eip155:${chainId}:${registryAddress}`;
+
+      writeMemoryField('Status', 'registered', config.memoryPath);
+      writeMemoryField('Agent ID', agentId, config.memoryPath);
+      writeMemoryField('Agent Registry', agentRegistry, config.memoryPath);
+      writeMemoryField('Agent URI', agentURI, config.memoryPath);
+      writeMemoryField('Chain ID', chainId.toString(), config.memoryPath);
+      writeMemoryField('Registered At', new Date().toISOString(), config.memoryPath);
+
+      if (registrationData.name) writeMemoryField('Name', registrationData.name, config.memoryPath);
+      if (registrationData.description) writeMemoryField('Description', registrationData.description.slice(0, 100), config.memoryPath);
+
+      if (registrationData.services) {
+        for (const svc of registrationData.services) {
+          appendToMemorySection('Services', `- **${svc.name}**: \`${svc.endpoint}\``, config.memoryPath);
+        }
+      }
+
+      appendToMemorySection('Notes', `- Registered via tx \`${txHash}\` on block ${receipt.blockNumber}`, config.memoryPath);
+
+      console.log(chalk.green.bold(`\u{2705} Onchain registration complete`));
+      console.log(chalk.dim(`   Agent ID:       ${agentId}`));
+      console.log(chalk.dim(`   Agent Registry: ${agentRegistry}`));
+      console.log(chalk.dim(`   Chain ID:       ${chainId}`));
+      console.log(chalk.cyan(`   Tx:             ${txUrl(chainId, txHash)}`));
+      console.log(chalk.cyan(`   8004scan:       https://www.8004scan.io/`));
+      return;
+    }
   }
 
   console.log(chalk.yellow(`\u{26A0}\u{FE0F}  Registration tx succeeded but could not parse Registered event.`));

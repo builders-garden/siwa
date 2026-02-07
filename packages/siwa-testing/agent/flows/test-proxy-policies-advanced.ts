@@ -454,6 +454,9 @@ export async function testAdvancedPoliciesFlow(): Promise<boolean> {
         value: '0',
         data: transferData,
         chainId: 84532,
+        type: 2,
+        maxFeePerGas: '1000000000',
+        maxPriorityFeePerGas: '1000000000',
       };
       const { status } = await proxyRequest(proxyUrl, secret, 'POST', '/sign-transaction', { tx, abi: ERC20_ABI });
       if (status === 200) {
@@ -477,6 +480,9 @@ export async function testAdvancedPoliciesFlow(): Promise<boolean> {
         value: '0',
         data: approveData,
         chainId: 84532,
+        type: 2,
+        maxFeePerGas: '1000000000',
+        maxPriorityFeePerGas: '1000000000',
       };
       const { status } = await proxyRequest(proxyUrl, secret, 'POST', '/sign-transaction', { tx, abi: ERC20_ABI });
       if (status === 403) {
@@ -547,6 +553,9 @@ export async function testAdvancedPoliciesFlow(): Promise<boolean> {
         value: '0',
         data: transferData,
         chainId: 84532,
+        type: 2,
+        maxFeePerGas: '1000000000',
+        maxPriorityFeePerGas: '1000000000',
       };
       const { status } = await proxyRequest(proxyUrl, secret, 'POST', '/sign-transaction', { tx, abi: ERC20_ABI });
       if (status === 200) {
@@ -570,6 +579,9 @@ export async function testAdvancedPoliciesFlow(): Promise<boolean> {
         value: '0',
         data: transferData,
         chainId: 84532,
+        type: 2,
+        maxFeePerGas: '1000000000',
+        maxPriorityFeePerGas: '1000000000',
       };
       const { status } = await proxyRequest(proxyUrl, secret, 'POST', '/sign-transaction', { tx, abi: ERC20_ABI });
       if (status === 403) {

@@ -5,10 +5,14 @@
  * Provides functions to read agent profiles and reputation from on-chain registries.
  *
  * Dependencies:
- *   npm install ethers
+ *   npm install viem
  */
 
-import { ethers } from 'ethers';
+import {
+  type PublicClient,
+  type Address,
+  zeroAddress,
+} from 'viem';
 
 // ─── ERC-8004 Value Types ────────────────────────────────────────────
 
@@ -74,7 +78,7 @@ export interface AgentProfile {
 
 export interface GetAgentOptions {
   registryAddress: string;
-  provider: ethers.Provider;
+  client: PublicClient;
   fetchMetadata?: boolean; // default true
 }
 
@@ -87,7 +91,7 @@ export interface ReputationSummary {
 
 export interface GetReputationOptions {
   reputationRegistryAddress: string;
-  provider: ethers.Provider;
+  client: PublicClient;
   clients?: string[];
   tag1?: ReputationTag | (string & {});
   tag2?: string;
@@ -96,14 +100,47 @@ export interface GetReputationOptions {
 // ─── ABI Fragments ──────────────────────────────────────────────────
 
 const IDENTITY_REGISTRY_ABI = [
-  'function ownerOf(uint256 tokenId) view returns (address)',
-  'function tokenURI(uint256 tokenId) view returns (string)',
-  'function getAgentWallet(uint256 agentId) view returns (address)',
-];
+  {
+    name: 'ownerOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
+    name: 'tokenURI',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    name: 'getAgentWallet',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'agentId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address' }],
+  },
+] as const;
 
 const REPUTATION_REGISTRY_ABI = [
-  'function getSummary(uint256 agentId, address[] clients, string tag1, string tag2) view returns (uint64 count, int128 summaryValue, uint8 valueDecimals)',
-];
+  {
+    name: 'getSummary',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'agentId', type: 'uint256' },
+      { name: 'clients', type: 'address[]' },
+      { name: 'tag1', type: 'string' },
+      { name: 'tag2', type: 'string' },
+    ],
+    outputs: [
+      { name: 'count', type: 'uint64' },
+      { name: 'summaryValue', type: 'int128' },
+      { name: 'valueDecimals', type: 'uint8' },
+    ],
+  },
+] as const;
 
 // ─── Internal Helpers ───────────────────────────────────────────────
 
@@ -142,28 +179,37 @@ async function resolveURI(uri: string): Promise<unknown> {
  * Read an agent from the Identity Registry and parse its profile.
  *
  * @param agentId  The on-chain agent token ID
- * @param options  Registry address, provider, and optional fetchMetadata flag
+ * @param options  Registry address, client, and optional fetchMetadata flag
  */
 export async function getAgent(
   agentId: number,
   options: GetAgentOptions
 ): Promise<AgentProfile> {
-  const { registryAddress, provider, fetchMetadata = true } = options;
-
-  const registry = new ethers.Contract(
-    registryAddress,
-    IDENTITY_REGISTRY_ABI,
-    provider
-  );
+  const { registryAddress, client, fetchMetadata = true } = options;
 
   const [owner, uri, walletAddr] = await Promise.all([
-    registry.ownerOf(agentId) as Promise<string>,
-    registry.tokenURI(agentId) as Promise<string>,
-    registry.getAgentWallet(agentId) as Promise<string>,
+    client.readContract({
+      address: registryAddress as Address,
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'ownerOf',
+      args: [BigInt(agentId)],
+    }),
+    client.readContract({
+      address: registryAddress as Address,
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'tokenURI',
+      args: [BigInt(agentId)],
+    }),
+    client.readContract({
+      address: registryAddress as Address,
+      abi: IDENTITY_REGISTRY_ABI,
+      functionName: 'getAgentWallet',
+      args: [BigInt(agentId)],
+    }),
   ]);
 
   const agentWallet =
-    walletAddr === ethers.ZeroAddress ? null : walletAddr;
+    walletAddr === zeroAddress ? null : walletAddr;
 
   let metadata: AgentMetadata | null = null;
   if (fetchMetadata) {
@@ -182,7 +228,7 @@ export async function getAgent(
  * Read an agent's reputation summary from the Reputation Registry.
  *
  * @param agentId  The on-chain agent token ID
- * @param options  Reputation registry address, provider, and optional filters
+ * @param options  Reputation registry address, client, and optional filters
  */
 export async function getReputation(
   agentId: number,
@@ -190,24 +236,20 @@ export async function getReputation(
 ): Promise<ReputationSummary> {
   const {
     reputationRegistryAddress,
-    provider,
+    client,
     clients = [],
     tag1 = '',
     tag2 = '',
   } = options;
 
-  const reputation = new ethers.Contract(
-    reputationRegistryAddress,
-    REPUTATION_REGISTRY_ABI,
-    provider
-  );
+  const result = await client.readContract({
+    address: reputationRegistryAddress as Address,
+    abi: REPUTATION_REGISTRY_ABI,
+    functionName: 'getSummary',
+    args: [BigInt(agentId), clients as Address[], tag1, tag2],
+  });
 
-  const [count, summaryValue, valueDecimals] = await reputation.getSummary(
-    agentId,
-    clients,
-    tag1,
-    tag2
-  );
+  const [count, summaryValue, valueDecimals] = result;
 
   const decimals = Number(valueDecimals);
   const rawValue = BigInt(summaryValue);

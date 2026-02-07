@@ -81,7 +81,7 @@ function getInnerConfig(): KeystoreConfig {
 
 /**
  * Recursively converts BigInt values to strings for JSON serialization.
- * ethers v6 returns BigInt values which can't be serialized by JSON.stringify.
+ * viem returns BigInt values which can't be serialized by JSON.stringify.
  */
 function serializeBigInt(obj: any): any {
   if (obj === null || obj === undefined) return obj;
@@ -459,7 +459,7 @@ app.post('/sign-authorization', async (req: Request, res: Response) => {
     // Policy passed - sign the authorization
     const result = await signAuthorization(auth, getInnerConfig());
     audit(req, true);
-    // ethers v6 returns BigInt values which need conversion for JSON
+    // viem returns BigInt values which need conversion for JSON
     res.json(serializeBigInt(result));
   } catch (err: any) {
     audit(req, false, err.message);

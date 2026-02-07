@@ -9,12 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@buildersgarden/siwa": "0.0.2",
-    "ethers": "^6.16.0",
+    "@buildersgarden/siwa": "workspace:*",
     "jsonwebtoken": "^9.0.3",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

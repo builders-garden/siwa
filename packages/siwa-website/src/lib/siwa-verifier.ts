@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { verifyMessage, type Address, type Hex } from "viem";
 import { parseSIWAMessage } from "@buildersgarden/siwa";
 
 export interface SIWAVerifyResult {
@@ -19,19 +19,25 @@ export async function verifySIWARequest(
 ): Promise<SIWAVerifyResult> {
   try {
     const fields = parseSIWAMessage(message);
-    const recovered = ethers.verifyMessage(message, signature);
+    const isValidSignature = await verifyMessage({
+      address: fields.address as Address,
+      message,
+      signature: signature as Hex,
+    });
 
-    if (recovered.toLowerCase() !== fields.address.toLowerCase()) {
+    if (!isValidSignature) {
       return {
         valid: false,
-        address: recovered,
+        address: fields.address,
         agentId: fields.agentId,
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: "offline",
-        error: "Recovered address does not match message address",
+        error: "Invalid signature",
       };
     }
+
+    const recovered = fields.address;
 
     if (fields.domain !== domain) {
       return {

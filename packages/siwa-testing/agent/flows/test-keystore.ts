@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ethers } from 'ethers';
+import { verifyMessage, type Address, type Hex } from 'viem';
 import {
   createWallet, hasWallet, getAddress, deleteWallet, signMessage,
 } from '@buildersgarden/siwa/keystore';
@@ -120,11 +120,15 @@ export async function testKeystoreFlow(): Promise<boolean> {
   const testMessage = 'ERC-8004 keystore encryption test';
   try {
     const result = await signMessage(testMessage, getTestConfig());
-    const recovered = ethers.verifyMessage(testMessage, result.signature);
-    if (recovered.toLowerCase() === createdAddress!.toLowerCase()) {
+    const isValid = await verifyMessage({
+      address: createdAddress! as Address,
+      message: testMessage,
+      signature: result.signature as Hex,
+    });
+    if (isValid) {
       pass(`Sign message \u{2192} signature recovers to correct address`);
     } else {
-      fail('Sign message', `Recovered ${recovered}, expected ${createdAddress}`);
+      fail('Sign message', `Signature verification failed for ${createdAddress}`);
     }
   } catch (err: any) {
     fail('Sign message', err.message);
