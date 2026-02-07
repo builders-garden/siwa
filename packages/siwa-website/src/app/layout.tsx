@@ -22,6 +22,21 @@ export const metadata: Metadata = {
     description:
       "Trustless identity and authentication for AI agents. An open standard built on ERC-8004.",
     type: "website",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "SIWA — Sign In With Agent",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SIWA — Sign In With Agent",
+    description:
+      "Trustless identity and authentication for AI agents. An open standard built on ERC-8004.",
+    images: ["/og.png"],
   },
 };
 
