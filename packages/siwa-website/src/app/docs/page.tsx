@@ -103,6 +103,12 @@ export default function DocsPage() {
       <DocsSidebar />
 
       <article className="min-w-0 flex-1 pl-0 md:pl-12">
+        <div className="mb-6 rounded-lg bg-yellow-500/10 border border-yellow-500/30 px-5 py-3">
+          <p className="text-sm font-mono text-yellow-400">
+            This project is a work in progress. APIs and documentation may change.
+          </p>
+        </div>
+
         <h1 className="font-mono text-2xl font-bold text-foreground mb-2">
           SIWA Documentation
         </h1>

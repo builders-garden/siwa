@@ -249,6 +249,11 @@ function WhySIWASection() {
 export default function Home() {
   return (
     <div className="min-h-screen">
+      <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-6 py-3 text-center">
+        <p className="text-sm font-mono text-yellow-400">
+          This project is a work in progress. APIs and documentation may change.
+        </p>
+      </div>
       <HeroSection />
       <ArchitectureSection />
       <CodeExamplesSection />
