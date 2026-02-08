@@ -54,6 +54,7 @@ export function Navbar() {
           <NavLink href="/docs">Docs</NavLink>
           <NavLink href="/docs/endpoints">Endpoints</NavLink>
           <NavLink href="/docs/deploy">Deploy</NavLink>
+          <NavLink href="/admin/policies">Admin</NavLink>
           <NavLink href="https://github.com/builders-garden/siwa" external>
             GitHub
           </NavLink>
@@ -92,6 +93,9 @@ export function Navbar() {
           </NavLink>
           <NavLink href="/docs/deploy" onClick={() => setOpen(false)}>
             Deploy
+          </NavLink>
+          <NavLink href="/admin/policies" onClick={() => setOpen(false)}>
+            Admin
           </NavLink>
           <NavLink
             href="https://github.com/builders-garden/siwa"
