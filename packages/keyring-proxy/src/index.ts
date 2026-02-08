@@ -25,7 +25,6 @@
 import "dotenv/config";
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { verifyHmac } from "@buildersgarden/siwa/proxy-auth";
@@ -36,7 +35,13 @@ import {
   signTransaction as viemSignTransaction,
   signAuthorization as viemSignAuthorization,
 } from "viem/accounts";
-import type { Hex, Address, TransactionSerializable, AuthorizationRequest as ViemAuthorizationRequest } from "viem";
+import type { Hex, Address, TransactionSerializable } from "viem";
+
+// @noble crypto libraries - audited, pure JS, type-safe
+import { scrypt } from "@noble/hashes/scrypt.js";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { randomBytes } from "@noble/hashes/utils.js";
+import { ctr } from "@noble/ciphers/aes.js";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -100,70 +105,96 @@ const SCRYPT_N = 16384;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
 
-function deriveKey(password: string, salt: Buffer): Buffer {
-  // Type assertion needed due to Node.js 22+ Buffer/Uint8Array type incompatibility
-  return crypto.scryptSync(password, salt as any, 32, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P });
+function deriveKey(password: string, salt: Uint8Array): Uint8Array {
+  return scrypt(new TextEncoder().encode(password), salt, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+    dkLen: 32,
+  });
+}
+
+function toHexString(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function fromHexString(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
 }
 
 function encryptPrivateKey(privateKey: Hex, password: string): EncryptedKeystore {
   const account = privateKeyToAccount(privateKey);
-  const salt = crypto.randomBytes(32);
+  const salt = randomBytes(32);
   const derivedKey = deriveKey(password, salt);
 
-  const iv = crypto.randomBytes(16);
-  // Type assertions needed due to Node.js 22+ Buffer/Uint8Array type incompatibility
-  const cipher = crypto.createCipheriv("aes-128-ctr", derivedKey.subarray(0, 16) as any, iv as any);
+  const iv = randomBytes(16);
+  const encryptionKey = derivedKey.subarray(0, 16);
+  const cipher = ctr(encryptionKey, iv);
 
   // Remove 0x prefix for encryption
-  const keyBytes = Buffer.from(privateKey.slice(2), "hex");
-  const ciphertext = Buffer.concat([cipher.update(keyBytes as any), cipher.final()] as any);
+  const keyBytes = fromHexString(privateKey.slice(2));
+  const ciphertext = cipher.encrypt(keyBytes);
 
   // MAC = sha256(derivedKey[16:32] + ciphertext)
-  const macInput = Buffer.concat([derivedKey.subarray(16, 32), ciphertext] as any);
-  const mac = crypto.createHash("sha256").update(macInput as any).digest();
+  const macInput = new Uint8Array(16 + ciphertext.length);
+  macInput.set(derivedKey.subarray(16, 32), 0);
+  macInput.set(ciphertext, 16);
+  const mac = sha256(macInput);
 
   return {
     version: 3,
     address: account.address.toLowerCase().slice(2),
     crypto: {
       cipher: "aes-128-ctr",
-      ciphertext: ciphertext.toString("hex"),
-      cipherparams: { iv: iv.toString("hex") },
+      ciphertext: toHexString(ciphertext),
+      cipherparams: { iv: toHexString(iv) },
       kdf: "scrypt",
       kdfparams: {
         n: SCRYPT_N,
         r: SCRYPT_R,
         p: SCRYPT_P,
         dklen: 32,
-        salt: salt.toString("hex"),
+        salt: toHexString(salt),
       },
-      mac: mac.toString("hex"),
+      mac: toHexString(mac),
     },
   };
 }
 
 function decryptPrivateKey(keystore: EncryptedKeystore, password: string): Hex {
-  const salt = Buffer.from(keystore.crypto.kdfparams.salt, "hex");
+  const salt = fromHexString(keystore.crypto.kdfparams.salt);
   const { n, r, p } = keystore.crypto.kdfparams;
-  // Type assertion needed due to Node.js 22+ Buffer/Uint8Array type incompatibility
-  const derivedKey = crypto.scryptSync(password, salt as any, 32, { N: n, r, p });
+  const derivedKey = scrypt(new TextEncoder().encode(password), salt, {
+    N: n,
+    r,
+    p,
+    dkLen: 32,
+  });
 
-  const ciphertext = Buffer.from(keystore.crypto.ciphertext, "hex");
+  const ciphertext = fromHexString(keystore.crypto.ciphertext);
 
   // Verify MAC
-  const macInput = Buffer.concat([derivedKey.subarray(16, 32), ciphertext] as any);
-  const mac = crypto.createHash("sha256").update(macInput as any).digest();
+  const macInput = new Uint8Array(16 + ciphertext.length);
+  macInput.set(derivedKey.subarray(16, 32), 0);
+  macInput.set(ciphertext, 16);
+  const mac = sha256(macInput);
 
-  if (mac.toString("hex") !== keystore.crypto.mac) {
+  if (toHexString(mac) !== keystore.crypto.mac) {
     throw new Error("Invalid password or corrupted keystore");
   }
 
-  const iv = Buffer.from(keystore.crypto.cipherparams.iv, "hex");
-  // Type assertions needed due to Node.js 22+ Buffer/Uint8Array type incompatibility
-  const decipher = crypto.createDecipheriv("aes-128-ctr", derivedKey.subarray(0, 16) as any, iv as any);
-  const privateKeyBytes = Buffer.concat([decipher.update(ciphertext as any), decipher.final()] as any);
+  const iv = fromHexString(keystore.crypto.cipherparams.iv);
+  const decryptionKey = derivedKey.subarray(0, 16);
+  const decipher = ctr(decryptionKey, iv);
+  const privateKeyBytes = decipher.decrypt(ciphertext);
 
-  return `0x${privateKeyBytes.toString("hex")}` as Hex;
+  return `0x${toHexString(privateKeyBytes)}` as Hex;
 }
 
 function saveKeystore(keystore: EncryptedKeystore, keystorePath: string): void {
