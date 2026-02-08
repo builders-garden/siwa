@@ -1,5 +1,5 @@
 import { verifyMessage, hashMessage, type PublicClient, type Address, type Hex } from 'viem';
-import { parseSIWAMessage } from '@buildersgarden/siwa/siwa';
+import { parseSIWAMessage, type SIWAErrorCode } from '@buildersgarden/siwa/siwa';
 
 export interface SIWAVerifyResult {
   valid: boolean;
@@ -8,6 +8,7 @@ export interface SIWAVerifyResult {
   agentRegistry: string;
   chainId: number;
   verified: 'offline' | 'onchain';
+  code?: SIWAErrorCode;
   error?: string;
 }
 
@@ -37,6 +38,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
+        code: 'INVALID_SIGNATURE',
         error: 'Invalid signature',
       };
     }
@@ -52,6 +54,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
+        code: 'DOMAIN_MISMATCH',
         error: `Domain mismatch: expected ${domain}, got ${fields.domain}`,
       };
     }
@@ -65,6 +68,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
+        code: 'INVALID_NONCE',
         error: 'Invalid or consumed nonce',
       };
     }
@@ -79,6 +83,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
+        code: 'MESSAGE_EXPIRED',
         error: 'Message expired',
       };
     }
@@ -90,6 +95,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
+        code: 'MESSAGE_NOT_YET_VALID',
         error: 'Message not yet valid (notBefore)',
       };
     }
@@ -105,19 +111,35 @@ export async function verifySIWARequest(
           agentRegistry: fields.agentRegistry,
           chainId: fields.chainId,
           verified: 'onchain',
+          code: 'INVALID_REGISTRY_FORMAT',
           error: 'Invalid agentRegistry format',
         };
       }
       const registryAddress = registryParts[2] as Address;
 
-      const owner = await client.readContract({
-        address: registryAddress,
-        abi: [{ name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] }] as const,
-        functionName: 'ownerOf',
-        args: [BigInt(fields.agentId)],
-      });
+      let owner: string;
+      try {
+        owner = await client.readContract({
+          address: registryAddress,
+          abi: [{ name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] }] as const,
+          functionName: 'ownerOf',
+          args: [BigInt(fields.agentId)],
+        }) as string;
+      } catch {
+        // ownerOf reverts when the token doesn't exist — agent is not registered
+        return {
+          valid: false,
+          address: recovered,
+          agentId: fields.agentId,
+          agentRegistry: fields.agentRegistry,
+          chainId: fields.chainId,
+          verified: 'onchain',
+          code: 'NOT_REGISTERED',
+          error: 'Agent is not registered on the ERC-8004 Identity Registry',
+        };
+      }
 
-      if ((owner as string).toLowerCase() !== recovered.toLowerCase()) {
+      if (owner.toLowerCase() !== recovered.toLowerCase()) {
         // ERC-1271 fallback for smart contract wallets / EIP-7702 delegated accounts.
         // If ecrecover doesn't match the NFT owner, the owner may be a contract
         // that validates signatures via isValidSignature (ERC-1271).
@@ -138,6 +160,7 @@ export async function verifySIWARequest(
               agentRegistry: fields.agentRegistry,
               chainId: fields.chainId,
               verified: 'onchain',
+              code: 'NOT_OWNER',
               error: 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)',
             };
           }
@@ -151,6 +174,7 @@ export async function verifySIWARequest(
             agentRegistry: fields.agentRegistry,
             chainId: fields.chainId,
             verified: 'onchain',
+            code: 'NOT_OWNER',
             error: 'Signer is not the owner of this agent NFT',
           };
         }
@@ -183,6 +207,7 @@ export async function verifySIWARequest(
       agentRegistry: '',
       chainId: 0,
       verified: 'offline',
+      code: 'VERIFICATION_FAILED',
       error: err.message || 'Verification failed',
     };
   }

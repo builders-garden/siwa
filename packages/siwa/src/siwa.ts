@@ -24,6 +24,22 @@ import { AgentProfile, getAgent, getReputation, ServiceType, TrustModel } from '
 
 // ─── Types ───────────────────────────────────────────────────────────
 
+export type SIWAErrorCode =
+  | 'INVALID_SIGNATURE'
+  | 'DOMAIN_MISMATCH'
+  | 'INVALID_NONCE'
+  | 'MESSAGE_EXPIRED'
+  | 'MESSAGE_NOT_YET_VALID'
+  | 'INVALID_REGISTRY_FORMAT'
+  | 'NOT_REGISTERED'
+  | 'NOT_OWNER'
+  | 'AGENT_NOT_ACTIVE'
+  | 'MISSING_SERVICE'
+  | 'MISSING_TRUST_MODEL'
+  | 'LOW_REPUTATION'
+  | 'CUSTOM_CHECK_FAILED'
+  | 'VERIFICATION_FAILED';
+
 export interface SIWAMessageFields {
   domain: string;
   address: string;
@@ -46,6 +62,7 @@ export interface SIWAVerificationResult {
   agentId: number;
   agentRegistry: string;
   chainId: number;
+  code?: SIWAErrorCode;
   error?: string;
   agent?: AgentProfile;
 }
@@ -58,6 +75,90 @@ export interface SIWAVerifyCriteria {
   mustBeActive?: boolean;
   requiredTrust?: (TrustModel | (string & {}))[];
   custom?: (agent: AgentProfile) => boolean | Promise<boolean>;
+}
+
+// ─── Standard Response Format ────────────────────────────────────────
+
+export interface SIWAResponse {
+  status: 'authenticated' | 'not_registered' | 'rejected';
+  address?: string;
+  agentId?: number;
+  agentRegistry?: string;
+  chainId?: number;
+  verified?: 'offline' | 'onchain';
+  code?: SIWAErrorCode;
+  error?: string;
+  action?: SIWAAction;
+  skill?: { name: string; install: string; url: string };
+}
+
+export interface SIWAAction {
+  type: 'register';
+  message: string;
+  skill: { name: string; install: string; url: string };
+  steps: string[];
+  registryAddress?: string;
+  chainId?: number;
+}
+
+/**
+ * Convert a SIWAVerificationResult into a standard SIWAResponse
+ * that platforms can forward directly to agents.
+ */
+export function buildSIWAResponse(result: SIWAVerificationResult): SIWAResponse {
+  const base = {
+    address: result.address || undefined,
+    agentId: result.agentId || undefined,
+    agentRegistry: result.agentRegistry || undefined,
+    chainId: result.chainId || undefined,
+  };
+
+  const skillRef = {
+    name: '@buildersgarden/siwa',
+    install: 'npm install @buildersgarden/siwa',
+    url: 'https://siwa.builders.garden/skill.md',
+  };
+
+  if (result.valid) {
+    return { status: 'authenticated', ...base };
+  }
+
+  if (result.code === 'NOT_REGISTERED') {
+    const registryParts = result.agentRegistry ? result.agentRegistry.split(':') : [];
+    const registryAddress = registryParts.length === 3 ? registryParts[2] : undefined;
+    const chainId = result.chainId || (registryParts.length >= 2 ? parseInt(registryParts[1]) : undefined);
+
+    return {
+      status: 'not_registered',
+      ...base,
+      code: result.code,
+      error: 'Agent is not registered on the ERC-8004 Identity Registry.',
+      skill: skillRef,
+      action: {
+        type: 'register',
+        message: 'This address is not registered as an ERC-8004 agent. Install the SIWA SDK and register before signing in.',
+        skill: skillRef,
+        steps: [
+          'Install the SDK: npm install @buildersgarden/siwa',
+          "Create a wallet: import { createWallet } from '@buildersgarden/siwa/keystore'; const wallet = await createWallet();",
+          'Fund the wallet with ETH on the target chain for gas fees',
+          'Build ERC-8004 registration metadata (JSON with name, description, services, active: true)',
+          'Register onchain: call register(agentURI) on the Identity Registry contract',
+          'Retry SIWA sign-in',
+        ],
+        registryAddress,
+        chainId,
+      },
+    };
+  }
+
+  return {
+    status: 'rejected',
+    ...base,
+    code: result.code,
+    error: result.error,
+    skill: skillRef,
+  };
 }
 
 // ─── Message Construction ────────────────────────────────────────────
@@ -200,27 +301,7 @@ export async function signSIWAMessage(
   return { message, signature: result.signature };
 }
 
-/**
- * Sign a SIWA message using a raw private key.
- * ⚠️ DEPRECATED: Use signSIWAMessage() with keystore instead.
- * Kept only for server-side testing or environments without keystore.
- */
-export async function signSIWAMessageUnsafe(
-  privateKey: string,
-  fields: SIWAMessageFields
-): Promise<{ message: string; signature: string }> {
-  const hexKey = (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) as Hex;
-  const account = privateKeyToAccount(hexKey);
 
-  if (account.address.toLowerCase() !== fields.address.toLowerCase()) {
-    throw new Error(`Address mismatch: wallet is ${account.address}, message says ${fields.address}`);
-  }
-
-  const message = buildSIWAMessage(fields);
-  const signature = await account.signMessage({ message });
-
-  return { message, signature };
-}
 
 // ─── Server-Side Verification ────────────────────────────────────────
 
@@ -263,7 +344,7 @@ export async function verifySIWA(
     });
 
     if (!isValid) {
-      return { valid: false, address: fields.address, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Invalid signature' };
+      return { valid: false, address: fields.address, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'INVALID_SIGNATURE', error: 'Invalid signature' };
     }
 
     const recovered = fields.address;
@@ -272,39 +353,45 @@ export async function verifySIWA(
 
     // 4. Domain binding
     if (fields.domain !== expectedDomain) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: `Domain mismatch: expected ${expectedDomain}, got ${fields.domain}` };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'DOMAIN_MISMATCH', error: `Domain mismatch: expected ${expectedDomain}, got ${fields.domain}` };
     }
 
     // 5. Nonce
     const nonceOk = await nonceValid(fields.nonce);
     if (!nonceOk) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Invalid or consumed nonce' };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'INVALID_NONCE', error: 'Invalid or consumed nonce' };
     }
 
     // 6. Time window
     const now = new Date();
     if (fields.expirationTime && now > new Date(fields.expirationTime)) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Message expired' };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'MESSAGE_EXPIRED', error: 'Message expired' };
     }
     if (fields.notBefore && now < new Date(fields.notBefore)) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Message not yet valid (notBefore)' };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'MESSAGE_NOT_YET_VALID', error: 'Message not yet valid (notBefore)' };
     }
 
     // 7. Onchain ownership — extract registry address from agentRegistry string
     const registryParts = fields.agentRegistry.split(':');
     if (registryParts.length !== 3 || registryParts[0] !== 'eip155') {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Invalid agentRegistry format' };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'INVALID_REGISTRY_FORMAT', error: 'Invalid agentRegistry format' };
     }
     const registryAddress = registryParts[2] as Address;
 
-    const owner = await client.readContract({
-      address: registryAddress,
-      abi: [{ name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] }] as const,
-      functionName: 'ownerOf',
-      args: [BigInt(fields.agentId)],
-    });
+    let owner: string;
+    try {
+      owner = await client.readContract({
+        address: registryAddress,
+        abi: [{ name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] }] as const,
+        functionName: 'ownerOf',
+        args: [BigInt(fields.agentId)],
+      }) as string;
+    } catch {
+      // ownerOf reverts when the token doesn't exist — agent is not registered
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'NOT_REGISTERED', error: 'Agent is not registered on the ERC-8004 Identity Registry' };
+    }
 
-    if ((owner as string).toLowerCase() !== recovered.toLowerCase()) {
+    if (owner.toLowerCase() !== recovered.toLowerCase()) {
       // 7b. ERC-1271 fallback for smart contract wallets / EIP-7702 delegated accounts.
       // If ecrecover doesn't match the NFT owner, the owner may be a contract
       // that validates signatures via isValidSignature (ERC-1271).
@@ -318,12 +405,12 @@ export async function verifySIWA(
         });
         // ERC-1271 magic value: 0x1626ba7e
         if (magicValue !== '0x1626ba7e') {
-          return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)' };
+          return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'NOT_OWNER', error: 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)' };
         }
         // ERC-1271 validated — the owner contract accepted the signature
       } catch {
         // Owner is not a contract or doesn't implement ERC-1271
-        return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, error: 'Signer is not the owner of this agent NFT' };
+        return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'NOT_OWNER', error: 'Signer is not the owner of this agent NFT' };
       }
     }
 
@@ -347,7 +434,7 @@ export async function verifySIWA(
 
     if (criteria.mustBeActive) {
       if (!agent.metadata?.active) {
-        return { ...baseResult, valid: false, error: 'Agent is not active' };
+        return { ...baseResult, valid: false, code: 'AGENT_NOT_ACTIVE', error: 'Agent is not active' };
       }
     }
 
@@ -355,7 +442,7 @@ export async function verifySIWA(
       const serviceNames = (agent.metadata?.services ?? []).map(s => s.name);
       for (const required of criteria.requiredServices) {
         if (!serviceNames.includes(required)) {
-          return { ...baseResult, valid: false, error: `Agent missing required service: ${required}` };
+          return { ...baseResult, valid: false, code: 'MISSING_SERVICE', error: `Agent missing required service: ${required}` };
         }
       }
     }
@@ -364,37 +451,37 @@ export async function verifySIWA(
       const supported = agent.metadata?.supportedTrust ?? [];
       for (const required of criteria.requiredTrust) {
         if (!supported.includes(required)) {
-          return { ...baseResult, valid: false, error: `Agent missing required trust model: ${required}` };
+          return { ...baseResult, valid: false, code: 'MISSING_TRUST_MODEL', error: `Agent missing required trust model: ${required}` };
         }
       }
     }
 
     if (criteria.minScore !== undefined || criteria.minFeedbackCount !== undefined) {
       if (!criteria.reputationRegistryAddress) {
-        return { ...baseResult, valid: false, error: 'reputationRegistryAddress is required for reputation criteria' };
+        return { ...baseResult, valid: false, code: 'LOW_REPUTATION', error: 'reputationRegistryAddress is required for reputation criteria' };
       }
       const rep = await getReputation(fields.agentId, {
         reputationRegistryAddress: criteria.reputationRegistryAddress,
         client,
       });
       if (criteria.minFeedbackCount !== undefined && rep.count < criteria.minFeedbackCount) {
-        return { ...baseResult, valid: false, error: `Agent feedback count ${rep.count} below minimum ${criteria.minFeedbackCount}` };
+        return { ...baseResult, valid: false, code: 'LOW_REPUTATION', error: `Agent feedback count ${rep.count} below minimum ${criteria.minFeedbackCount}` };
       }
       if (criteria.minScore !== undefined && rep.score < criteria.minScore) {
-        return { ...baseResult, valid: false, error: `Agent reputation score ${rep.score} below minimum ${criteria.minScore}` };
+        return { ...baseResult, valid: false, code: 'LOW_REPUTATION', error: `Agent reputation score ${rep.score} below minimum ${criteria.minScore}` };
       }
     }
 
     if (criteria.custom) {
       const passed = await criteria.custom(agent);
       if (!passed) {
-        return { ...baseResult, valid: false, error: 'Agent failed custom criteria check' };
+        return { ...baseResult, valid: false, code: 'CUSTOM_CHECK_FAILED', error: 'Agent failed custom criteria check' };
       }
     }
 
     return baseResult;
 
   } catch (err: any) {
-    return { valid: false, address: '', agentId: 0, agentRegistry: '', chainId: 0, error: err.message || 'Verification failed' };
+    return { valid: false, address: '', agentId: 0, agentRegistry: '', chainId: 0, code: 'VERIFICATION_FAILED', error: err.message || 'Verification failed' };
   }
 }

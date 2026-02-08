@@ -9,8 +9,7 @@ export async function signInFlow(): Promise<string | null> {
 
   // Read MEMORY.md
   if (!isRegistered(config.memoryPath)) {
-    console.log(chalk.red(`\u{274C} Agent not registered. Run register first.`));
-    process.exit(1);
+    console.log(chalk.yellow(`\u{26A0}\u{FE0F}  Agent not locally registered. Proceeding with sign-in — the server will check onchain registration.`));
   }
 
   const mem = readMemory(config.memoryPath);
@@ -76,8 +75,31 @@ export async function signInFlow(): Promise<string | null> {
 
   const verifyData: VerifyResponse = await verifyRes.json();
 
-  if (!verifyData.success) {
+  if (verifyData.status === 'not_registered') {
     console.log(chalk.red(`\u{274C} SIWA Sign-In Failed: ${verifyData.error}`));
+    console.log('');
+    console.log(chalk.yellow.bold('Agent is not registered on the ERC-8004 Identity Registry.'));
+    if (verifyData.action) {
+      console.log(chalk.yellow(`Registry: ${verifyData.action.registryAddress} (chain ${verifyData.action.chainId})`));
+      console.log('');
+      console.log(chalk.cyan.bold('To register, follow these steps:'));
+      for (const [i, step] of verifyData.action.steps.entries()) {
+        console.log(chalk.cyan(`  ${i + 1}. ${step}`));
+      }
+    }
+    if (verifyData.skill) {
+      console.log('');
+      console.log(chalk.dim(`SDK: ${verifyData.skill.install}`));
+      console.log(chalk.dim(`Skill: ${verifyData.skill.url}`));
+    }
+    return null;
+  }
+
+  if (verifyData.status !== 'authenticated') {
+    console.log(chalk.red(`\u{274C} SIWA Sign-In Rejected [${verifyData.code}]: ${verifyData.error}`));
+    if (verifyData.skill) {
+      console.log(chalk.dim(`Skill: ${verifyData.skill.url}`));
+    }
     return null;
   }
 

@@ -4,6 +4,7 @@ import { createPublicClient, http, type PublicClient } from 'viem';
 import { createNonce, validateNonce, getNonceCount } from './nonce-store.js';
 import { createSession, validateToken, getSessions, getSessionCount } from './session-store.js';
 import { verifySIWARequest } from './siwa-verifier.js';
+import { buildSIWAResponse } from '@buildersgarden/siwa/siwa';
 import { renderDashboard } from './dashboard.js';
 
 const app = express();
@@ -74,7 +75,7 @@ app.post('/siwa/nonce', (req, res) => {
 app.post('/siwa/verify', async (req, res) => {
   const { message, signature } = req.body;
   if (!message || !signature) {
-    res.status(400).json({ success: false, error: 'Missing message or signature' });
+    res.status(400).json({ status: 'rejected', code: 'VERIFICATION_FAILED', error: 'Missing message or signature' });
     return;
   }
 
@@ -86,9 +87,13 @@ app.post('/siwa/verify', async (req, res) => {
     isLiveMode ? client : null
   );
 
+  const response = buildSIWAResponse(result);
+  response.verified = result.verified;
+
   if (!result.valid) {
     console.log(`\u{274C} SIWA verification failed: ${result.error}`);
-    res.status(401).json({ success: false, error: result.error });
+    const statusCode = result.code === 'NOT_REGISTERED' ? 403 : 401;
+    res.status(statusCode).json(response);
     return;
   }
 
@@ -106,12 +111,8 @@ app.post('/siwa/verify', async (req, res) => {
   console.log(`\u{2705} Agent #${result.agentId} (${truncated}) signed in [${result.verified}]`);
 
   res.json({
-    success: true,
+    ...response,
     token: session.token,
-    address: result.address,
-    agentId: result.agentId,
-    agentRegistry: result.agentRegistry,
-    verified: result.verified,
     expiresAt: session.expiresAt.toISOString(),
   });
 });

@@ -20,15 +20,22 @@ export interface VerifyRequest {
   signature: string;
 }
 
+export type { SIWAErrorCode, SIWAAction } from '@buildersgarden/siwa/siwa';
+
 export interface VerifyResponse {
-  success: boolean;
-  token?: string;
+  status: 'authenticated' | 'not_registered' | 'rejected';
   address?: string;
   agentId?: number;
   agentRegistry?: string;
+  chainId?: number;
   verified?: 'offline' | 'onchain';
-  expiresAt?: string;
+  code?: import('@buildersgarden/siwa/siwa').SIWAErrorCode;
   error?: string;
+  action?: import('@buildersgarden/siwa/siwa').SIWAAction;
+  skill?: { name: string; install: string; url: string };
+  // On authenticated
+  token?: string;
+  expiresAt?: string;
 }
 
 export interface ProtectedResponse {
