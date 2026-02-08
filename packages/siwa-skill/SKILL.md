@@ -744,9 +744,9 @@ import { signSIWAMessage } from "@buildersgarden/siwa/siwa";
 
 // signSIWAMessage internally calls keystore.signMessage()
 // which delegates to the keyring proxy — the key never enters this process.
-const { message, signature } = await signSIWAMessage({
+// The address is resolved directly from the keystore (trusted source of truth).
+const { message, signature, address } = await signSIWAMessage({
   domain: "api.targetservice.com",
-  address,
   statement: "Authenticate as a registered ERC-8004 agent.",
   uri: "https://api.targetservice.com/siwa",
   agentId,
@@ -760,6 +760,8 @@ const { message, signature } = await signSIWAMessage({
 
 ### Step 3: Submit and Persist Session
 
+The server returns a standard `SIWAResponse` with `status: 'authenticated' | 'not_registered' | 'rejected'`.
+
 ```typescript
 import { appendToMemorySection } from "@buildersgarden/siwa/memory";
 
@@ -770,13 +772,17 @@ const verifyRes = await fetch("https://api.targetservice.com/siwa/verify", {
 });
 const session = await verifyRes.json();
 
-if (session.success) {
+if (session.status === "authenticated") {
   appendToMemorySection(
     "Sessions",
     `- **${agentId}@api.targetservice.com**: \`${session.token}\` (exp: ${
-      expirationTime || "none"
+      session.expiresAt || "none"
     })`
   );
+} else if (session.status === "not_registered") {
+  // session.action contains registration steps and SDK install instructions
+  // session.skill contains the SDK name and install URL
+  console.log(session.action.steps);
 }
 ```
 
@@ -811,36 +817,43 @@ The server MUST:
 5. _(Optional)_ Evaluate `SIWAVerifyCriteria` — activity status, required services, trust models, reputation score
 6. Issue session token
 
-`verifySIWA()` in `@buildersgarden/siwa/siwa` accepts an optional `criteria` parameter (6th argument) to enforce requirements after the ownership check:
+The SDK provides three server-side functions. `createSIWANonce()` validates registration before issuing a nonce, `verifySIWA()` verifies the signed message, and `buildSIWAResponse()` converts the result into a standard response that platforms forward directly to agents:
 
 ```typescript
-import { verifySIWA } from "@buildersgarden/siwa/siwa";
+import { createSIWANonce, verifySIWA, buildSIWAResponse } from "@buildersgarden/siwa/siwa";
+import { createPublicClient, http } from "viem";
 
-const result = await verifySIWA(
-  message,
-  signature,
-  domain,
-  nonceValid,
-  provider,
-  {
-    mustBeActive: true, // agent metadata.active must be true
-    requiredServices: ["MCP"], // ServiceType values from ERC-8004
-    requiredTrust: ["reputation"], // TrustModel values from ERC-8004
-    minScore: 0.5, // minimum reputation score
-    minFeedbackCount: 10, // minimum feedback count
-    reputationRegistryAddress: "0x8004BAa1...9b63",
-  }
-);
+const client = createPublicClient({ transport: http(RPC_URL) });
 
-// result.agent contains the full AgentProfile when criteria are provided
+// Nonce endpoint — validates registration before issuing
+const nonceResult = await createSIWANonce({ address, agentId, agentRegistry }, client);
+if (nonceResult.status !== "nonce_issued") {
+  // nonceResult is a SIWAResponse with registration instructions
+  return res.status(403).json(nonceResult);
+}
+
+// Verify endpoint — checks signature + onchain ownership
+const result = await verifySIWA(message, signature, domain, nonceValid, client, {
+  mustBeActive: true, // agent metadata.active must be true
+  requiredServices: ["MCP"], // ServiceType values from ERC-8004
+  requiredTrust: ["reputation"], // TrustModel values from ERC-8004
+  minScore: 0.5, // minimum reputation score
+  minFeedbackCount: 10, // minimum feedback count
+  reputationRegistryAddress: "0x8004BAa1...9b63",
+});
+
+// Convert to standard response format
+const response = buildSIWAResponse(result);
+// response.status: 'authenticated' | 'not_registered' | 'rejected'
+// response.code: SIWAErrorCode enum (e.g. NOT_REGISTERED, NOT_OWNER, INVALID_SIGNATURE)
+// response.action: registration instructions (when not_registered)
+// response.skill: SDK install info and skill URL
 ```
 
-See the test server's `verifySIWARequest()` for a full reference implementation.
-
-| Endpoint       | Method | Description                                                 |
-| -------------- | ------ | ----------------------------------------------------------- |
-| `/siwa/nonce`  | POST   | Generate and return a nonce                                 |
-| `/siwa/verify` | POST   | Accept `{ message, signature }`, verify, return session/JWT |
+| Endpoint       | Method | Description                                                                            |
+| -------------- | ------ | -------------------------------------------------------------------------------------- |
+| `/siwa/nonce`  | POST   | Validate registration via `createSIWANonce()`, return nonce or `SIWAResponse` error    |
+| `/siwa/verify` | POST   | Verify via `verifySIWA()`, return `SIWAResponse` with session token or error + instructions |
 
 ---
 

@@ -28,10 +28,10 @@ The `full-flow` command runs a 4-step agent lifecycle:
 
 3. **SIWA Sign-In** — The full authentication round-trip:
 
-   - Agent requests a nonce from the server
-   - Agent builds a SIWA message and signs it using the keystore (private key is loaded, used, and discarded)
+   - Agent requests a nonce — server validates onchain registration via `createSIWANonce()` before issuing
+   - Agent builds a SIWA message and signs it using the keystore (address resolved from keystore, key loaded, used, and discarded)
    - Agent submits the signature to the server
-   - Server verifies the signature, validates the nonce, and issues a JWT
+   - Server verifies via `verifySIWA()` and returns a standard `SIWAResponse` (with JWT on success, or registration instructions on failure)
 
 4. **Authenticated API Call** — Agent uses the JWT to call a protected endpoint, proving the authentication works end-to-end.
 
@@ -62,25 +62,16 @@ pnpm run reset
 
 This removes `agent-keystore.json` and `MEMORY.md`, allowing you to re-run the full flow from scratch.
 
-## Live Mode
+## RPC Configuration
 
-By default, the server runs in **offline mode** — it verifies SIWA signatures cryptographically but skips the onchain `ownerOf()` check. This requires no RPC connection.
-
-For real onchain verification against a deployed Identity Registry:
+The server requires an RPC endpoint for onchain verification. Both `createSIWANonce()` and `verifySIWA()` from the SDK check the ERC-8004 Identity Registry to validate agent registration and NFT ownership.
 
 ```bash
 export RPC_URL=https://sepolia.base.org
-export VERIFICATION_MODE=live
 pnpm run server
 ```
 
-Or pass `--live` to the server:
-
-```bash
-pnpm tsx server/index.ts --live
-```
-
-In live mode, the server calls `ownerOf(agentId)` on the registry contract to verify that the signing address actually owns the agent NFT.
+The server will exit on startup if `RPC_URL` is not set.
 
 ## Docker Testing
 

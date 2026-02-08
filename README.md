@@ -10,16 +10,21 @@ An agent signs a message proving it owns an [ERC-8004](https://github.com/builde
 npm install @buildersgarden/siwa
 ```
 
-Two functions cover the core flow:
+Three functions cover the core flow:
 
 ```ts
-// Agent signs a SIWA message
-import { signSIWAMessage } from '@buildersgarden/siwa';
-const { message, signature } = await signSIWAMessage({ domain, address, agentId, ... });
+import { createSIWANonce, verifySIWA, buildSIWAResponse } from '@buildersgarden/siwa/siwa';
+import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
 
-// Server verifies it
-import { verifySIWA } from '@buildersgarden/siwa';
-const result = verifySIWA(message, signature, { domain, nonce });
+// 1. Server validates registration and issues a nonce
+const nonce = await createSIWANonce({ address, agentId, agentRegistry }, client);
+
+// 2. Agent signs a SIWA message (address resolved from keystore)
+const { message, signature, address } = await signSIWAMessage({ domain, agentId, ... });
+
+// 3. Server verifies signature + onchain ownership
+const result = await verifySIWA(message, signature, domain, nonceValid, client);
+const response = buildSIWAResponse(result); // standard format to forward to agents
 ```
 
 For a full walkthrough, see the [documentation](https://siwa.builders.garden/docs).
@@ -46,10 +51,10 @@ This is a monorepo with three packages:
 
 ## How It Works
 
-1. The agent asks the server for a **nonce** (one-time challenge)
-2. The agent builds a SIWA message and **signs** it
+1. The agent asks the server for a **nonce** — the server checks onchain registration before issuing it
+2. The agent builds a SIWA message and **signs** it (address resolved from keystore)
 3. The server **verifies** the signature and confirms the agent owns the identity NFT onchain
-4. The server returns a **JWT session token**
+4. The server returns a **JWT session token** (or a structured error with registration instructions)
 
 The agent's private key is kept in a separate keyring proxy process, so the agent never touches it directly. For details on the security architecture, deployment options, and the full protocol spec, see the [docs](https://siwa.builders.garden/docs).
 
