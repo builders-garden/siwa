@@ -35,18 +35,6 @@ const sections = [
     ],
   },
   {
-    title: "Signing Policies",
-    id: "policies",
-    children: [
-      { title: "How Policies Work", id: "policies-overview" },
-      { title: "Default Policy", id: "policies-default" },
-      { title: "Policy Structure", id: "policies-structure" },
-      { title: "Fields & Operators", id: "policies-fields" },
-      { title: "Examples", id: "policies-examples" },
-      { title: "Management API", id: "policies-api" },
-    ],
-  },
-  {
     title: "Protocol Spec",
     id: "protocol",
     children: [

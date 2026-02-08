@@ -4,10 +4,8 @@ import { createWalletFlow } from './flows/create-wallet.js';
 import { registerFlow } from './flows/register.js';
 import { signInFlow, callApiFlow } from './flows/sign-in.js';
 import { testProxyFlow } from './flows/test-proxy.js';
-import { testProxyPoliciesFlow } from './flows/test-proxy-policies.js';
-import { testAdvancedPoliciesFlow } from './flows/test-proxy-policies-advanced.js';
-import { readIdentity, hasWalletRecord, isRegistered } from '@buildersgarden/siwa/identity';
 import { hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
+import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
 import { config, getKeystoreConfig } from './config.js';
 
 const command = process.argv[2];
@@ -29,8 +27,6 @@ function printUsage(): void {
   console.log('  full-flow      Run all steps sequentially');
   console.log('  status         Print current IDENTITY.md state + keystore status');
   console.log('  test-proxy     Run keyring proxy tests (requires running proxy server)');
-  console.log('  test-policies  Run keyring proxy policy tests (requires running proxy server)');
-  console.log('  test-policies-advanced  Run advanced policy tests (calldata, message, 7702)');
   console.log('');
 }
 
@@ -155,16 +151,6 @@ async function main(): Promise<void> {
         break;
       case 'test-proxy': {
         const ok = await testProxyFlow();
-        if (!ok) process.exit(1);
-        break;
-      }
-      case 'test-policies': {
-        const ok = await testProxyPoliciesFlow();
-        if (!ok) process.exit(1);
-        break;
-      }
-      case 'test-policies-advanced': {
-        const ok = await testAdvancedPoliciesFlow();
         if (!ok) process.exit(1);
         break;
       }

@@ -1,7 +1,7 @@
 import chalk from 'chalk';
-import { isAddress, verifyMessage, type Hex, type Address } from 'viem';
+import { isAddress, verifyMessage, parseTransaction, recoverAddress, keccak256, type Hex, type Address } from 'viem';
 import {
-  hasWallet, getAddress, signMessage, createWallet,
+  hasWallet, getAddress, signMessage, signTransaction, signAuthorization, createWallet,
 } from '@buildersgarden/siwa/keystore';
 import { computeHmac } from '@buildersgarden/siwa/proxy-auth';
 import { config, getKeystoreConfig } from '../config.js';
@@ -102,7 +102,59 @@ export async function testProxyFlow(): Promise<boolean> {
     fail('signMessage() via proxy', err.message);
   }
 
-  // ── Test 6: HMAC rejection with wrong secret ──────────────────────
+  // ── Test 6: signTransaction() via proxy ─────────────────────────────
+  try {
+    const testTx = {
+      to: '0x0000000000000000000000000000000000000000' as Address,
+      value: BigInt(0),
+      nonce: 0,
+      chainId: 1,
+      gasPrice: BigInt(20000000000),
+      gas: BigInt(21000),
+    };
+
+    const result = await signTransaction(testTx, kc);
+    if (result.signedTx && result.signedTx.startsWith('0x')) {
+      // Parse the signed transaction to verify it's valid
+      const parsed = parseTransaction(result.signedTx as Hex);
+      if (parsed.to?.toLowerCase() === testTx.to.toLowerCase()) {
+        pass(`signTransaction() via proxy → valid signed tx`);
+      } else {
+        fail('signTransaction() via proxy', `Parsed tx has wrong 'to' address`);
+      }
+    } else {
+      fail('signTransaction() via proxy', `Invalid signedTx: ${result.signedTx}`);
+    }
+  } catch (err: any) {
+    fail('signTransaction() via proxy', err.message);
+  }
+
+  // ── Test 7: signAuthorization() via proxy (EIP-7702) ───────────────
+  try {
+    const testAuth = {
+      address: '0x0000000000000000000000000000000000000001',
+      chainId: 1,
+      nonce: 0,
+    };
+
+    const result = await signAuthorization(testAuth, kc);
+    // Check that the result has the expected EIP-7702 fields
+    if (
+      result.chainId !== undefined &&
+      result.nonce !== undefined &&
+      result.r &&
+      result.s &&
+      result.yParity !== undefined
+    ) {
+      pass(`signAuthorization() via proxy → valid signed authorization`);
+    } else {
+      fail('signAuthorization() via proxy', `Missing fields in result: ${JSON.stringify(result)}`);
+    }
+  } catch (err: any) {
+    fail('signAuthorization() via proxy', err.message);
+  }
+
+  // ── Test 8: HMAC rejection with wrong secret ──────────────────────
   try {
     const wrongSecret = 'definitely-wrong-secret';
     const bodyStr = JSON.stringify({ message: 'test' });
