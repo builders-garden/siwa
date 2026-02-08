@@ -1,34 +1,48 @@
 import { NextRequest } from "next/server";
-import { validateNonce } from "@/lib/nonce-store";
+import { createPublicClient, http } from "viem";
+import { verifySIWA, buildSIWAResponse, SIWAErrorCode } from "@buildersgarden/siwa";
 import { createSession } from "@/lib/session-store";
-import { verifySIWARequest } from "@/lib/siwa-verifier";
 import { corsJson, corsOptions } from "@/lib/cors";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.builders.garden";
+const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";
+const SIWA_NONCE_SECRET =
+  process.env.SIWA_NONCE_SECRET ||
+  process.env.JWT_SECRET ||
+  "siwa-demo-secret-change-in-production";
+
+const client = createPublicClient({ transport: http(RPC_URL) });
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { message, signature } = body;
+  const { message, signature, nonceToken } = body;
 
   if (!message || !signature) {
     return corsJson(
-      { success: false, error: "Missing message or signature" },
-      { status: 400 }
+      { status: "rejected", code: SIWAErrorCode.VERIFICATION_FAILED, error: "Missing message or signature" },
+      { status: 400 },
+    );
+  }
+  if (!nonceToken) {
+    return corsJson(
+      { status: "rejected", code: SIWAErrorCode.INVALID_NONCE, error: "Missing nonceToken" },
+      { status: 400 },
     );
   }
 
-  const result = await verifySIWARequest(
+  const result = await verifySIWA(
     message,
     signature,
     SERVER_DOMAIN,
-    validateNonce
+    { nonceToken, secret: SIWA_NONCE_SECRET },
+    client,
   );
 
+  const response = buildSIWAResponse(result);
+
   if (!result.valid) {
-    return corsJson(
-      { success: false, error: result.error },
-      { status: 401 }
-    );
+    const statusCode = result.code === SIWAErrorCode.NOT_REGISTERED ? 403 : 401;
+    return corsJson(response, { status: statusCode });
   }
 
   const session = createSession(
@@ -38,16 +52,12 @@ export async function POST(req: NextRequest) {
       agentRegistry: result.agentRegistry,
       chainId: result.chainId,
     },
-    result.verified
+    result.verified,
   );
 
   return corsJson({
-    success: true,
+    ...response,
     token: session.token,
-    address: result.address,
-    agentId: result.agentId,
-    agentRegistry: result.agentRegistry,
-    verified: result.verified,
     expiresAt: session.expiresAt.toISOString(),
   });
 }

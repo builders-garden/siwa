@@ -1,24 +1,22 @@
 import 'dotenv/config';
 import express from 'express';
-import { createPublicClient, http, type PublicClient } from 'viem';
-import { createNonce, validateNonce, getNonceCount } from './nonce-store.js';
+import { createPublicClient, http } from 'viem';
 import { createSession, validateToken, getSessions, getSessionCount } from './session-store.js';
-import { verifySIWARequest } from './siwa-verifier.js';
+import { verifySIWA, buildSIWAResponse, createSIWANonce, SIWAErrorCode } from '@buildersgarden/siwa';
 import { renderDashboard } from './dashboard.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000');
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || 'localhost:3000';
 const RPC_URL = process.env.RPC_URL;
+const SIWA_NONCE_SECRET = process.env.SIWA_NONCE_SECRET || process.env.JWT_SECRET || 'test-secret-change-in-production';
 
-// Determine verification mode
-const isLiveMode = !!(RPC_URL && (process.env.VERIFICATION_MODE === 'live' || process.argv.includes('--live')));
-let client: PublicClient | null = null;
-if (isLiveMode && RPC_URL) {
-  client = createPublicClient({
-    transport: http(RPC_URL),
-  });
+if (!RPC_URL) {
+  console.error('RPC_URL is required. Set it in your environment or .env file.');
+  process.exit(1);
 }
+
+const client = createPublicClient({ transport: http(RPC_URL) });
 
 // Middleware
 app.use(express.json());
@@ -34,8 +32,7 @@ app.options('*', (_req, res) => res.sendStatus(204));
 
 // Dashboard
 app.get('/', (_req, res) => {
-  const mode = isLiveMode ? 'live' : 'offline';
-  const html = renderDashboard(getSessions(), getNonceCount(), mode);
+  const html = renderDashboard(getSessions(), 'live');
   res.type('html').send(html);
 });
 
@@ -48,22 +45,35 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// Request nonce
-app.post('/siwa/nonce', (req, res) => {
+// Request nonce (validates registration before issuing)
+app.post('/siwa/nonce', async (req, res) => {
   const { address, agentId, agentRegistry } = req.body;
   if (!address) {
-    res.status(400).json({ error: 'Missing address' });
+    res.status(400).json({ status: 'rejected', code: SIWAErrorCode.VERIFICATION_FAILED, error: 'Missing address' });
     return;
   }
 
-  const { nonce, issuedAt, expirationTime } = createNonce(address);
+  const result = await createSIWANonce(
+    { address, agentId, agentRegistry },
+    client,
+    { secret: SIWA_NONCE_SECRET },
+  );
+
+  if (result.status !== 'nonce_issued') {
+    // Forward the SIWAResponse directly to the agent
+    console.log(`\u{274C} Nonce rejected for ${address.slice(0, 6)}...${address.slice(-4)}: ${result.error}`);
+    res.status(403).json(result);
+    return;
+  }
+
   const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
-  console.log(`\u{1F4E8} Nonce requested by ${truncated}`);
+  console.log(`\u{1F4E8} Nonce issued to ${truncated}`);
 
   res.json({
-    nonce,
-    issuedAt,
-    expirationTime,
+    nonce: result.nonce,
+    nonceToken: result.nonceToken,
+    issuedAt: result.issuedAt,
+    expirationTime: result.expirationTime,
     domain: SERVER_DOMAIN,
     uri: `http://${SERVER_DOMAIN}/siwa/verify`,
     chainId: parseInt(agentRegistry?.split(':')[1] || '84532'),
@@ -72,23 +82,30 @@ app.post('/siwa/nonce', (req, res) => {
 
 // Verify SIWA signature
 app.post('/siwa/verify', async (req, res) => {
-  const { message, signature } = req.body;
+  const { message, signature, nonceToken } = req.body;
   if (!message || !signature) {
-    res.status(400).json({ success: false, error: 'Missing message or signature' });
+    res.status(400).json({ status: 'rejected', code: SIWAErrorCode.VERIFICATION_FAILED, error: 'Missing message or signature' });
+    return;
+  }
+  if (!nonceToken) {
+    res.status(400).json({ status: 'rejected', code: SIWAErrorCode.INVALID_NONCE, error: 'Missing nonceToken' });
     return;
   }
 
-  const result = await verifySIWARequest(
+  const result = await verifySIWA(
     message,
     signature,
     SERVER_DOMAIN,
-    validateNonce,
-    isLiveMode ? client : null
+    { nonceToken, secret: SIWA_NONCE_SECRET },
+    client,
   );
+
+  const response = buildSIWAResponse(result);
 
   if (!result.valid) {
     console.log(`\u{274C} SIWA verification failed: ${result.error}`);
-    res.status(401).json({ success: false, error: result.error });
+    const statusCode = result.code === SIWAErrorCode.NOT_REGISTERED ? 403 : 401;
+    res.status(statusCode).json(response);
     return;
   }
 
@@ -106,12 +123,8 @@ app.post('/siwa/verify', async (req, res) => {
   console.log(`\u{2705} Agent #${result.agentId} (${truncated}) signed in [${result.verified}]`);
 
   res.json({
-    success: true,
+    ...response,
     token: session.token,
-    address: result.address,
-    agentId: result.agentId,
-    agentRegistry: result.agentRegistry,
-    verified: result.verified,
     expiresAt: session.expiresAt.toISOString(),
   });
 });
@@ -170,9 +183,5 @@ app.post('/api/agent-action', requireAuth, (req, res) => {
 app.listen(PORT, () => {
   console.log(`\u{1F310} SIWA Server running at http://localhost:${PORT}`);
   console.log(`\u{1F4CB} Dashboard: http://localhost:${PORT}`);
-  if (isLiveMode) {
-    console.log(`\u{1F511} Mode: live (onchain verification via ${RPC_URL})`);
-  } else {
-    console.log(`\u{1F511} Mode: offline (no onchain verification)`);
-  }
+  console.log(`\u{1F511} RPC: ${RPC_URL}`);
 });

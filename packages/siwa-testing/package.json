@@ -10,13 +10,12 @@
     "agent:signin": "tsx agent/cli.ts sign-in",
     "agent:flow": "tsx agent/cli.ts full-flow",
     "agent:status": "tsx agent/cli.ts status",
-    "agent:test-keystore": "tsx agent/cli.ts test-keystore",
     "reset": "bash scripts/reset.sh",
-    "proxy:test": "KEYSTORE_BACKEND=proxy tsx agent/cli.ts test-proxy",
+    "proxy:test": "tsx agent/cli.ts test-proxy",
     "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\""
   },
   "dependencies": {
-    "@buildersgarden/siwa": "^0.0.5",
+    "@buildersgarden/siwa": "workspace:*",
     "chalk": "^5.3.0",
     "concurrently": "^9.0.0",
     "dotenv": "^17.2.3",

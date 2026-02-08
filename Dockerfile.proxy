@@ -40,11 +40,12 @@ COPY packages/siwa/tsconfig.json packages/siwa/
 COPY packages/siwa-skill/package.json packages/siwa-skill/
 COPY packages/siwa-testing/package.json packages/siwa-testing/
 
-# Install all workspace dependencies
-RUN pnpm install --frozen-lockfile || pnpm install
+# Install workspace dependencies
+RUN pnpm install --no-frozen-lockfile
 
-# Copy siwa core source
+# Copy siwa core source and build it (exports point to dist/)
 COPY packages/siwa/src/ packages/siwa/src/
+RUN pnpm --filter @buildersgarden/siwa run build
 
 # Copy skill assets (needed for templates)
 COPY packages/siwa-skill/assets/ packages/siwa-skill/assets/

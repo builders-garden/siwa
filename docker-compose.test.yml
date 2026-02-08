@@ -41,7 +41,7 @@ services:
       - KEYSTORE_BACKEND=encrypted-file
       - KEYSTORE_PASSWORD=test-password-local-only
     volumes:
-      - keystore-data:/app
+      - keystore-data:/data
     healthcheck:
       test:
         [
@@ -70,6 +70,7 @@ services:
       - PORT=3000
       - SERVER_DOMAIN=siwa-server:3000
       - JWT_SECRET=test-secret-change-in-production
+      - RPC_URL=https://sepolia.base.org
     command: ["pnpm", "run", "server"]
     healthcheck:
       test:

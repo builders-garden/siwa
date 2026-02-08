@@ -5,10 +5,10 @@
 
 ## Wallet
 
-- **Address**: `<NOT SET>`
-- **Keystore Backend**: `<NOT SET>`
-- **Keystore Path**: `<NOT SET>`
-- **Created At**: `<NOT SET>`
+- **Address**: `0x650ea6890a59E5743D9b3C61b116834F91960414`
+- **Keystore Backend**: `encrypted-file`
+- **Keystore Path**: `./agent-keystore.json`
+- **Created At**: `2026-02-08T15:59:41.283Z`
 
 ## Registration
 

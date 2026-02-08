@@ -39,12 +39,6 @@ importers:
 
   packages/siwa:
     dependencies:
-      '@noble/ciphers':
-        specifier: ^0.5.0
-        version: 0.5.3
-      '@noble/hashes':
-        specifier: ^1.4.0
-        version: 1.8.0
       viem:
         specifier: ^2.21.0
         version: 2.45.1(typescript@5.9.3)(zod@4.3.6)
@@ -61,8 +55,8 @@ importers:
   packages/siwa-testing:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: ^0.0.5
-        version: 0.0.5(typescript@5.9.3)(zod@4.3.6)
+        specifier: workspace:*
+        version: link:../siwa
       chalk:
         specifier: ^5.3.0
         version: 5.6.2

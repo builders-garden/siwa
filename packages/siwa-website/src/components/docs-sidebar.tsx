@@ -21,7 +21,7 @@ const sections = [
       { title: "@buildersgarden/siwa/keystore", id: "api-keystore" },
       { title: "@buildersgarden/siwa", id: "api-siwa" },
       { title: "@buildersgarden/siwa/registry", id: "api-registry" },
-      { title: "@buildersgarden/siwa/memory", id: "api-memory" },
+      { title: "@buildersgarden/siwa/identity", id: "api-identity" },
       { title: "@buildersgarden/siwa/proxy-auth", id: "api-proxy-auth" },
     ],
   },
@@ -31,7 +31,7 @@ const sections = [
     children: [
       { title: "Keyring Proxy", id: "security-proxy" },
       { title: "Threat Model", id: "security-threats" },
-      { title: "MEMORY.md", id: "security-memory" },
+      { title: "IDENTITY.md", id: "security-identity" },
     ],
   },
   {

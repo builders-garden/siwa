@@ -3,11 +3,10 @@ import chalk from 'chalk';
 import { createWalletFlow } from './flows/create-wallet.js';
 import { registerFlow } from './flows/register.js';
 import { signInFlow, callApiFlow } from './flows/sign-in.js';
-import { testKeystoreFlow } from './flows/test-keystore.js';
 import { testProxyFlow } from './flows/test-proxy.js';
 import { testProxyPoliciesFlow } from './flows/test-proxy-policies.js';
 import { testAdvancedPoliciesFlow } from './flows/test-proxy-policies-advanced.js';
-import { readMemory, hasWalletRecord, isRegistered } from '@buildersgarden/siwa/memory';
+import { readIdentity, hasWalletRecord, isRegistered } from '@buildersgarden/siwa/identity';
 import { hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
 import { config, getKeystoreConfig } from './config.js';
 
@@ -23,13 +22,12 @@ function printUsage(): void {
   console.log('Usage: tsx agent/cli.ts <command>');
   console.log('');
   console.log('Commands:');
-  console.log('  create-wallet  Create wallet in keystore, write address to MEMORY.md');
-  console.log('  register       Mock-register the agent (write mock data to MEMORY.md)');
+  console.log('  create-wallet  Create wallet via keyring proxy, write address to IDENTITY.md');
+  console.log('  register       Mock-register the agent (write mock data to IDENTITY.md)');
   console.log('  sign-in        Full SIWA flow against the local server');
   console.log('  call-api       Make an authenticated call using SIWA');
   console.log('  full-flow      Run all steps sequentially');
-  console.log('  status         Print current MEMORY.md state + keystore status');
-  console.log('  test-keystore  Run keystore encryption/decryption tests');
+  console.log('  status         Print current IDENTITY.md state + keystore status');
   console.log('  test-proxy     Run keyring proxy tests (requires running proxy server)');
   console.log('  test-policies  Run keyring proxy policy tests (requires running proxy server)');
   console.log('  test-policies-advanced  Run advanced policy tests (calldata, message, 7702)');
@@ -38,25 +36,20 @@ function printUsage(): void {
 
 async function statusCommand(): Promise<void> {
   const kc = getKeystoreConfig();
-  const mem = readMemory(config.memoryPath);
+  const identity = readIdentity(config.identityPath);
   const walletExists = await hasWallet(kc);
   const address = walletExists ? await getAddress(kc) : null;
 
   console.log(chalk.bold('Agent Status'));
   console.log('\u{2500}'.repeat(40));
   console.log(`Wallet:       ${address || chalk.dim('not created')}`);
-  console.log(`Keystore:     ${config.keystoreBackend} (${config.keystorePath})`);
 
-  if (isRegistered(config.memoryPath)) {
-    console.log(`Registered:   ${chalk.green('yes')} (Agent #${mem['Agent ID']})`);
-    console.log(`Registry:     ${mem['Agent Registry']}`);
-    console.log(`Chain:        ${mem['Chain ID']}`);
+  if (await isRegistered({ identityPath: config.identityPath })) {
+    console.log(`Registered:   ${chalk.green('yes')} (Agent #${identity.agentId})`);
+    console.log(`Registry:     ${identity.agentRegistry}`);
+    console.log(`Chain:        ${identity.chainId}`);
   } else {
     console.log(`Registered:   ${chalk.yellow('no')}`);
-  }
-
-  if (mem['Registered At']) {
-    console.log(`Registered:   ${mem['Registered At']}`);
   }
 }
 
@@ -160,11 +153,6 @@ async function main(): Promise<void> {
       case 'status':
         await statusCommand();
         break;
-      case 'test-keystore': {
-        const ok = await testKeystoreFlow();
-        if (!ok) process.exit(1);
-        break;
-      }
       case 'test-proxy': {
         const ok = await testProxyFlow();
         if (!ok) process.exit(1);

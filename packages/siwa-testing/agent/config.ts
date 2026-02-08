@@ -1,4 +1,3 @@
-import type { KeystoreBackend } from "@buildersgarden/siwa/keystore";
 import {
   REGISTRY_ADDRESSES,
   REPUTATION_ADDRESSES,
@@ -35,18 +34,10 @@ export function addressUrl(chainId: number, address: string): string {
 export const config = {
   serverUrl: process.env.SERVER_URL || "http://localhost:3000",
   serverDomain: process.env.SERVER_DOMAIN || "localhost:3000",
-  memoryPath: process.env.MEMORY_PATH || path.resolve(projectRoot, "MEMORY.md"),
-  keystorePath:
-    process.env.KEYSTORE_PATH ||
-    path.resolve(projectRoot, "agent-keystore.json"),
-  keystorePassword: process.env.KEYSTORE_PASSWORD || "test-password-local-only",
-  keystoreBackend: (process.env.KEYSTORE_BACKEND ||
-    (process.env.KEYRING_PROXY_URL
-      ? "proxy"
-      : "encrypted-file")) as KeystoreBackend,
+  identityPath: process.env.IDENTITY_PATH || path.resolve(projectRoot, "IDENTITY.md"),
   keyringProxyUrl: process.env.KEYRING_PROXY_URL || "",
   keyringProxySecret: process.env.KEYRING_PROXY_SECRET || "",
-  templatePath: path.resolve(skillRoot, "assets", "MEMORY.template.md"),
+  templatePath: path.resolve(skillRoot, "assets", "IDENTITY.template.md"),
   registrationFile:
     process.env.REGISTRATION_FILE ||
     path.resolve(skillRoot, "assets", "registration-template.json"),
@@ -67,9 +58,6 @@ export const config = {
 
 export function getKeystoreConfig() {
   return {
-    backend: config.keystoreBackend,
-    keystorePath: config.keystorePath,
-    password: config.keystorePassword,
     proxyUrl: config.keyringProxyUrl || undefined,
     proxySecret: config.keyringProxySecret || undefined,
   };

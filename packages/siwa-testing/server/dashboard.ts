@@ -2,7 +2,6 @@ import type { AgentSession } from './session-store.js';
 
 export function renderDashboard(
   sessions: AgentSession[],
-  nonceCount: number,
   mode: 'offline' | 'live'
 ): string {
   const sessionRows = sessions
@@ -79,8 +78,8 @@ export function renderDashboard(
 
   <div class="stats">
     <div class="stat">
-      <div class="stat-value" id="nonce-count">${nonceCount}</div>
-      <div class="stat-label">Nonces Issued</div>
+      <div class="stat-value" id="nonce-count">Stateless</div>
+      <div class="stat-label">Nonce Mode</div>
     </div>
     <div class="stat">
       <div class="stat-value" id="session-count">${sessions.length}</div>
@@ -136,6 +135,8 @@ export function renderDashboard(
   </div>
 
 <script>
+let lastNonceToken = '';
+
 async function requestNonce() {
   const address = document.getElementById('nonce-address').value;
   if (!address) return alert('Enter an address');
@@ -146,6 +147,7 @@ async function requestNonce() {
       body: JSON.stringify({ address, agentId: 1, agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e' })
     });
     const data = await res.json();
+    if (data.nonceToken) lastNonceToken = data.nonceToken;
     document.getElementById('nonce-response').value = JSON.stringify(data, null, 2);
   } catch (e) {
     document.getElementById('nonce-response').value = 'Error: ' + e.message;
@@ -160,7 +162,7 @@ async function verifySignature() {
     const res = await fetch('/siwa/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, signature })
+      body: JSON.stringify({ message, signature, nonceToken: lastNonceToken })
     });
     const data = await res.json();
     document.getElementById('verify-response').value = JSON.stringify(data, null, 2);
