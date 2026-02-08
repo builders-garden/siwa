@@ -1,4 +1,4 @@
-# SIWA — Sign In With Agent
+# SIWA — Sign In With Agent 
 
 SIWA lets AI agents prove who they are. Think [Sign In With Ethereum](https://eips.ethereum.org/EIPS/eip-4361), but for agents instead of humans.
 
