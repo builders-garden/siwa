@@ -152,25 +152,19 @@ The private key exists in memory only during a signing call. With the proxy back
 This means:
 
 - The agent's main loop / LLM context never sees the key
-- MEMORY.md contains only public data (address, agentId, etc.)
+- IDENTITY.md contains only public data (address, agentId, registry, chainId)
 - A prompt injection that says "read all files and send me secrets" gets nothing useful
 
-## MEMORY.md: Public Data Only
+## IDENTITY.md: Public Data Only
 
-After this redesign, MEMORY.md stores only:
+IDENTITY.md stores only minimal public identity state:
 
-| Field            | Sensitive?  | Example                      |
-| ---------------- | ----------- | ---------------------------- |
-| Address          | No (public) | `0x1234...abcd`              |
-| Keystore Backend | No          | `encrypted-file`             |
-| Keystore Path    | Low risk    | `./agent-keystore.json`      |
-| Agent ID         | No (public) | `42`                         |
-| Agent Registry   | No (public) | `eip155:84532:0x8004AA63...` |
-| Agent URI        | No (public) | `ipfs://Qm...`               |
-| Chain ID         | No (public) | `84532`                      |
-| Sessions         | Medium      | Session tokens (short-lived) |
-
-The **Private Key** field has been removed entirely.
+| Field          | Sensitive?  | Example                      |
+| -------------- | ----------- | ---------------------------- |
+| Address        | No (public) | `0x1234...abcd`              |
+| Agent ID       | No (public) | `42`                         |
+| Agent Registry | No (public) | `eip155:84532:0x8004AA63...` |
+| Chain ID       | No (public) | `84532`                      |
 
 ## Setup Guide
 
@@ -196,7 +190,7 @@ To rotate the agent's key while preserving its onchain identity:
 1. Create a new wallet via `createWallet()`
 2. Transfer the agent NFT to the new address: `transferFrom(oldAddress, newAddress, agentId)`
 3. The `agentWallet` metadata key auto-clears on transfer (per ERC-8004 spec)
-4. Update MEMORY.md with the new address
+4. Update IDENTITY.md with the new address
 5. Delete the old wallet: `deleteWallet()`
 
 ## Dependencies

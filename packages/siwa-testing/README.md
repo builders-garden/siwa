@@ -22,9 +22,9 @@ pnpm run dev
 
 The `full-flow` command runs a 4-step agent lifecycle:
 
-1. **Create Wallet** — Generates a new Ethereum wallet. The private key is stored in an encrypted V3 JSON keystore file (`agent-keystore.json`). Only the public address is written to `MEMORY.md`.
+1. **Create Wallet** — Creates a wallet via the keyring proxy. Only the public address is written to `IDENTITY.md`.
 
-2. **Mock Registration** — Simulates onchain registration by writing mock agent identity data (Agent ID, Registry address, Chain ID) to `MEMORY.md`. No actual transaction is made.
+2. **Mock Registration** — Simulates onchain registration by writing mock agent identity data (Agent ID, Registry address, Chain ID) to `IDENTITY.md`. No actual transaction is made.
 
 3. **SIWA Sign-In** — The full authentication round-trip:
 
@@ -44,12 +44,12 @@ Open [http://localhost:3000](http://localhost:3000) to see the SIWA test dashboa
 | Command                   | Description                                      |
 | ------------------------- | ------------------------------------------------ |
 | `pnpm run server`         | Start the SIWA relying-party server on port 3000 |
-| `pnpm run agent:create`   | Create a wallet and write address to MEMORY.md   |
+| `pnpm run agent:create`   | Create a wallet and write address to IDENTITY.md  |
 | `pnpm run agent:register` | Mock-register the agent                          |
 | `pnpm run agent:signin`   | Run the full SIWA sign-in flow                   |
 | `pnpm run agent:flow`     | Run all 4 steps sequentially                     |
 | `pnpm run agent:status`   | Print current agent state                        |
-| `pnpm run reset`          | Clean up keystore and MEMORY.md                  |
+| `pnpm run reset`          | Clean up IDENTITY.md                             |
 | `pnpm run dev`            | Start server + run full flow concurrently        |
 
 ## Reset
@@ -60,7 +60,7 @@ To start fresh, run:
 pnpm run reset
 ```
 
-This removes `agent-keystore.json` and `MEMORY.md`, allowing you to re-run the full flow from scratch.
+This removes `IDENTITY.md`, allowing you to re-run the full flow from scratch.
 
 ## RPC Configuration
 
@@ -110,8 +110,6 @@ See the [root README](../../README.md) for more details on the Docker setup.
 
 ## Security Note
 
-Running locally without Docker, this test environment uses the `encrypted-file` keystore backend with a known password (`test-password-local-only`). This is intentional for local development convenience.
-
-**In production, use the keyring proxy backend** (`KEYSTORE_BACKEND=proxy`). The proxy holds the encrypted private key in a separate process and exposes only HMAC-authenticated signing endpoints — even full agent compromise cannot extract the key.
+All signing is delegated to a **keyring proxy** — the private key never enters the agent process. The proxy holds the encrypted key in a separate process and exposes only HMAC-authenticated signing endpoints.
 
 See [`packages/siwa-skill/references/security-model.md`](../siwa-skill/references/security-model.md) for the full threat model.

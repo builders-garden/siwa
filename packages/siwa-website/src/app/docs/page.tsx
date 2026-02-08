@@ -245,8 +245,10 @@ import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keys
 // Registry — read agent profiles & reputation onchain
 import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
 
+// Identity — minimal agent state (address, agentId, registry, chainId)
+import { readIdentity, writeIdentityField } from '@buildersgarden/siwa/identity';
+
 // Helpers
-import { readMemory, writeMemoryField } from '@buildersgarden/siwa/memory';
 import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
           </SubSection>
 
@@ -255,12 +257,11 @@ import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
               If your agent is already registered onchain (has an <InlineCode>agentId</InlineCode>), skip to Step 4. Otherwise, register by creating a wallet, building a registration file, and calling the Identity Registry contract.
             </P>
             <CodeBlock language="typescript">{`import { createWallet, signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
-import { writeMemoryField } from '@buildersgarden/siwa/memory';
+import { writeIdentityField } from '@buildersgarden/siwa/identity';
 
 // 1. Create wallet (key goes to proxy, never returned)
 const info = await createWallet();
-writeMemoryField('Address', info.address);
-writeMemoryField('Keystore Backend', info.backend);
+writeIdentityField('Address', info.address);
 
 // 2. Build registration JSON
 const registration = {
@@ -532,19 +533,18 @@ const rep = await getReputation(42, {
             />
           </SubSection>
 
-          <SubSection id="api-memory" title="@buildersgarden/siwa/memory">
+          <SubSection id="api-identity" title="@buildersgarden/siwa/identity">
             <P>
-              Helpers for reading and writing the agent&apos;s public identity state in MEMORY.md.
+              Helpers for reading and writing the agent&apos;s public identity state in IDENTITY.md (4 fields: Address, Agent ID, Agent Registry, Chain ID).
             </P>
             <Table
               headers={["Function", "Description"]}
               rows={[
-                ["ensureMemoryExists(path, template)", "Initialize MEMORY.md from template if missing."],
-                ["readMemory(path)", "Parse MEMORY.md into key-value pairs."],
-                ["writeMemoryField(key, value)", "Write a single field to MEMORY.md."],
-                ["hasWalletRecord(path)", "Check if wallet info exists in MEMORY.md."],
-                ["isRegistered(path)", "Check if agent is registered."],
-                ["appendToMemorySection(section, line)", "Append a line to a section."],
+                ["ensureIdentityExists(path, template)", "Initialize IDENTITY.md from template if missing."],
+                ["readIdentity(path)", "Parse IDENTITY.md into a typed AgentIdentity object."],
+                ["writeIdentityField(key, value, path)", "Write a single field to IDENTITY.md."],
+                ["hasWalletRecord(path)", "Check if an address is recorded in IDENTITY.md."],
+                ["isRegistered({ identityPath, client? })", "Check registration (local cache or onchain ownerOf)."],
               ]}
             />
           </SubSection>
@@ -605,9 +605,9 @@ signMessage("hello")
             />
           </SubSection>
 
-          <SubSection id="security-memory" title="MEMORY.md: Public Data Only">
+          <SubSection id="security-identity" title="IDENTITY.md: Public Data Only">
             <P>
-              The agent&apos;s memory file stores only public identity state — address, agentId, registration status, session tokens. The private key is never written to MEMORY.md or any other file the agent reads.
+              The agent&apos;s identity file stores only public state — address, agentId, agentRegistry, chainId. The private key is never written to IDENTITY.md or any other file the agent reads.
             </P>
           </SubSection>
         </Section>

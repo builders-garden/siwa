@@ -4,29 +4,27 @@ A Claude Code skill for registering AI agents on the [ERC-8004 (Trustless Agents
 
 ## What it does
 
-- **Create Wallet** — Generate an Ethereum wallet with secure key storage (encrypted V3 file, keyring proxy, or env var)
+- **Create Wallet** — Generate an Ethereum wallet via a keyring proxy (private key never enters the agent process)
 - **Register Agent (Sign Up)** — Mint an ERC-721 identity NFT on the ERC-8004 Identity Registry with metadata (endpoints, trust model, services)
 - **Authenticate (Sign In)** — Prove ownership of an onchain agent identity by signing a structured SIWA message; receive a JWT from the relying party
 
 ## Project Structure
 
 ```
-scripts/           Core skill implementation
-  keystore.ts        Secure key storage (3 backends)
-  memory.ts          MEMORY.md read/write helpers
+src/               Core SDK modules
+  keystore.ts        Proxy-only keystore (signing delegated over HMAC-authenticated HTTP)
+  identity.ts        IDENTITY.md read/write helpers
   siwa.ts            SIWA message building, signing, verification
-  create_wallet.ts   Wallet creation flow
-  register_agent.ts  Onchain registration flow
+  proxy-auth.ts      HMAC-SHA256 authentication utilities
+  registry.ts        Onchain agent profile & reputation lookups
+  addresses.ts       Deployed contract addresses
 
 references/        Protocol documentation
   siwa-spec.md       Full SIWA specification
   security-model.md  Threat model and keystore architecture
-  contract-addresses.md  Deployed registry addresses
-  registration-guide.md  Registration file schema
 
 assets/            Templates
-  MEMORY.md.template
-  registration-template.json
+  IDENTITY.template.md
 
 test/              Local test environment (Express server + CLI agent)
 ```
@@ -51,13 +49,7 @@ See [`test/README.md`](test/README.md) for full details on the test environment.
 
 ## Security Model
 
-The agent's private key never enters the agent's context window. All cryptographic operations are handled by the keystore module, which loads the key, uses it, and discards it immediately.
-
-| Backend | Storage | Use case |
-|---------|---------|----------|
-| `proxy` | HMAC-authenticated HTTP to a keyring proxy server | Production — process isolation, key never enters agent |
-| `encrypted-file` | Ethereum V3 JSON Keystore (AES-128-CTR + scrypt) | Local development, Docker, CI |
-| `env` | `AGENT_PRIVATE_KEY` environment variable | Testing only |
+The agent's private key never enters the agent process. All signing is delegated to a **keyring proxy** over HMAC-authenticated HTTP. Even full agent compromise cannot extract the key — only request signatures.
 
 See [`references/security-model.md`](references/security-model.md) for the full threat model.
 
