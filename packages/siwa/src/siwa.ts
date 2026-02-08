@@ -269,37 +269,55 @@ export function generateNonce(length: number = 16): string {
 // ─── Agent-Side Signing ──────────────────────────────────────────────
 
 /**
+ * Fields accepted by signSIWAMessage.
+ * `address` is optional — when omitted, the address is fetched directly
+ * from the keystore (the trusted source of truth for the agent wallet).
+ */
+export type SIWASignFields = Omit<SIWAMessageFields, 'address'> & { address?: string };
+
+/**
  * Sign a SIWA message using the secure keystore.
  *
  * The private key is loaded from the keystore, used to sign, and discarded.
  * It is NEVER returned or exposed to the caller.
  *
- * @param fields — SIWA message fields (domain, agentId, etc.)
+ * The agent address is always resolved from the keystore — the single source
+ * of truth — so the caller doesn't need to supply (or risk hallucinating) it.
+ * If `fields.address` is provided it must match the keystore address.
+ *
+ * @param fields — SIWA message fields (domain, agentId, etc.). `address` is optional.
  * @param keystoreConfig — Optional keystore configuration override
- * @returns { message, signature } — only the plaintext message and EIP-191 signature
+ * @returns { message, signature, address } — the plaintext message, EIP-191 signature, and resolved address
  */
 export async function signSIWAMessage(
-  fields: SIWAMessageFields,
+  fields: SIWASignFields,
   keystoreConfig?: import('./keystore').KeystoreConfig
-): Promise<{ message: string; signature: string }> {
+): Promise<{ message: string; signature: string; address: string }> {
   // Import keystore dynamically to avoid circular deps
   const { signMessage, getAddress } = await import('./keystore');
 
-  // Verify the keystore address matches the claimed address
+  // Resolve the address from the keystore — the trusted source of truth
   const keystoreAddress = await getAddress(keystoreConfig);
   if (!keystoreAddress) {
     throw new Error('No wallet found in keystore. Run createWallet() first.');
   }
-  if (keystoreAddress.toLowerCase() !== fields.address.toLowerCase()) {
+
+  // If the caller supplied an address, verify it matches (defensive check)
+  if (fields.address && keystoreAddress.toLowerCase() !== fields.address.toLowerCase()) {
     throw new Error(`Address mismatch: keystore has ${keystoreAddress}, message claims ${fields.address}`);
   }
 
-  const message = buildSIWAMessage(fields);
+  const resolvedFields: SIWAMessageFields = {
+    ...fields,
+    address: keystoreAddress,
+  };
+
+  const message = buildSIWAMessage(resolvedFields);
 
   // Sign via keystore — private key is loaded, used, and discarded internally
   const result = await signMessage(message, keystoreConfig);
 
-  return { message, signature: result.signature };
+  return { message, signature: result.signature, address: keystoreAddress };
 }
 
 

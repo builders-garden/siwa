@@ -37,10 +37,10 @@ export async function signInFlow(): Promise<string | null> {
   console.log(chalk.dim(`\u{1F4E8} Nonce received: ${nonceData.nonce} (expires: ${nonceData.expirationTime})`));
 
   // 2. Build and sign SIWA message via keystore
+  // Address is resolved directly from the keystore (trusted source of truth)
   const { message, signature } = await signSIWAMessage(
     {
       domain: config.serverDomain,
-      address,
       statement: 'Authenticate as a registered ERC-8004 agent.',
       uri: `${config.serverUrl}/siwa/verify`,
       agentId,
