@@ -173,18 +173,19 @@ export function generateNonce(length: number = 16): string {
  * It is NEVER returned or exposed to the caller.
  *
  * @param fields — SIWA message fields (domain, agentId, etc.)
- * @param keystoreConfig — Optional keystore configuration override
  * @returns { message, signature } — only the plaintext message and EIP-191 signature
+ *
+ * Uses the keystore configured via initKeystore() at startup.
+ * No explicit config needed — the provider singleton handles it.
  */
 export async function signSIWAMessage(
   fields: SIWAMessageFields,
-  keystoreConfig?: import('./keystore').KeystoreConfig
 ): Promise<{ message: string; signature: string }> {
   // Import keystore dynamically to avoid circular deps
-  const { signMessage, getAddress } = await import('./keystore');
+  const { signMessage, getAddress } = await import('./keystore/index.js');
 
   // Verify the keystore address matches the claimed address
-  const keystoreAddress = await getAddress(keystoreConfig);
+  const keystoreAddress = await getAddress();
   if (!keystoreAddress) {
     throw new Error('No wallet found in keystore. Run createWallet() first.');
   }
@@ -195,7 +196,7 @@ export async function signSIWAMessage(
   const message = buildSIWAMessage(fields);
 
   // Sign via keystore — private key is loaded, used, and discarded internally
-  const result = await signMessage(message, keystoreConfig);
+  const result = await signMessage(message);
 
   return { message, signature: result.signature };
 }

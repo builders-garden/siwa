@@ -8,8 +8,8 @@
       "default": "./dist/index.js"
     },
     "./keystore": {
-      "types": "./dist/keystore.d.ts",
-      "default": "./dist/keystore.js"
+      "types": "./dist/keystore/index.d.ts",
+      "default": "./dist/keystore/index.js"
     },
     "./siwa": {
       "types": "./dist/siwa.d.ts",
@@ -57,5 +57,15 @@
   "devDependencies": {
     "@types/node": "^25.2.1",
     "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "@circle-fin/developer-controlled-wallets": ">=6.0.0",
+    "@coinbase/cdp-sdk": ">=1.0.0",
+    "@privy-io/server-auth": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@circle-fin/developer-controlled-wallets": { "optional": true },
+    "@coinbase/cdp-sdk": { "optional": true },
+    "@privy-io/server-auth": { "optional": true }
   }
 }

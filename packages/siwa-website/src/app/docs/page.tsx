@@ -406,6 +406,396 @@ const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
           </div>
         </Section>
 
+        {/* Wallet Providers */}
+        <Section id="providers" title="Wallet Providers">
+          <P>
+            The SIWA keystore is a pluggable abstraction over wallet backends. You choose a provider once at startup, and all signing operations use it transparently.
+            Each provider implements the same <InlineCode>WalletProvider</InlineCode> interface, so switching backends requires changing one line of config — not your application code.
+          </P>
+
+          <SubSection id="providers-overview" title="Overview">
+            <P>
+              Initialize once at startup, then call any keystore function without passing config:
+            </P>
+            <CodeBlock language="typescript">{`import { initKeystore, createWallet, signMessage } from '@buildersgarden/siwa/keystore';
+
+// Configure once
+await initKeystore({ backend: 'proxy' });
+
+// All subsequent calls use the configured provider
+const wallet = await createWallet();
+const result = await signMessage('hello');`}</CodeBlock>
+
+            <P>
+              If you never call <InlineCode>initKeystore()</InlineCode>, the backend is auto-detected from environment variables (backward compatible with v0.0.x).
+            </P>
+
+            <div className="overflow-x-auto mb-6 mt-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="py-2 pr-4 text-left font-mono text-xs font-medium text-dim">Provider</th>
+                    <th className="py-2 pr-4 text-left font-mono text-xs font-medium text-dim">Key Location</th>
+                    <th className="py-2 pr-4 text-left font-mono text-xs font-medium text-dim">Best For</th>
+                    <th className="py-2 pr-4 text-left font-mono text-xs font-medium text-dim">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 pr-4 text-foreground font-mono text-xs font-medium">proxy</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Separate server process</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Production deployments</td>
+                    <td className="py-2 pr-4 text-green-400 font-mono text-xs">Stable</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 pr-4 text-foreground font-mono text-xs font-medium">encrypted-file</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Encrypted JSON on disk</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Single-server, local dev</td>
+                    <td className="py-2 pr-4 text-green-400 font-mono text-xs">Stable</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 pr-4 text-foreground font-mono text-xs font-medium">env</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Environment variable</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">CI, testing, ephemeral</td>
+                    <td className="py-2 pr-4 text-green-400 font-mono text-xs">Stable</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 pr-4 text-foreground font-mono text-xs font-medium">cdp</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Coinbase MPC infrastructure</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Base-native agents</td>
+                    <td className="py-2 pr-4 text-green-400 font-mono text-xs">Stable</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 pr-4 text-foreground font-mono text-xs font-medium">privy</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Privy server-side wallets</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Apps already using Privy</td>
+                    <td className="py-2 pr-4 text-green-400 font-mono text-xs">Stable</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 pr-4 text-foreground font-mono text-xs font-medium">circle</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Circle Programmable Wallets</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Enterprise, compliance-heavy</td>
+                    <td className="py-2 pr-4 text-green-400 font-mono text-xs">Stable</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 pr-4 text-foreground font-mono text-xs font-medium">base-account</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Base Smart Account</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Gasless, passkey-based</td>
+                    <td className="py-2 pr-4 text-yellow-400 font-mono text-xs">Coming soon</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </SubSection>
+
+          <SubSection id="providers-proxy" title="Keyring Proxy">
+            <div className="rounded-lg border border-accent/30 bg-accent/5 px-5 py-4 mb-4">
+              <p className="text-sm text-muted leading-relaxed">
+                <span className="font-mono font-semibold text-accent">Recommended for production.</span>{" "}
+                The private key lives in a separate server process and never enters the agent&apos;s memory.
+              </p>
+            </div>
+
+            <P>
+              <strong className="text-foreground">Pros:</strong> Best key isolation — even a fully compromised agent cannot extract the key. Supports signing policies for fine-grained control. Audit logging for all operations.
+            </P>
+            <P>
+              <strong className="text-foreground">Cons:</strong> Requires deploying a separate service. Adds network latency to signing operations. Cannot return a <InlineCode>WalletClient</InlineCode> (key can&apos;t be serialized over HTTP).
+            </P>
+
+            <P>
+              <strong className="text-foreground">Step 1:</strong> Deploy the keyring proxy server (see the{" "}
+              <a
+                href="/docs/deploy"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                deployment guide
+              </a>):
+            </P>
+            <CodeBlock language="bash">{`# Set required env vars on the proxy server
+KEYRING_PROXY_SECRET=your-shared-hmac-secret
+KEYSTORE_BACKEND=encrypted-file
+KEYSTORE_PASSWORD=your-keystore-password`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 2:</strong> Configure the agent to use the proxy:
+            </P>
+            <CodeBlock language="bash">{`# Agent env vars
+KEYRING_PROXY_URL=https://your-proxy.example.com
+KEYRING_PROXY_SECRET=your-shared-hmac-secret`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 3:</strong> Initialize in your application:
+            </P>
+            <CodeBlock language="typescript">{`import { initKeystore } from '@buildersgarden/siwa/keystore';
+
+await initKeystore({ backend: 'proxy' });
+// Or just set KEYRING_PROXY_URL — auto-detected`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="providers-encrypted-file" title="Encrypted File">
+            <P>
+              Stores the private key in an Ethereum V3 JSON Keystore file (AES-128-CTR encryption with scrypt KDF). Good for single-server deployments where running a separate proxy isn&apos;t practical.
+            </P>
+
+            <P>
+              <strong className="text-foreground">Pros:</strong> No external service needed. Industry-standard encryption format (compatible with geth, MetaMask). Key encrypted at rest on disk.
+            </P>
+            <P>
+              <strong className="text-foreground">Cons:</strong> Key is decrypted into agent process memory during signing. File must be backed up separately. Not suitable for multi-instance deployments (single file on disk).
+            </P>
+
+            <P>
+              <strong className="text-foreground">Step 1:</strong> Set environment variables:
+            </P>
+            <CodeBlock language="bash">{`# Optional — defaults shown
+KEYSTORE_PATH=./agent-keystore.json
+KEYSTORE_PASSWORD=your-strong-password
+# If KEYSTORE_PASSWORD is omitted, a machine-derived password is used (not recommended for production)`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 2:</strong> Initialize and create a wallet:
+            </P>
+            <CodeBlock language="typescript">{`import { initKeystore, createWallet } from '@buildersgarden/siwa/keystore';
+
+await initKeystore({ backend: 'encrypted-file' });
+const wallet = await createWallet();
+console.log(wallet.address); // 0x...`}</CodeBlock>
+
+            <P>
+              The keystore file is created automatically with owner-only permissions (<InlineCode>0o600</InlineCode>).
+              You can also import an existing private key:
+            </P>
+            <CodeBlock language="typescript">{`import { importWallet } from '@buildersgarden/siwa/keystore';
+const wallet = await importWallet('0xYourPrivateKey...');`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="providers-env" title="Env Variable">
+            <P>
+              Reads the private key directly from the <InlineCode>AGENT_PRIVATE_KEY</InlineCode> environment variable.
+              The simplest backend — no files, no services, no encryption.
+            </P>
+
+            <P>
+              <strong className="text-foreground">Pros:</strong> Zero setup. Works instantly in CI, Docker, and ephemeral environments. No file I/O.
+            </P>
+            <P>
+              <strong className="text-foreground">Cons:</strong> Key sits in plaintext in the process environment. Visible in <InlineCode>/proc</InlineCode>, container inspect, and crash dumps. Not recommended for anything beyond testing.
+            </P>
+
+            <P>
+              <strong className="text-foreground">Step 1:</strong> Set the env var:
+            </P>
+            <CodeBlock language="bash">{`export AGENT_PRIVATE_KEY=0xYourPrivateKeyHere`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 2:</strong> Initialize:
+            </P>
+            <CodeBlock language="typescript">{`import { initKeystore } from '@buildersgarden/siwa/keystore';
+
+await initKeystore({ backend: 'env' });
+// Or just set AGENT_PRIVATE_KEY — auto-detected`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="providers-cdp" title="Coinbase CDP">
+            <P>
+              Uses{" "}
+              <a
+                href="https://docs.cdp.coinbase.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                Coinbase Developer Platform
+              </a>
+              {" "}for MPC-based wallet management. Keys are split across Coinbase infrastructure — no single party holds the complete key.
+            </P>
+
+            <P>
+              <strong className="text-foreground">Pros:</strong> MPC key management (no single point of compromise). Native Base chain support. Battle-tested infrastructure. Managed key backup and recovery.
+            </P>
+            <P>
+              <strong className="text-foreground">Cons:</strong> Requires a Coinbase CDP account. External dependency for signing availability. API rate limits apply.
+            </P>
+
+            <P>
+              <strong className="text-foreground">Step 1:</strong> Install the SDK:
+            </P>
+            <CodeBlock language="bash">{`npm install @coinbase/cdp-sdk`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 2:</strong> Get API credentials from the{" "}
+              <a
+                href="https://portal.cdp.coinbase.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                CDP Portal
+              </a>
+              {" "}and set env vars:
+            </P>
+            <CodeBlock language="bash">{`CDP_API_KEY_ID=your-api-key-id
+CDP_API_KEY_SECRET=your-api-key-secret
+CDP_WALLET_SECRET=your-wallet-secret
+CDP_ACCOUNT_NAME=siwa-agent   # Optional: default "siwa-agent"`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 3:</strong> Initialize:
+            </P>
+            <CodeBlock language="typescript">{`import { initKeystore } from '@buildersgarden/siwa/keystore';
+
+await initKeystore({ backend: 'cdp' });`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="providers-privy" title="Privy">
+            <P>
+              Uses{" "}
+              <a
+                href="https://docs.privy.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                Privy server-side wallets
+              </a>
+              {" "}for managed key infrastructure. Ideal if your application already uses Privy for user authentication.
+            </P>
+
+            <P>
+              <strong className="text-foreground">Pros:</strong> Managed infrastructure — no key files to handle. Server-side signing (agent never sees the key). Pre-built policy engine.
+            </P>
+            <P>
+              <strong className="text-foreground">Cons:</strong> Requires a Privy account and plan that supports server wallets. Signing depends on Privy service availability.
+            </P>
+
+            <P>
+              <strong className="text-foreground">Step 1:</strong> Install the SDK:
+            </P>
+            <CodeBlock language="bash">{`npm install @privy-io/server-auth`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 2:</strong> Get credentials from the{" "}
+              <a
+                href="https://dashboard.privy.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                Privy Dashboard
+              </a>
+              {" "}and set env vars:
+            </P>
+            <CodeBlock language="bash">{`PRIVY_APP_ID=your-app-id
+PRIVY_APP_SECRET=your-app-secret
+PRIVY_WALLET_ID=your-wallet-id   # Optional: pre-created wallet`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 3:</strong> Initialize:
+            </P>
+            <CodeBlock language="typescript">{`import { initKeystore } from '@buildersgarden/siwa/keystore';
+
+await initKeystore({ backend: 'privy' });`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="providers-circle" title="Circle">
+            <P>
+              Uses{" "}
+              <a
+                href="https://developers.circle.com/w3s/programmable-wallets-overview"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                Circle Programmable Wallets
+              </a>
+              {" "}for enterprise-grade wallet management with built-in compliance and audit trails.
+            </P>
+
+            <P>
+              <strong className="text-foreground">Pros:</strong> Enterprise compliance features. SOC 2 certified infrastructure. Multi-chain support. Comprehensive audit logs.
+            </P>
+            <P>
+              <strong className="text-foreground">Cons:</strong> Enterprise-oriented — may be complex for small projects. Requires Circle developer account. API rate limits and costs.
+            </P>
+
+            <P>
+              <strong className="text-foreground">Step 1:</strong> Install the SDK:
+            </P>
+            <CodeBlock language="bash">{`npm install @circle-fin/developer-controlled-wallets`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 2:</strong> Get credentials from the{" "}
+              <a
+                href="https://console.circle.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                Circle Console
+              </a>
+              {" "}and set env vars:
+            </P>
+            <CodeBlock language="bash">{`CIRCLE_API_KEY=your-api-key
+CIRCLE_ENTITY_SECRET=your-entity-secret
+CIRCLE_WALLET_SET_ID=your-wallet-set-id
+CIRCLE_WALLET_ID=your-wallet-id   # Optional: pre-created wallet`}</CodeBlock>
+
+            <P>
+              <strong className="text-foreground">Step 3:</strong> Initialize:
+            </P>
+            <CodeBlock language="typescript">{`import { initKeystore } from '@buildersgarden/siwa/keystore';
+
+await initKeystore({ backend: 'circle' });`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="providers-base-account" title="Base Account">
+            <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 px-5 py-4 mb-4">
+              <p className="text-sm text-muted leading-relaxed">
+                <span className="font-mono font-semibold text-yellow-400">Coming soon.</span>{" "}
+                This provider is experimental. The exact SDK and auth flow are still being finalized by Base.
+              </p>
+            </div>
+
+            <P>
+              Uses Base Smart Accounts with passkey-based authentication. Enables gasless transactions via account abstraction (ERC-4337).
+            </P>
+
+            <P>
+              <strong className="text-foreground">Pros:</strong> Gasless transactions (sponsored by paymaster). Passkey-based — no private key to manage. Native Base ecosystem integration. Account recovery via passkeys.
+            </P>
+            <P>
+              <strong className="text-foreground">Cons:</strong> Experimental — SDK not yet stable. Limited to Base chain. Passkey management adds complexity for server-side agents.
+            </P>
+
+            <P>
+              Setup instructions will be published once the Base Smart Account SDK is finalized. Follow{" "}
+              <a
+                href="https://github.com/builders-garden/siwa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                the repository
+              </a>
+              {" "}for updates.
+            </P>
+          </SubSection>
+
+          <div className="mt-8 rounded-lg border border-border bg-surface px-5 py-4">
+            <p className="text-sm text-muted leading-relaxed">
+              <strong className="text-foreground">Auto-detection:</strong>{" "}
+              If you don&apos;t call <InlineCode>initKeystore()</InlineCode>, the SDK detects the best available backend from environment variables in this order:
+              <InlineCode>KEYRING_PROXY_URL</InlineCode> (proxy),
+              <InlineCode>CDP_API_KEY_ID</InlineCode> (cdp),
+              <InlineCode>CIRCLE_API_KEY</InlineCode> (circle),
+              <InlineCode>PRIVY_APP_ID</InlineCode> (privy),
+              existing keystore file (encrypted-file),
+              <InlineCode>AGENT_PRIVATE_KEY</InlineCode> (env).
+            </p>
+          </div>
+        </Section>
+
         {/* API Reference */}
         <Section id="api" title="API Reference">
           <SubSection id="api-keystore" title="@buildersgarden/siwa/keystore">

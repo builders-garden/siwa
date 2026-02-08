@@ -15,6 +15,20 @@ const sections = [
     ],
   },
   {
+    title: "Wallet Providers",
+    id: "providers",
+    children: [
+      { title: "Overview", id: "providers-overview" },
+      { title: "Keyring Proxy", id: "providers-proxy" },
+      { title: "Encrypted File", id: "providers-encrypted-file" },
+      { title: "Env Variable", id: "providers-env" },
+      { title: "Coinbase CDP", id: "providers-cdp" },
+      { title: "Privy", id: "providers-privy" },
+      { title: "Circle", id: "providers-circle" },
+      { title: "Base Account", id: "providers-base-account" },
+    ],
+  },
+  {
     title: "API Reference",
     id: "api",
     children: [

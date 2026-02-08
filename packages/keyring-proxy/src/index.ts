@@ -36,7 +36,7 @@ import {
   signMessage,
   signTransaction,
   signAuthorization,
-  type KeystoreConfig,
+  initKeystore,
   type KeystoreBackend,
 } from "@buildersgarden/siwa/keystore";
 
@@ -87,13 +87,12 @@ if (innerBackend === "proxy") {
   process.exit(1);
 }
 
-function getInnerConfig(): KeystoreConfig {
-  return {
-    backend: innerBackend,
-    keystorePath: process.env.KEYSTORE_PATH,
-    password: process.env.KEYSTORE_PASSWORD,
-  };
-}
+// Initialize keystore once at startup — no config needed on each call
+await initKeystore({
+  backend: innerBackend,
+  keystorePath: process.env.KEYSTORE_PATH,
+  password: process.env.KEYSTORE_PASSWORD,
+} as any);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -301,7 +300,7 @@ app.post("/create-wallet", async (req: Request, res: Response) => {
   try {
     const { defaultPolicy, skipDefaultPolicy } = req.body || {};
 
-    const info = await createWallet(getInnerConfig());
+    const info = await createWallet();
 
     // Attach default policy unless explicitly skipped
     if (!skipDefaultPolicy) {
@@ -346,7 +345,7 @@ app.post("/create-wallet", async (req: Request, res: Response) => {
 
 app.post("/has-wallet", async (req: Request, res: Response) => {
   try {
-    const exists = await hasWallet(getInnerConfig());
+    const exists = await hasWallet();
     audit(req, true);
     res.json({ hasWallet: exists });
   } catch (err: any) {
@@ -357,7 +356,7 @@ app.post("/has-wallet", async (req: Request, res: Response) => {
 
 app.post("/get-address", async (req: Request, res: Response) => {
   try {
-    const address = await getAddress(getInnerConfig());
+    const address = await getAddress();
     audit(req, true);
     res.json({ address });
   } catch (err: any) {
@@ -380,7 +379,7 @@ app.post("/sign-message", async (req: Request, res: Response) => {
     }
 
     // Get wallet address for policy lookup
-    const walletAddress = await getAddress(getInnerConfig());
+    const walletAddress = await getAddress();
     if (!walletAddress) {
       audit(req, false, "No wallet found");
       res.status(400).json({ error: "No wallet found" });
@@ -412,7 +411,7 @@ app.post("/sign-message", async (req: Request, res: Response) => {
     }
 
     // Policy passed - sign the message
-    const result = await signMessage(message, getInnerConfig());
+    const result = await signMessage(message);
     audit(req, true);
     res.json(result);
   } catch (err: any) {
@@ -431,7 +430,7 @@ app.post("/sign-transaction", async (req: Request, res: Response) => {
     }
 
     // Get wallet address for policy lookup
-    const walletAddress = await getAddress(getInnerConfig());
+    const walletAddress = await getAddress();
     if (!walletAddress) {
       audit(req, false, "No wallet found");
       res.status(400).json({ error: "No wallet found" });
@@ -467,7 +466,7 @@ app.post("/sign-transaction", async (req: Request, res: Response) => {
     }
 
     // Policy passed - sign the transaction
-    const result = await signTransaction(tx, getInnerConfig());
+    const result = await signTransaction(tx);
     audit(req, true);
     res.json(result);
   } catch (err: any) {
@@ -486,7 +485,7 @@ app.post("/sign-authorization", async (req: Request, res: Response) => {
     }
 
     // Get wallet address for policy lookup
-    const walletAddress = await getAddress(getInnerConfig());
+    const walletAddress = await getAddress();
     if (!walletAddress) {
       audit(req, false, "No wallet found");
       res.status(400).json({ error: "No wallet found" });
@@ -518,7 +517,7 @@ app.post("/sign-authorization", async (req: Request, res: Response) => {
     }
 
     // Policy passed - sign the authorization
-    const result = await signAuthorization(auth, getInnerConfig());
+    const result = await signAuthorization(auth);
     audit(req, true);
     // viem returns BigInt values which need conversion for JSON
     res.json(serializeBigInt(result));

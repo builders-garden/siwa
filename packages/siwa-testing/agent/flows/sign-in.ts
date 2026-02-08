@@ -1,11 +1,12 @@
 import chalk from 'chalk';
 import { isRegistered, readMemory, appendToMemorySection } from '@buildersgarden/siwa/memory';
 import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
+import { initKeystore } from '@buildersgarden/siwa/keystore';
 import { config, getKeystoreConfig } from '../config.js';
 import type { NonceResponse, VerifyResponse } from '../../shared/types.js';
 
 export async function signInFlow(): Promise<string | null> {
-  const kc = getKeystoreConfig();
+  await initKeystore(getKeystoreConfig());
 
   // Read MEMORY.md
   if (!isRegistered(config.memoryPath)) {
@@ -38,21 +39,18 @@ export async function signInFlow(): Promise<string | null> {
   console.log(chalk.dim(`\u{1F4E8} Nonce received: ${nonceData.nonce} (expires: ${nonceData.expirationTime})`));
 
   // 2. Build and sign SIWA message via keystore
-  const { message, signature } = await signSIWAMessage(
-    {
-      domain: config.serverDomain,
-      address,
-      statement: 'Authenticate as a registered ERC-8004 agent.',
-      uri: `${config.serverUrl}/siwa/verify`,
-      agentId,
-      agentRegistry,
-      chainId,
-      nonce: nonceData.nonce,
-      issuedAt: nonceData.issuedAt,
-      expirationTime: nonceData.expirationTime,
-    },
-    kc
-  );
+  const { message, signature } = await signSIWAMessage({
+    domain: config.serverDomain,
+    address,
+    statement: 'Authenticate as a registered ERC-8004 agent.',
+    uri: `${config.serverUrl}/siwa/verify`,
+    agentId,
+    agentRegistry,
+    chainId,
+    nonce: nonceData.nonce,
+    issuedAt: nonceData.issuedAt,
+    expirationTime: nonceData.expirationTime,
+  });
 
   console.log(chalk.green(`\u{1F511} SIWA message signed (key loaded from keystore, used, discarded)`));
 
