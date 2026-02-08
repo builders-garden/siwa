@@ -8,6 +8,7 @@ export interface NonceRequest {
 
 export interface NonceResponse {
   nonce: string;
+  nonceToken?: string;
   issuedAt: string;
   expirationTime: string;
   domain: string;
@@ -18,6 +19,7 @@ export interface NonceResponse {
 export interface VerifyRequest {
   message: string;
   signature: string;
+  nonceToken?: string;
 }
 
 export type { SIWAErrorCode, SIWAAction } from '@buildersgarden/siwa/siwa';

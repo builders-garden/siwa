@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
 import { createPublicClient, http } from 'viem';
-import { storeNonce, validateNonce, getNonceCount } from './nonce-store.js';
 import { createSession, validateToken, getSessions, getSessionCount } from './session-store.js';
 import { verifySIWA, buildSIWAResponse, createSIWANonce, SIWAErrorCode } from '@buildersgarden/siwa/siwa';
 import { renderDashboard } from './dashboard.js';
@@ -10,6 +9,7 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000');
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || 'localhost:3000';
 const RPC_URL = process.env.RPC_URL;
+const SIWA_NONCE_SECRET = process.env.SIWA_NONCE_SECRET || process.env.JWT_SECRET || 'test-secret-change-in-production';
 
 if (!RPC_URL) {
   console.error('RPC_URL is required. Set it in your environment or .env file.');
@@ -32,7 +32,7 @@ app.options('*', (_req, res) => res.sendStatus(204));
 
 // Dashboard
 app.get('/', (_req, res) => {
-  const html = renderDashboard(getSessions(), getNonceCount(), 'live');
+  const html = renderDashboard(getSessions(), 'live');
   res.type('html').send(html);
 });
 
@@ -56,6 +56,7 @@ app.post('/siwa/nonce', async (req, res) => {
   const result = await createSIWANonce(
     { address, agentId, agentRegistry },
     client,
+    { secret: SIWA_NONCE_SECRET },
   );
 
   if (result.status !== 'nonce_issued') {
@@ -65,14 +66,12 @@ app.post('/siwa/nonce', async (req, res) => {
     return;
   }
 
-  // Store the nonce for later validation
-  storeNonce(result.nonce, address);
-
   const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
   console.log(`\u{1F4E8} Nonce issued to ${truncated}`);
 
   res.json({
     nonce: result.nonce,
+    nonceToken: result.nonceToken,
     issuedAt: result.issuedAt,
     expirationTime: result.expirationTime,
     domain: SERVER_DOMAIN,
@@ -83,9 +82,13 @@ app.post('/siwa/nonce', async (req, res) => {
 
 // Verify SIWA signature
 app.post('/siwa/verify', async (req, res) => {
-  const { message, signature } = req.body;
+  const { message, signature, nonceToken } = req.body;
   if (!message || !signature) {
     res.status(400).json({ status: 'rejected', code: SIWAErrorCode.VERIFICATION_FAILED, error: 'Missing message or signature' });
+    return;
+  }
+  if (!nonceToken) {
+    res.status(400).json({ status: 'rejected', code: SIWAErrorCode.INVALID_NONCE, error: 'Missing nonceToken' });
     return;
   }
 
@@ -93,7 +96,7 @@ app.post('/siwa/verify', async (req, res) => {
     message,
     signature,
     SERVER_DOMAIN,
-    validateNonce,
+    { nonceToken, secret: SIWA_NONCE_SECRET },
     client,
   );
 

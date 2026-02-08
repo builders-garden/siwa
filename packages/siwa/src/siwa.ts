@@ -268,6 +268,28 @@ export function generateNonce(length: number = 16): string {
   return crypto.randomBytes(length).toString('base64url').slice(0, length);
 }
 
+// ─── HMAC Nonce Token Helpers ───────────────────────────────────────
+
+/** Sign a payload into a compact `base64url(json).base64url(hmac)` token. */
+function signNonceToken(payload: object, secret: string): string {
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', secret).update(data).digest('base64url');
+  return `${data}.${sig}`;
+}
+
+/** Verify and decode a nonce token. Returns the payload or null on failure. */
+function verifyNonceToken(token: string, secret: string): Record<string, unknown> | null {
+  const dotIdx = token.indexOf('.');
+  if (dotIdx === -1) return null;
+  const data = token.slice(0, dotIdx);
+  const sig = token.slice(dotIdx + 1);
+  if (!data || !sig) return null;
+  const expected = crypto.createHmac('sha256', secret).update(data).digest('base64url');
+  if (sig.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  return JSON.parse(Buffer.from(data, 'base64url').toString());
+}
+
 // ─── Server-Side Nonce Creation ─────────────────────────────────────
 
 export interface SIWANonceParams {
@@ -278,10 +300,11 @@ export interface SIWANonceParams {
 
 export interface SIWANonceOptions {
   expirationTTL?: number;  // milliseconds, defaults to 300_000 (5 min)
+  secret?: string;         // HMAC secret for stateless nonce tokens (pass your JWT_SECRET or any server secret)
 }
 
 export type SIWANonceResult =
-  | { status: 'nonce_issued'; nonce: string; issuedAt: string; expirationTime: string }
+  | { status: 'nonce_issued'; nonce: string; nonceToken?: string; issuedAt: string; expirationTime: string }
   | SIWAResponse;
 
 /**
@@ -364,13 +387,23 @@ export async function createSIWANonce(
   // Agent is registered — issue the nonce
   const now = new Date();
   const expiresAt = new Date(now.getTime() + ttl);
+  const nonce = generateNonce();
 
-  return {
+  const result: SIWANonceResult & { status: 'nonce_issued' } = {
     status: 'nonce_issued',
-    nonce: generateNonce(),
+    nonce,
     issuedAt: now.toISOString(),
     expirationTime: expiresAt.toISOString(),
   };
+
+  if (options?.secret) {
+    result.nonceToken = signNonceToken(
+      { nonce, address, agentId, iat: now.getTime(), exp: expiresAt.getTime() },
+      options.secret,
+    );
+  }
+
+  return result;
 }
 
 // ─── Agent-Side Signing ──────────────────────────────────────────────
@@ -432,6 +465,20 @@ export async function signSIWAMessage(
 // ─── Server-Side Verification ────────────────────────────────────────
 
 /**
+ * Nonce validation: either a callback (stateful) or a stateless token + secret.
+ *
+ * Stateful (callback):
+ *   Platform stores nonces server-side and provides a validation function.
+ *
+ * Stateless (nonceToken + secret):
+ *   The SDK verifies the HMAC token issued by createSIWANonce({ secret }).
+ *   No server-side storage needed — ideal for serverless platforms.
+ */
+export type NonceValidator =
+  | ((nonce: string) => boolean | Promise<boolean>)
+  | { nonceToken: string; secret: string };
+
+/**
  * Verify a SIWA message + signature.
  *
  * Checks:
@@ -439,14 +486,14 @@ export async function signSIWAMessage(
  * 2. Signature → address recovery
  * 3. Address matches message
  * 4. Domain matches expected domain
- * 5. Nonce matches (caller must validate against their nonce store)
+ * 5. Nonce matches (caller must validate against their nonce store or stateless token)
  * 6. Time window (expirationTime / notBefore)
  * 7. Onchain: ownerOf(agentId) === recovered address
  *
  * @param message    Full SIWA message string
  * @param signature  EIP-191 signature hex string
  * @param expectedDomain  The server's domain (for domain binding)
- * @param nonceValid  Callback that returns true if the nonce is valid and unconsumed
+ * @param nonceValid  Callback or { nonceToken, secret } for stateless validation
  * @param client   viem PublicClient for onchain verification
  * @param criteria   Optional criteria to validate agent profile/reputation after ownership check
  */
@@ -454,7 +501,7 @@ export async function verifySIWA(
   message: string,
   signature: string,
   expectedDomain: string,
-  nonceValid: (nonce: string) => boolean | Promise<boolean>,
+  nonceValid: NonceValidator,
   client: PublicClient,
   criteria?: SIWAVerifyCriteria
 ): Promise<SIWAVerificationResult> {
@@ -486,7 +533,21 @@ export async function verifySIWA(
     }
 
     // 5. Nonce
-    const nonceOk = await nonceValid(fields.nonce);
+    let nonceOk: boolean;
+    if (typeof nonceValid === 'function') {
+      nonceOk = await nonceValid(fields.nonce);
+    } else {
+      // Stateless validation via HMAC token
+      const payload = verifyNonceToken(nonceValid.nonceToken, nonceValid.secret);
+      if (!payload) {
+        return fail(fields, SIWAErrorCode.INVALID_NONCE, 'Invalid nonce token signature');
+      }
+      const expired = typeof payload.exp === 'number' && payload.exp < Date.now();
+      const nonceMismatch = payload.nonce !== fields.nonce;
+      const addressMismatch = typeof payload.address === 'string' &&
+        payload.address.toLowerCase() !== fields.address.toLowerCase();
+      nonceOk = !expired && !nonceMismatch && !addressMismatch;
+    }
     if (!nonceOk) {
       return fail(fields, SIWAErrorCode.INVALID_NONCE, 'Invalid or consumed nonce');
     }

@@ -91,7 +91,7 @@ export async function signInFlow(): Promise<string | null> {
   const verifyRes = await fetch(`${config.serverUrl}/siwa/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, signature }),
+    body: JSON.stringify({ message, signature, nonceToken: nonceData.nonceToken }),
   });
 
   const verifyData: VerifyResponse = await verifyRes.json();
