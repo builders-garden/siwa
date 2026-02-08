@@ -6,12 +6,10 @@ node_modules/
 .env.local
 .env.*.local
 
-# Keystore files (contain encrypted private keys)
-agent-keystore.json
-*-keystore.json
+.pnpm-store/*
 
 # Agent state (generated per-agent)
-MEMORY.md
+IDENTITY.md
 
 # Policy storage (runtime data)
 packages/keyring-proxy/data/

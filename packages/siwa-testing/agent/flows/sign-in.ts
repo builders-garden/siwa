@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { isRegistered, readMemory, appendToMemorySection } from '@buildersgarden/siwa/memory';
+import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
 import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
 import { config, getKeystoreConfig } from '../config.js';
 import type { NonceResponse, VerifyResponse } from '../../shared/types.js';
@@ -7,16 +7,16 @@ import type { NonceResponse, VerifyResponse } from '../../shared/types.js';
 export async function signInFlow(): Promise<string | null> {
   const kc = getKeystoreConfig();
 
-  // Read MEMORY.md
-  if (!isRegistered(config.memoryPath)) {
+  // Read IDENTITY.md
+  if (!(await isRegistered({ identityPath: config.identityPath }))) {
     console.log(chalk.yellow(`\u{26A0}\u{FE0F}  Agent not locally registered. Proceeding with sign-in — the server will check onchain registration.`));
   }
 
-  const mem = readMemory(config.memoryPath);
-  const address = mem['Address'];
-  const agentId = parseInt(mem['Agent ID']);
-  const agentRegistry = mem['Agent Registry'];
-  const chainId = parseInt(mem['Chain ID']);
+  const identity = readIdentity(config.identityPath);
+  const address = identity.address;
+  const agentId = identity.agentId!;
+  const agentRegistry = identity.agentRegistry!;
+  const chainId = identity.chainId!;
 
   // 1. Request nonce from server
   console.log(chalk.cyan(`\u{1F310} Requesting nonce from ${config.serverDomain}...`));
@@ -131,11 +131,6 @@ export async function signInFlow(): Promise<string | null> {
   console.log(chalk.dim(`   Verified: ${verifyData.verified}`));
   console.log(chalk.dim(`   Expires:  ${verifyData.expiresAt}`));
 
-  // Write session to MEMORY.md
-  const sessionLine = `- **Session**: \`${verifyData.token!.slice(0, 20)}...\` @ ${config.serverDomain} (${verifyData.verified}, expires ${verifyData.expiresAt})`;
-  appendToMemorySection('Sessions', sessionLine, config.memoryPath);
-  console.log(chalk.green(`\u{1F4DD} Session saved to MEMORY.md`));
-
   // 4. Test authenticated API call
   console.log(chalk.cyan(`\u{1F310} Testing authenticated API call...`));
 
@@ -155,13 +150,7 @@ export async function signInFlow(): Promise<string | null> {
 }
 
 export async function callApiFlow(): Promise<void> {
-  const mem = readMemory(config.memoryPath);
-
-  // Try to find a session token in MEMORY.md
-  // The session line format: - **Session**: `token...` @ domain (mode, expires ...)
-  // We need the full token, but MEMORY.md only stores truncated.
   // For the call-api command, we re-do the sign-in to get a fresh token.
-
   console.log(chalk.yellow(`\u{2139}\u{FE0F}  call-api performs a fresh sign-in to obtain a token`));
   const token = await signInFlow();
   if (!token) return;

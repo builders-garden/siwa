@@ -9,7 +9,7 @@ description: >
   server by proving ownership of an ERC-8004 identity using a signed challenge (SIGN IN / SIWA),
   (4) build or update an ERC-8004 registration file (metadata JSON with endpoints, trust models,
   services), (5) upload agent metadata to IPFS or base64 data URI, (6) look up or verify an
-  agent's onchain registration. The agent persists public identity state in MEMORY.md. Private
+  agent's onchain registration. The agent persists public identity state in IDENTITY.md. Private
   keys are held in a separate keyring proxy server — the agent can request signatures but never
   access the key itself.
   Triggers on: ERC-8004, trustless agents, agent registration, SIWA, Sign In With Agent,
@@ -82,8 +82,6 @@ signMessage("hello")
 | `KEYSTORE_PASSWORD`           | Proxy server | Password for the encrypted-file keystore (not needed with `AGENT_PRIVATE_KEY`)        |
 | `POLICY_STORE_PATH`           | Proxy server | Path to policies JSON file (default: `./data/policies.json`)                          |
 
-> **Auto-detection**: When `KEYRING_PROXY_URL` is set, `KEYSTORE_BACKEND` automatically defaults to `proxy` — no need to set it manually. When `AGENT_PRIVATE_KEY` is set on the proxy server, `KEYSTORE_BACKEND` defaults to `env`.
->
 > The proxy server stores keys using an AES-encrypted V3 JSON Keystore (scrypt KDF) by default. To use an existing wallet instead, set `AGENT_PRIVATE_KEY` on the proxy server — the key is held in memory at runtime (no encrypted file needed).
 
 ### Keystore API
@@ -91,15 +89,13 @@ signMessage("hello")
 The `@buildersgarden/siwa/keystore` module exposes ONLY these operations — none return the private key:
 
 ```
-createWallet()           → { address, backend }     // Creates key, returns ONLY address
+createWallet()           → { address }              // Creates key, returns ONLY address
 signMessage(msg)         → { signature, address }   // Signs via proxy, key never exposed
 signTransaction(tx)      → { signedTx, address }    // Same pattern
 signAuthorization(auth)  → SignedAuthorization       // EIP-7702 delegation signing
 getAddress()             → string                    // Public address only
 hasWallet()              → boolean
 ```
-
-> `getSigner()` is **not available** with the proxy backend — use `signMessage()` / `signTransaction()` instead.
 
 ### IMPORTANT: Install and use the SDK
 
@@ -248,33 +244,25 @@ sig = proxy_request("/sign-message", {"message": "hello"})  # {"signature": "0x.
 | `POST /sign-authorization` | `{ auth: { chainId, address, nonce } }`                         | `{ signedAuthorization }`                      |
 | `GET /health`              | —                                                               | `{ status: "ok", backend }` (no auth required) |
 
-### MEMORY.md: Public Data Only
+### IDENTITY.md: Public Data Only
 
-MEMORY.md stores the agent's public identity state — **never the private key**:
+IDENTITY.md stores the agent's minimal public identity state — **never the private key**:
 
 ```markdown
-## Wallet
-
-- **Address**: `0x1234...abcd` <- public
-- **Keystore Backend**: `proxy` <- which backend holds the key
-- **Created At**: `2026-02-04T...`
-
-## Registration
-
-- **Status**: `registered`
+# Agent Identity
+- **Address**: `0x1234...abcd`
 - **Agent ID**: `42`
 - **Agent Registry**: `eip155:84532:0x8004AA63...`
-  ...
+- **Chain ID**: `84532`
 ```
 
 **Lifecycle rules**:
 
-1. **Before any action** — Read MEMORY.md. If wallet exists, skip creation. If registered, skip re-registration.
-2. **After wallet creation** — Write address + backend info to MEMORY.md. Private key goes to proxy keystore only.
-3. **After registration** — Write agentId, agentRegistry, agentURI, chainId to MEMORY.md.
-4. **After SIWA sign-in** — Append session token under Sessions.
+1. **Before any action** — Read IDENTITY.md. If wallet exists, skip creation. If registered, skip re-registration.
+2. **After wallet creation** — Write address to IDENTITY.md. Private key goes to proxy keystore only.
+3. **After registration** — Write agentId, agentRegistry, chainId to IDENTITY.md.
 
-**Template**: [assets/MEMORY.md.template](assets/MEMORY.md.template)
+**Template**: [assets/IDENTITY.template.md](assets/IDENTITY.template.md)
 
 ---
 
@@ -477,46 +465,43 @@ KEYRING_PROXY_URL=http://localhost:3100   # or your Railway URL
 KEYRING_PROXY_SECRET=your-shared-secret
 ```
 
-The `proxy` keystore backend is auto-detected when `KEYRING_PROXY_URL` is set — no need to set `KEYSTORE_BACKEND` manually.
+Set `KEYRING_PROXY_URL` and `KEYRING_PROXY_SECRET` as environment variables for the agent.
 
 ---
 
 ## Workflow: SIGN UP (Agent Registration)
 
-### Step 0: Check MEMORY.md + Keystore
+### Step 0: Check IDENTITY.md + Keystore
 
 ```typescript
 import { hasWallet } from "@buildersgarden/siwa/keystore";
 import {
-  ensureMemoryExists,
+  ensureIdentityExists,
   hasWalletRecord,
   isRegistered,
-} from "@buildersgarden/siwa/memory";
+} from "@buildersgarden/siwa/identity";
 
-ensureMemoryExists("./MEMORY.md", "./assets/MEMORY.md.template");
+ensureIdentityExists("./IDENTITY.md", "./assets/IDENTITY.template.md");
 
-if ((await hasWallet()) && isRegistered("./MEMORY.md")) {
+if ((await hasWallet()) && (await isRegistered({ identityPath: "./IDENTITY.md" }))) {
   // Already registered — skip to SIGN IN or update
 }
-if ((await hasWallet()) && hasWalletRecord("./MEMORY.md")) {
+if ((await hasWallet()) && hasWalletRecord("./IDENTITY.md")) {
   // Wallet exists — skip to Step 2
 }
 // Otherwise proceed to Step 1
 ```
 
-### Step 1: Create Wallet (key goes to proxy, address goes to MEMORY.md)
+### Step 1: Create Wallet (key goes to proxy, address goes to IDENTITY.md)
 
 ```typescript
 import { createWallet } from "@buildersgarden/siwa/keystore";
-import { writeMemoryField } from "@buildersgarden/siwa/memory";
+import { writeIdentityField } from "@buildersgarden/siwa/identity";
 
 const info = await createWallet(); // <- key created in proxy, NEVER returned
 
-// Write ONLY public data to MEMORY.md
-writeMemoryField("Address", info.address);
-writeMemoryField("Keystore Backend", info.backend);
-if (info.keystorePath) writeMemoryField("Keystore Path", info.keystorePath);
-writeMemoryField("Created At", new Date().toISOString());
+// Write ONLY public data to IDENTITY.md
+writeIdentityField("Address", info.address);
 ```
 
 ### Step 1b: Fund the Wallet (REQUIRED before registration)
@@ -558,12 +543,7 @@ Create a JSON file following the ERC-8004 schema. Use [assets/registration-templ
 
 Required fields: `type`, `name`, `description`, `image`, `services`, `active`.
 
-After building, update MEMORY.md profile:
-
-```typescript
-writeMemoryField("Name", registrationFile.name);
-writeMemoryField("Description", registrationFile.description);
-```
+After building, the metadata is uploaded and used in registration.
 
 ### Step 3: Upload Metadata
 
@@ -597,7 +577,7 @@ With the proxy backend, the agent builds the transaction and delegates signing t
 
 ```typescript
 import { signTransaction, getAddress } from "@buildersgarden/siwa/keystore";
-import { writeMemoryField } from "@buildersgarden/siwa/memory";
+import { writeIdentityField } from "@buildersgarden/siwa/identity";
 import {
   createPublicClient,
   http,
@@ -673,13 +653,10 @@ for (const log of logs) {
   const agentId = log.args.agentId.toString();
   const agentRegistry = `eip155:${chainId}:${REGISTRY_ADDRESS}`;
 
-  // Persist PUBLIC results to MEMORY.md
-  writeMemoryField("Status", "registered");
-  writeMemoryField("Agent ID", agentId);
-  writeMemoryField("Agent Registry", agentRegistry);
-  writeMemoryField("Agent URI", agentURI);
-  writeMemoryField("Chain ID", chainId.toString());
-  writeMemoryField("Registered At", new Date().toISOString());
+  // Persist PUBLIC results to IDENTITY.md
+  writeIdentityField("Agent ID", agentId);
+  writeIdentityField("Agent Registry", agentRegistry);
+  writeIdentityField("Chain ID", chainId.toString());
 }
 ```
 
@@ -689,11 +666,10 @@ See [references/contract-addresses.md](references/contract-addresses.md) for dep
 
 ```typescript
 import { SDK } from "agent0-sdk";
-import { readMemory } from "@buildersgarden/siwa/memory";
 
 // Note: Agent0 SDK takes a private key string. If using the SDK,
-// you'll need a non-proxy backend or load the key within a narrow scope.
-// Prefer the signTransaction() approach above for proxy integration.
+// you'll need a non-proxy setup. Prefer the signTransaction() approach above
+// for proxy integration.
 ```
 
 ### Alternative: create-8004-agent CLI
@@ -702,7 +678,7 @@ import { readMemory } from "@buildersgarden/siwa/memory";
 npx create-8004-agent
 ```
 
-After `npm run register`, update MEMORY.md with the output agentId.
+After `npm run register`, update IDENTITY.md with the output agentId.
 
 ---
 
@@ -710,20 +686,17 @@ After `npm run register`, update MEMORY.md with the output agentId.
 
 Full spec: [references/siwa-spec.md](references/siwa-spec.md)
 
-### Step 0: Read Public Identity from MEMORY.md
+### Step 0: Read Public Identity from IDENTITY.md
 
 ```typescript
-import { readMemory, isRegistered } from "@buildersgarden/siwa/memory";
+import { readIdentity, isRegistered } from "@buildersgarden/siwa/identity";
 
-const memory = readMemory("./MEMORY.md");
-if (!isRegistered()) {
+const identity = readIdentity("./IDENTITY.md");
+if (!(await isRegistered({ identityPath: "./IDENTITY.md" }))) {
   throw new Error("Agent not registered. Run SIGN UP workflow first.");
 }
 
-const address = memory["Address"];
-const agentId = parseInt(memory["Agent ID"]);
-const agentRegistry = memory["Agent Registry"];
-const chainId = parseInt(memory["Chain ID"]);
+const { address, agentId, agentRegistry, chainId } = identity;
 ```
 
 ### Step 1: Request Nonce from Server
@@ -763,8 +736,6 @@ const { message, signature, address } = await signSIWAMessage({
 The server returns a standard `SIWAResponse` with `status: 'authenticated' | 'not_registered' | 'rejected'`.
 
 ```typescript
-import { appendToMemorySection } from "@buildersgarden/siwa/memory";
-
 const verifyRes = await fetch("https://api.targetservice.com/siwa/verify", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -773,12 +744,8 @@ const verifyRes = await fetch("https://api.targetservice.com/siwa/verify", {
 const session = await verifyRes.json();
 
 if (session.status === "authenticated") {
-  appendToMemorySection(
-    "Sessions",
-    `- **${agentId}@api.targetservice.com**: \`${session.token}\` (exp: ${
-      session.expiresAt || "none"
-    })`
-  );
+  // Use session.token for authenticated API calls
+  console.log("Authenticated! Token:", session.token);
 } else if (session.status === "not_registered") {
   // session.action contains registration steps and SDK install instructions
   // session.skill contains the SDK name and install URL
@@ -857,18 +824,16 @@ const response = buildSIWAResponse(result);
 
 ---
 
-## MEMORY.md Quick Reference
+## IDENTITY.md Quick Reference
 
-| Section           | When Written            | Key Fields                                            |
-| ----------------- | ----------------------- | ----------------------------------------------------- |
-| **Wallet**        | Step 1 of SIGN UP       | Address, Keystore Backend, Created At                 |
-| **Registration**  | Step 4 of SIGN UP       | Status, Agent ID, Agent Registry, Agent URI, Chain ID |
-| **Agent Profile** | Step 2 of SIGN UP       | Name, Description, Image                              |
-| **Services**      | After adding endpoints  | One line per service                                  |
-| **Sessions**      | After each SIWA sign-in | Token, domain, expiry per session                     |
-| **Notes**         | Any time                | Free-form (funding tx, faucet used, etc.)             |
+| Field              | When Written       | Description                               |
+| ------------------ | ------------------ | ----------------------------------------- |
+| **Address**        | After wallet creation | Ethereum wallet address (public)         |
+| **Agent ID**       | After registration | ERC-721 tokenId on the Identity Registry  |
+| **Agent Registry** | After registration | CAIP-10 registry address                  |
+| **Chain ID**       | After registration | Chain where agent is registered            |
 
-**What is NOT in MEMORY.md**: Private keys, keystore passwords, mnemonic phrases.
+**What is NOT in IDENTITY.md**: Private keys, keystore passwords, mnemonic phrases, session tokens.
 
 ---
 
@@ -881,13 +846,13 @@ const response = buildSIWAResponse(result);
 
 ## Core Library (`@buildersgarden/siwa` package)
 
-- **`@buildersgarden/siwa/keystore`** — Secure key storage abstraction with keyring proxy support
-- **`@buildersgarden/siwa/memory`** — MEMORY.md read/write helpers (public data only)
+- **`@buildersgarden/siwa/keystore`** — Proxy-only signing abstraction (createWallet, signMessage, signTransaction, getAddress, hasWallet)
+- **`@buildersgarden/siwa/identity`** — IDENTITY.md read/write helpers (public data only)
 - **`@buildersgarden/siwa/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
 - **`@buildersgarden/siwa/registry`** — Read agent profiles (`getAgent`) and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
 - **`@buildersgarden/siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
 
 ## Assets
 
-- **[assets/MEMORY.md.template](assets/MEMORY.md.template)** — Template for the agent's public identity memory file
+- **[assets/IDENTITY.template.md](assets/IDENTITY.template.md)** — Template for the agent's public identity file
 - **[assets/registration-template.json](assets/registration-template.json)** — Starter registration file template

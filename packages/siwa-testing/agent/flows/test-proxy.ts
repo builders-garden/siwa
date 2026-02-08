@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { isAddress, verifyMessage, type Hex, type Address } from 'viem';
 import {
-  hasWallet, getAddress, signMessage, getWalletClient, createWallet,
+  hasWallet, getAddress, signMessage, createWallet,
 } from '@buildersgarden/siwa/keystore';
 import { computeHmac } from '@buildersgarden/siwa/proxy-auth';
 import { config, getKeystoreConfig } from '../config.js';
@@ -25,11 +25,6 @@ export async function testProxyFlow(): Promise<boolean> {
   console.log('\u{2500}'.repeat(40));
 
   const kc = getKeystoreConfig();
-
-  if (kc.backend !== 'proxy') {
-    fail('Backend check', `Expected "proxy", got "${kc.backend}". Set KEYSTORE_BACKEND=proxy`);
-    return false;
-  }
 
   const proxyUrl = kc.proxyUrl || process.env.KEYRING_PROXY_URL;
   if (!proxyUrl) {
@@ -129,18 +124,6 @@ export async function testProxyFlow(): Promise<boolean> {
     }
   } catch (err: any) {
     fail('HMAC rejection with wrong secret', err.message);
-  }
-
-  // ── Test 7: getWalletClient() throws for proxy backend ──────────────────
-  try {
-    await getWalletClient('http://localhost:1234', kc);
-    fail('getWalletClient() throws for proxy', 'Did not throw');
-  } catch (err: any) {
-    if (err.message.includes('not supported via proxy')) {
-      pass('getWalletClient() throws for proxy backend');
-    } else {
-      fail('getWalletClient() throws for proxy', `Unexpected error: ${err.message}`);
-    }
   }
 
   // ── Summary ───────────────────────────────────────────────────────
