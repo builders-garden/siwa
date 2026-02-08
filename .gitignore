@@ -11,7 +11,7 @@ node_modules/
 # Agent state (generated per-agent)
 IDENTITY.md
 
-# Policy storage (runtime data)
+# Keystore data (runtime)
 packages/keyring-proxy/data/
 
 # Build output
