@@ -15,8 +15,8 @@ importers:
   packages/keyring-proxy:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: ^0.0.5
-        version: 0.0.5(typescript@5.9.3)(zod@4.3.6)
+        specifier: ^0.0.6
+        version: 0.0.6(typescript@5.9.3)(zod@4.3.6)
       dotenv:
         specifier: ^17.2.3
         version: 17.2.4
@@ -92,8 +92,8 @@ importers:
   packages/siwa-website:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: ^0.0.5
-        version: 0.0.5(typescript@5.9.3)(zod@4.3.6)
+        specifier: ^0.0.6
+        version: 0.0.6(typescript@5.9.3)(zod@4.3.6)
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -217,8 +217,8 @@ packages:
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
 
-  '@buildersgarden/siwa@0.0.5':
-    resolution: {integrity: sha512-YM6vGCfOw6+jw1le5xYjXnAxwRilNTnqzcuemCuZ/vGPvglzqaBVF3g8+FgNjVzQrYLiXWJF/K+IesiKtgKQag==}
+  '@buildersgarden/siwa@0.0.6':
+    resolution: {integrity: sha512-AQadmsq+S6z8SFYm2igNeXB7hvWytQ+QsjscMtq6GXO3BPIr7z/eKSv32Teidif9Tz8m1C6pSjNaEUjoMPDWag==}
 
   '@emnapi/core@1.8.1':
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -648,9 +648,6 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
-
-  '@noble/ciphers@0.5.3':
-    resolution: {integrity: sha512-B0+6IIHiqEs3BPMT0hcRmHvEj2QHOLu+uwt+tqDDeVd0oyVzh7BPrDcPjRnV1PV/5LaknXJJQvOuRGR0zQJz+w==}
 
   '@noble/ciphers@1.3.0':
     resolution: {integrity: sha512-2I0gnIVPtfnMw9ee9h1dJG7tp81+8Ob3OJb3Mv37rx5L40/b0i7djjCVvGOVqc9AEIQyvyu1i6ypKdFw8R8gQw==}
@@ -2715,10 +2712,8 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@buildersgarden/siwa@0.0.5(typescript@5.9.3)(zod@4.3.6)':
+  '@buildersgarden/siwa@0.0.6(typescript@5.9.3)(zod@4.3.6)':
     dependencies:
-      '@noble/ciphers': 0.5.3
-      '@noble/hashes': 1.8.0
       viem: 2.45.1(typescript@5.9.3)(zod@4.3.6)
     transitivePeerDependencies:
       - bufferutil
@@ -3029,8 +3024,6 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@16.1.6':
     optional: true
-
-  '@noble/ciphers@0.5.3': {}
 
   '@noble/ciphers@1.3.0': {}
 
