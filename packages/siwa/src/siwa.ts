@@ -63,6 +63,7 @@ export interface SIWAVerificationResult {
   agentId: number;
   agentRegistry: string;
   chainId: number;
+  verified: 'offline' | 'onchain';
   code?: SIWAErrorCode;
   error?: string;
   agent?: AgentProfile;
@@ -112,6 +113,7 @@ export function buildSIWAResponse(result: SIWAVerificationResult): SIWAResponse 
     agentId: result.agentId || undefined,
     agentRegistry: result.agentRegistry || undefined,
     chainId: result.chainId || undefined,
+    verified: result.verified,
   };
 
   const skillRef = {
@@ -285,23 +287,22 @@ export type SIWANonceResult =
 /**
  * Validate agent registration and create a SIWA nonce.
  *
- * Platforms call this in their nonce endpoint. When a `client` is provided,
- * the function checks onchain that the agent NFT exists and is owned by the
- * requesting address **before** issuing a nonce.  This lets the agent fail
- * fast with actionable registration instructions instead of going through
- * the full sign → verify cycle.
+ * Platforms call this in their nonce endpoint. The function checks onchain
+ * that the agent NFT exists and is owned by the requesting address **before**
+ * issuing a nonce. This lets the agent fail fast with actionable registration
+ * instructions instead of going through the full sign → verify cycle.
  *
  * The nonce and timestamps are returned to the platform, which is responsible
  * for storing them and validating them later during verification.
  *
  * @param params   Agent identity (address, agentId, agentRegistry)
- * @param client   viem PublicClient for onchain checks (skip registration check if null)
+ * @param client   viem PublicClient for onchain registration check
  * @param options  Optional config (expirationTTL)
  * @returns        `{ status: 'nonce_issued', nonce, ... }` on success, or a `SIWAResponse` on failure
  */
 export async function createSIWANonce(
   params: SIWANonceParams,
-  client?: PublicClient | null,
+  client: PublicClient,
   options?: SIWANonceOptions,
 ): Promise<SIWANonceResult> {
   const { address, agentId, agentRegistry } = params;
@@ -316,6 +317,7 @@ export async function createSIWANonce(
       agentId,
       agentRegistry,
       chainId: 0,
+      verified: 'onchain',
       code: SIWAErrorCode.INVALID_REGISTRY_FORMAT,
       error: 'Invalid agentRegistry format',
     });
@@ -324,42 +326,42 @@ export async function createSIWANonce(
   const registryAddress = registryParts[2] as Address;
   const chainId = parseInt(registryParts[1]);
 
-  // Onchain registration check (if client is available)
-  if (client) {
-    let owner: string;
-    try {
-      owner = await client.readContract({
-        address: registryAddress,
-        abi: [{ name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] }] as const,
-        functionName: 'ownerOf',
-        args: [BigInt(agentId)],
-      }) as string;
-    } catch {
-      return buildSIWAResponse({
-        valid: false,
-        address,
-        agentId,
-        agentRegistry,
-        chainId,
-        code: SIWAErrorCode.NOT_REGISTERED,
-        error: 'Agent is not registered on the ERC-8004 Identity Registry',
-      });
-    }
-
-    if (owner.toLowerCase() !== address.toLowerCase()) {
-      return buildSIWAResponse({
-        valid: false,
-        address,
-        agentId,
-        agentRegistry,
-        chainId,
-        code: SIWAErrorCode.NOT_OWNER,
-        error: 'Signer is not the owner of this agent NFT',
-      });
-    }
+  // Onchain registration check
+  let owner: string;
+  try {
+    owner = await client.readContract({
+      address: registryAddress,
+      abi: [{ name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] }] as const,
+      functionName: 'ownerOf',
+      args: [BigInt(agentId)],
+    }) as string;
+  } catch {
+    return buildSIWAResponse({
+      valid: false,
+      address,
+      agentId,
+      agentRegistry,
+      chainId,
+      verified: 'onchain',
+      code: SIWAErrorCode.NOT_REGISTERED,
+      error: 'Agent is not registered on the ERC-8004 Identity Registry',
+    });
   }
 
-  // Agent is registered (or offline mode) — issue the nonce
+  if (owner.toLowerCase() !== address.toLowerCase()) {
+    return buildSIWAResponse({
+      valid: false,
+      address,
+      agentId,
+      agentRegistry,
+      chainId,
+      verified: 'onchain',
+      code: SIWAErrorCode.NOT_OWNER,
+      error: 'Signer is not the owner of this agent NFT',
+    });
+  }
+
+  // Agent is registered — issue the nonce
   const now = new Date();
   const expiresAt = new Date(now.getTime() + ttl);
 
@@ -456,6 +458,9 @@ export async function verifySIWA(
   client: PublicClient,
   criteria?: SIWAVerifyCriteria
 ): Promise<SIWAVerificationResult> {
+  const fail = (fields: { address: string; agentId: number; agentRegistry: string; chainId: number }, code: SIWAErrorCode, error: string): SIWAVerificationResult =>
+    ({ valid: false, address: fields.address, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, verified: 'onchain', code, error });
+
   try {
     // 1. Parse
     const fields = parseSIWAMessage(message);
@@ -468,7 +473,7 @@ export async function verifySIWA(
     });
 
     if (!isValid) {
-      return { valid: false, address: fields.address, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.INVALID_SIGNATURE, error: 'Invalid signature' };
+      return fail(fields, SIWAErrorCode.INVALID_SIGNATURE, 'Invalid signature');
     }
 
     const recovered = fields.address;
@@ -477,28 +482,28 @@ export async function verifySIWA(
 
     // 4. Domain binding
     if (fields.domain !== expectedDomain) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.DOMAIN_MISMATCH, error: `Domain mismatch: expected ${expectedDomain}, got ${fields.domain}` };
+      return fail(fields, SIWAErrorCode.DOMAIN_MISMATCH, `Domain mismatch: expected ${expectedDomain}, got ${fields.domain}`);
     }
 
     // 5. Nonce
     const nonceOk = await nonceValid(fields.nonce);
     if (!nonceOk) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.INVALID_NONCE, error: 'Invalid or consumed nonce' };
+      return fail(fields, SIWAErrorCode.INVALID_NONCE, 'Invalid or consumed nonce');
     }
 
     // 6. Time window
     const now = new Date();
     if (fields.expirationTime && now > new Date(fields.expirationTime)) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.MESSAGE_EXPIRED, error: 'Message expired' };
+      return fail(fields, SIWAErrorCode.MESSAGE_EXPIRED, 'Message expired');
     }
     if (fields.notBefore && now < new Date(fields.notBefore)) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.MESSAGE_NOT_YET_VALID, error: 'Message not yet valid (notBefore)' };
+      return fail(fields, SIWAErrorCode.MESSAGE_NOT_YET_VALID, 'Message not yet valid (notBefore)');
     }
 
-    // 7. Onchain ownership — extract registry address from agentRegistry string
+    // 7. Onchain ownership
     const registryParts = fields.agentRegistry.split(':');
     if (registryParts.length !== 3 || registryParts[0] !== 'eip155') {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.INVALID_REGISTRY_FORMAT, error: 'Invalid agentRegistry format' };
+      return fail(fields, SIWAErrorCode.INVALID_REGISTRY_FORMAT, 'Invalid agentRegistry format');
     }
     const registryAddress = registryParts[2] as Address;
 
@@ -511,14 +516,11 @@ export async function verifySIWA(
         args: [BigInt(fields.agentId)],
       }) as string;
     } catch {
-      // ownerOf reverts when the token doesn't exist — agent is not registered
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.NOT_REGISTERED, error: 'Agent is not registered on the ERC-8004 Identity Registry' };
+      return fail(fields, SIWAErrorCode.NOT_REGISTERED, 'Agent is not registered on the ERC-8004 Identity Registry');
     }
 
     if (owner.toLowerCase() !== recovered.toLowerCase()) {
-      // 7b. ERC-1271 fallback for smart contract wallets / EIP-7702 delegated accounts.
-      // If ecrecover doesn't match the NFT owner, the owner may be a contract
-      // that validates signatures via isValidSignature (ERC-1271).
+      // ERC-1271 fallback for smart contract wallets / EIP-7702 delegated accounts
       const messageHash = hashMessage(message);
       try {
         const magicValue = await client.readContract({
@@ -527,24 +529,22 @@ export async function verifySIWA(
           functionName: 'isValidSignature',
           args: [messageHash, signature as Hex],
         });
-        // ERC-1271 magic value: 0x1626ba7e
         if (magicValue !== '0x1626ba7e') {
-          return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.NOT_OWNER, error: 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)' };
+          return fail(fields, SIWAErrorCode.NOT_OWNER, 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)');
         }
-        // ERC-1271 validated — the owner contract accepted the signature
       } catch {
-        // Owner is not a contract or doesn't implement ERC-1271
-        return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.NOT_OWNER, error: 'Signer is not the owner of this agent NFT' };
+        return fail(fields, SIWAErrorCode.NOT_OWNER, 'Signer is not the owner of this agent NFT');
       }
     }
 
-    // 8. Criteria checks (optional)
+    // 8. Base result
     const baseResult: SIWAVerificationResult = {
       valid: true,
       address: recovered,
       agentId: fields.agentId,
       agentRegistry: fields.agentRegistry,
       chainId: fields.chainId,
+      verified: 'onchain',
     };
 
     if (!criteria) return baseResult;
@@ -606,6 +606,6 @@ export async function verifySIWA(
     return baseResult;
 
   } catch (err: any) {
-    return { valid: false, address: '', agentId: 0, agentRegistry: '', chainId: 0, code: SIWAErrorCode.VERIFICATION_FAILED, error: err.message || 'Verification failed' };
+    return { valid: false, address: '', agentId: 0, agentRegistry: '', chainId: 0, verified: 'offline', code: SIWAErrorCode.VERIFICATION_FAILED, error: err.message || 'Verification failed' };
   }
 }
