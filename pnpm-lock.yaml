@@ -92,8 +92,8 @@ importers:
   packages/siwa-website:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: workspace:*
-        version: link:../siwa
+        specifier: ^0.0.5
+        version: 0.0.5(typescript@5.9.3)(zod@4.3.6)
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
