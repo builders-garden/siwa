@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@buildersgarden/siwa": "^0.0.6",
+    "@noble/ciphers": "^0.5.0",
+    "@noble/hashes": "^1.4.0",
     "dotenv": "^17.2.3",
     "viem": "^2.21.0",
     "express": "^4.21.0",

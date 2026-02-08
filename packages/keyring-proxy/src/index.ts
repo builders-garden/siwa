@@ -12,16 +12,14 @@
  *   - Optional separate admin secret for policy management
  *
  * Usage:
- *   KEYRING_PROXY_SECRET=<secret> KEYSTORE_BACKEND=encrypted-file \
- *     KEYSTORE_PASSWORD=<password> tsx src/index.ts
+ *   KEYRING_PROXY_SECRET=<secret> KEYSTORE_PASSWORD=<password> tsx src/index.ts
  *
  * Environment:
  *   KEYRING_PROXY_SECRET        — Required. Shared HMAC secret for signing operations.
  *   KEYRING_POLICY_ADMIN_SECRET — Optional. Separate secret for policy management.
  *   KEYRING_PROXY_PORT          — Listen port (default: 3100)
- *   KEYSTORE_BACKEND            — Backend for the proxy's own keystore (must NOT be "proxy")
- *   KEYSTORE_PASSWORD           — Password for encrypted-file backend
- *   KEYSTORE_PATH               — Path to keystore file
+ *   KEYSTORE_PASSWORD           — Required. Password for the encrypted keystore file.
+ *   KEYSTORE_PATH               — Path to keystore file (default: ./agent-keystore.json)
  *   POLICY_STORE_PATH           — Path to policies JSON file (default: ./data/policies.json)
  */
 
@@ -36,9 +34,8 @@ import {
   signMessage,
   signTransaction,
   signAuthorization,
-  type KeystoreConfig,
-  type KeystoreBackend,
-} from "@buildersgarden/siwa/keystore";
+  type LocalKeystoreConfig,
+} from "./keystore.js";
 
 // Policy system imports
 import type { Policy, Rule, EvaluationContext, RuleMethod } from "./types.js";
@@ -78,20 +75,17 @@ const PORT = parseInt(
   10
 );
 
-const innerBackend = (process.env.KEYSTORE_BACKEND ||
-  "encrypted-file") as KeystoreBackend;
-if (innerBackend === "proxy") {
-  console.error(
-    "FATAL: Proxy server cannot use KEYSTORE_BACKEND=proxy (would create a loop)"
-  );
+const KEYSTORE_PATH = process.env.KEYSTORE_PATH || "./agent-keystore.json";
+const KEYSTORE_PASSWORD = process.env.KEYSTORE_PASSWORD;
+if (!KEYSTORE_PASSWORD) {
+  console.error("FATAL: KEYSTORE_PASSWORD is required");
   process.exit(1);
 }
 
-function getInnerConfig(): KeystoreConfig {
+function getInnerConfig(): LocalKeystoreConfig {
   return {
-    backend: innerBackend,
-    keystorePath: process.env.KEYSTORE_PATH,
-    password: process.env.KEYSTORE_PASSWORD,
+    keystorePath: KEYSTORE_PATH,
+    password: KEYSTORE_PASSWORD!,
   };
 }
 
@@ -287,7 +281,7 @@ async function evaluateRequest(
 app.get("/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
-    backend: innerBackend,
+    backend: "encrypted-file",
     policies_enabled: true,
     admin_secret_configured: !!ADMIN_SECRET,
   });
@@ -328,14 +322,12 @@ app.post("/create-wallet", async (req: Request, res: Response) => {
       audit(req, true);
       res.json({
         address: info.address,
-        backend: info.backend,
         policy_id: policy.id,
       });
     } else {
       audit(req, true);
       res.json({
         address: info.address,
-        backend: info.backend,
       });
     }
   } catch (err: any) {
@@ -714,7 +706,7 @@ app.delete(
 
 app.listen(PORT, () => {
   console.log(`Keyring proxy server listening on port ${PORT}`);
-  console.log(`Backend: ${innerBackend}`);
+  console.log(`Backend: encrypted-file (${KEYSTORE_PATH})`);
   console.log(`HMAC auth: enabled`);
   console.log(`Policy system: enabled`);
   console.log(
