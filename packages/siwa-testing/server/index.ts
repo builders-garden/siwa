@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import { createPublicClient, http } from 'viem';
 import { createSession, validateToken, getSessions, getSessionCount } from './session-store.js';
-import { verifySIWA, buildSIWAResponse, createSIWANonce, SIWAErrorCode } from '@buildersgarden/siwa/siwa';
+import { verifySIWA, buildSIWAResponse, createSIWANonce, SIWAErrorCode } from '@buildersgarden/siwa';
 import { renderDashboard } from './dashboard.js';
 
 const app = express();

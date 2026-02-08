@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
-import { verifySIWA, buildSIWAResponse, SIWAErrorCode } from "@buildersgarden/siwa/siwa";
+import { verifySIWA, buildSIWAResponse, SIWAErrorCode } from "@buildersgarden/siwa";
 import { createSession } from "@/lib/session-store";
 import { corsJson, corsOptions } from "@/lib/cors";
 

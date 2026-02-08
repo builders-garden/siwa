@@ -13,8 +13,8 @@ npm install @buildersgarden/siwa
 Three functions cover the core flow:
 
 ```ts
-import { createSIWANonce, verifySIWA, buildSIWAResponse } from '@buildersgarden/siwa/siwa';
-import { signSIWAMessage } from '@buildersgarden/siwa/siwa';
+import { createSIWANonce, verifySIWA, buildSIWAResponse } from '@buildersgarden/siwa';
+import { signSIWAMessage } from '@buildersgarden/siwa';
 
 // 1. Server validates registration and issues a nonce
 const nonce = await createSIWANonce({ address, agentId, agentRegistry }, client);

@@ -713,7 +713,7 @@ const { nonce, issuedAt, expirationTime } = await nonceRes.json();
 ### Step 2: Sign via Proxy (key never exposed)
 
 ```typescript
-import { signSIWAMessage } from "@buildersgarden/siwa/siwa";
+import { signSIWAMessage } from "@buildersgarden/siwa";
 
 // signSIWAMessage internally calls keystore.signMessage()
 // which delegates to the keyring proxy — the key never enters this process.
@@ -787,7 +787,7 @@ The server MUST:
 The SDK provides three server-side functions. `createSIWANonce()` validates registration before issuing a nonce, `verifySIWA()` verifies the signed message, and `buildSIWAResponse()` converts the result into a standard response that platforms forward directly to agents:
 
 ```typescript
-import { createSIWANonce, verifySIWA, buildSIWAResponse } from "@buildersgarden/siwa/siwa";
+import { createSIWANonce, verifySIWA, buildSIWAResponse } from "@buildersgarden/siwa";
 import { createPublicClient, http } from "viem";
 
 const client = createPublicClient({ transport: http(RPC_URL) });
@@ -848,7 +848,7 @@ const response = buildSIWAResponse(result);
 
 - **`@buildersgarden/siwa/keystore`** — Proxy-only signing abstraction (createWallet, signMessage, signTransaction, getAddress, hasWallet)
 - **`@buildersgarden/siwa/identity`** — IDENTITY.md read/write helpers (public data only)
-- **`@buildersgarden/siwa/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
+- **`@buildersgarden/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
 - **`@buildersgarden/siwa/registry`** — Read agent profiles (`getAgent`) and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
 - **`@buildersgarden/siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
 

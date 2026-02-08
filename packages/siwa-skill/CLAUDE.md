@@ -27,7 +27,7 @@ Before using any capabilities, you MUST install the SIWA SDK in your environment
 npm install @buildersgarden/siwa
 ```
 
-This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (IDENTITY.md helpers), and `@buildersgarden/siwa/registry` (onchain lookups). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
+This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (IDENTITY.md helpers), and `@buildersgarden/siwa/registry` (onchain lookups). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
 
 ## Your Capabilities
 

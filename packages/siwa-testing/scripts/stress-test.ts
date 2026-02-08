@@ -26,7 +26,7 @@ import {
 import {
   ensureIdentityExists, readIdentity, writeIdentityField, hasWalletRecord, isRegistered,
 } from '@buildersgarden/siwa/identity';
-import { signSIWAMessage, buildSIWAMessage, parseSIWAMessage } from '@buildersgarden/siwa/siwa';
+import { signSIWAMessage, buildSIWAMessage, parseSIWAMessage } from '@buildersgarden/siwa';
 import { computeHmac } from '@buildersgarden/siwa/proxy-auth';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');

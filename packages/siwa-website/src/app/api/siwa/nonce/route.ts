@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
-import { createSIWANonce, SIWAErrorCode } from "@buildersgarden/siwa/siwa";
+import { createSIWANonce, SIWAErrorCode } from "@buildersgarden/siwa";
 import { corsJson, corsOptions } from "@/lib/cors";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.builders.garden";
