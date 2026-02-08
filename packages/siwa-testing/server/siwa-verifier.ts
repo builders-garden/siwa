@@ -1,5 +1,5 @@
 import { verifyMessage, hashMessage, type PublicClient, type Address, type Hex } from 'viem';
-import { parseSIWAMessage, type SIWAErrorCode } from '@buildersgarden/siwa/siwa';
+import { parseSIWAMessage, SIWAErrorCode } from '@buildersgarden/siwa/siwa';
 
 export interface SIWAVerifyResult {
   valid: boolean;
@@ -38,7 +38,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
-        code: 'INVALID_SIGNATURE',
+        code: SIWAErrorCode.INVALID_SIGNATURE,
         error: 'Invalid signature',
       };
     }
@@ -54,7 +54,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
-        code: 'DOMAIN_MISMATCH',
+        code: SIWAErrorCode.DOMAIN_MISMATCH,
         error: `Domain mismatch: expected ${domain}, got ${fields.domain}`,
       };
     }
@@ -68,7 +68,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
-        code: 'INVALID_NONCE',
+        code: SIWAErrorCode.INVALID_NONCE,
         error: 'Invalid or consumed nonce',
       };
     }
@@ -83,7 +83,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
-        code: 'MESSAGE_EXPIRED',
+        code: SIWAErrorCode.MESSAGE_EXPIRED,
         error: 'Message expired',
       };
     }
@@ -95,7 +95,7 @@ export async function verifySIWARequest(
         agentRegistry: fields.agentRegistry,
         chainId: fields.chainId,
         verified: 'offline',
-        code: 'MESSAGE_NOT_YET_VALID',
+        code: SIWAErrorCode.MESSAGE_NOT_YET_VALID,
         error: 'Message not yet valid (notBefore)',
       };
     }
@@ -111,7 +111,7 @@ export async function verifySIWARequest(
           agentRegistry: fields.agentRegistry,
           chainId: fields.chainId,
           verified: 'onchain',
-          code: 'INVALID_REGISTRY_FORMAT',
+          code: SIWAErrorCode.INVALID_REGISTRY_FORMAT,
           error: 'Invalid agentRegistry format',
         };
       }
@@ -134,7 +134,7 @@ export async function verifySIWARequest(
           agentRegistry: fields.agentRegistry,
           chainId: fields.chainId,
           verified: 'onchain',
-          code: 'NOT_REGISTERED',
+          code: SIWAErrorCode.NOT_REGISTERED,
           error: 'Agent is not registered on the ERC-8004 Identity Registry',
         };
       }
@@ -160,7 +160,7 @@ export async function verifySIWARequest(
               agentRegistry: fields.agentRegistry,
               chainId: fields.chainId,
               verified: 'onchain',
-              code: 'NOT_OWNER',
+              code: SIWAErrorCode.NOT_OWNER,
               error: 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)',
             };
           }
@@ -174,7 +174,7 @@ export async function verifySIWARequest(
             agentRegistry: fields.agentRegistry,
             chainId: fields.chainId,
             verified: 'onchain',
-            code: 'NOT_OWNER',
+            code: SIWAErrorCode.NOT_OWNER,
             error: 'Signer is not the owner of this agent NFT',
           };
         }
@@ -207,7 +207,7 @@ export async function verifySIWARequest(
       agentRegistry: '',
       chainId: 0,
       verified: 'offline',
-      code: 'VERIFICATION_FAILED',
+      code: SIWAErrorCode.VERIFICATION_FAILED,
       error: err.message || 'Verification failed',
     };
   }

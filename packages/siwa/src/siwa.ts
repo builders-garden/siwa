@@ -24,21 +24,22 @@ import { AgentProfile, getAgent, getReputation, ServiceType, TrustModel } from '
 
 // ─── Types ───────────────────────────────────────────────────────────
 
-export type SIWAErrorCode =
-  | 'INVALID_SIGNATURE'
-  | 'DOMAIN_MISMATCH'
-  | 'INVALID_NONCE'
-  | 'MESSAGE_EXPIRED'
-  | 'MESSAGE_NOT_YET_VALID'
-  | 'INVALID_REGISTRY_FORMAT'
-  | 'NOT_REGISTERED'
-  | 'NOT_OWNER'
-  | 'AGENT_NOT_ACTIVE'
-  | 'MISSING_SERVICE'
-  | 'MISSING_TRUST_MODEL'
-  | 'LOW_REPUTATION'
-  | 'CUSTOM_CHECK_FAILED'
-  | 'VERIFICATION_FAILED';
+export enum SIWAErrorCode {
+  INVALID_SIGNATURE = 'INVALID_SIGNATURE',
+  DOMAIN_MISMATCH = 'DOMAIN_MISMATCH',
+  INVALID_NONCE = 'INVALID_NONCE',
+  MESSAGE_EXPIRED = 'MESSAGE_EXPIRED',
+  MESSAGE_NOT_YET_VALID = 'MESSAGE_NOT_YET_VALID',
+  INVALID_REGISTRY_FORMAT = 'INVALID_REGISTRY_FORMAT',
+  NOT_REGISTERED = 'NOT_REGISTERED',
+  NOT_OWNER = 'NOT_OWNER',
+  AGENT_NOT_ACTIVE = 'AGENT_NOT_ACTIVE',
+  MISSING_SERVICE = 'MISSING_SERVICE',
+  MISSING_TRUST_MODEL = 'MISSING_TRUST_MODEL',
+  LOW_REPUTATION = 'LOW_REPUTATION',
+  CUSTOM_CHECK_FAILED = 'CUSTOM_CHECK_FAILED',
+  VERIFICATION_FAILED = 'VERIFICATION_FAILED',
+}
 
 export interface SIWAMessageFields {
   domain: string;
@@ -123,7 +124,7 @@ export function buildSIWAResponse(result: SIWAVerificationResult): SIWAResponse 
     return { status: 'authenticated', ...base };
   }
 
-  if (result.code === 'NOT_REGISTERED') {
+  if (result.code === SIWAErrorCode.NOT_REGISTERED) {
     const registryParts = result.agentRegistry ? result.agentRegistry.split(':') : [];
     const registryAddress = registryParts.length === 3 ? registryParts[2] : undefined;
     const chainId = result.chainId || (registryParts.length >= 2 ? parseInt(registryParts[1]) : undefined);
@@ -344,7 +345,7 @@ export async function verifySIWA(
     });
 
     if (!isValid) {
-      return { valid: false, address: fields.address, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'INVALID_SIGNATURE', error: 'Invalid signature' };
+      return { valid: false, address: fields.address, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.INVALID_SIGNATURE, error: 'Invalid signature' };
     }
 
     const recovered = fields.address;
@@ -353,28 +354,28 @@ export async function verifySIWA(
 
     // 4. Domain binding
     if (fields.domain !== expectedDomain) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'DOMAIN_MISMATCH', error: `Domain mismatch: expected ${expectedDomain}, got ${fields.domain}` };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.DOMAIN_MISMATCH, error: `Domain mismatch: expected ${expectedDomain}, got ${fields.domain}` };
     }
 
     // 5. Nonce
     const nonceOk = await nonceValid(fields.nonce);
     if (!nonceOk) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'INVALID_NONCE', error: 'Invalid or consumed nonce' };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.INVALID_NONCE, error: 'Invalid or consumed nonce' };
     }
 
     // 6. Time window
     const now = new Date();
     if (fields.expirationTime && now > new Date(fields.expirationTime)) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'MESSAGE_EXPIRED', error: 'Message expired' };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.MESSAGE_EXPIRED, error: 'Message expired' };
     }
     if (fields.notBefore && now < new Date(fields.notBefore)) {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'MESSAGE_NOT_YET_VALID', error: 'Message not yet valid (notBefore)' };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.MESSAGE_NOT_YET_VALID, error: 'Message not yet valid (notBefore)' };
     }
 
     // 7. Onchain ownership — extract registry address from agentRegistry string
     const registryParts = fields.agentRegistry.split(':');
     if (registryParts.length !== 3 || registryParts[0] !== 'eip155') {
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'INVALID_REGISTRY_FORMAT', error: 'Invalid agentRegistry format' };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.INVALID_REGISTRY_FORMAT, error: 'Invalid agentRegistry format' };
     }
     const registryAddress = registryParts[2] as Address;
 
@@ -388,7 +389,7 @@ export async function verifySIWA(
       }) as string;
     } catch {
       // ownerOf reverts when the token doesn't exist — agent is not registered
-      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'NOT_REGISTERED', error: 'Agent is not registered on the ERC-8004 Identity Registry' };
+      return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.NOT_REGISTERED, error: 'Agent is not registered on the ERC-8004 Identity Registry' };
     }
 
     if (owner.toLowerCase() !== recovered.toLowerCase()) {
@@ -405,12 +406,12 @@ export async function verifySIWA(
         });
         // ERC-1271 magic value: 0x1626ba7e
         if (magicValue !== '0x1626ba7e') {
-          return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'NOT_OWNER', error: 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)' };
+          return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.NOT_OWNER, error: 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)' };
         }
         // ERC-1271 validated — the owner contract accepted the signature
       } catch {
         // Owner is not a contract or doesn't implement ERC-1271
-        return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: 'NOT_OWNER', error: 'Signer is not the owner of this agent NFT' };
+        return { valid: false, address: recovered, agentId: fields.agentId, agentRegistry: fields.agentRegistry, chainId: fields.chainId, code: SIWAErrorCode.NOT_OWNER, error: 'Signer is not the owner of this agent NFT' };
       }
     }
 
@@ -434,7 +435,7 @@ export async function verifySIWA(
 
     if (criteria.mustBeActive) {
       if (!agent.metadata?.active) {
-        return { ...baseResult, valid: false, code: 'AGENT_NOT_ACTIVE', error: 'Agent is not active' };
+        return { ...baseResult, valid: false, code: SIWAErrorCode.AGENT_NOT_ACTIVE, error: 'Agent is not active' };
       }
     }
 
@@ -442,7 +443,7 @@ export async function verifySIWA(
       const serviceNames = (agent.metadata?.services ?? []).map(s => s.name);
       for (const required of criteria.requiredServices) {
         if (!serviceNames.includes(required)) {
-          return { ...baseResult, valid: false, code: 'MISSING_SERVICE', error: `Agent missing required service: ${required}` };
+          return { ...baseResult, valid: false, code: SIWAErrorCode.MISSING_SERVICE, error: `Agent missing required service: ${required}` };
         }
       }
     }
@@ -451,37 +452,37 @@ export async function verifySIWA(
       const supported = agent.metadata?.supportedTrust ?? [];
       for (const required of criteria.requiredTrust) {
         if (!supported.includes(required)) {
-          return { ...baseResult, valid: false, code: 'MISSING_TRUST_MODEL', error: `Agent missing required trust model: ${required}` };
+          return { ...baseResult, valid: false, code: SIWAErrorCode.MISSING_TRUST_MODEL, error: `Agent missing required trust model: ${required}` };
         }
       }
     }
 
     if (criteria.minScore !== undefined || criteria.minFeedbackCount !== undefined) {
       if (!criteria.reputationRegistryAddress) {
-        return { ...baseResult, valid: false, code: 'LOW_REPUTATION', error: 'reputationRegistryAddress is required for reputation criteria' };
+        return { ...baseResult, valid: false, code: SIWAErrorCode.LOW_REPUTATION, error: 'reputationRegistryAddress is required for reputation criteria' };
       }
       const rep = await getReputation(fields.agentId, {
         reputationRegistryAddress: criteria.reputationRegistryAddress,
         client,
       });
       if (criteria.minFeedbackCount !== undefined && rep.count < criteria.minFeedbackCount) {
-        return { ...baseResult, valid: false, code: 'LOW_REPUTATION', error: `Agent feedback count ${rep.count} below minimum ${criteria.minFeedbackCount}` };
+        return { ...baseResult, valid: false, code: SIWAErrorCode.LOW_REPUTATION, error: `Agent feedback count ${rep.count} below minimum ${criteria.minFeedbackCount}` };
       }
       if (criteria.minScore !== undefined && rep.score < criteria.minScore) {
-        return { ...baseResult, valid: false, code: 'LOW_REPUTATION', error: `Agent reputation score ${rep.score} below minimum ${criteria.minScore}` };
+        return { ...baseResult, valid: false, code: SIWAErrorCode.LOW_REPUTATION, error: `Agent reputation score ${rep.score} below minimum ${criteria.minScore}` };
       }
     }
 
     if (criteria.custom) {
       const passed = await criteria.custom(agent);
       if (!passed) {
-        return { ...baseResult, valid: false, code: 'CUSTOM_CHECK_FAILED', error: 'Agent failed custom criteria check' };
+        return { ...baseResult, valid: false, code: SIWAErrorCode.CUSTOM_CHECK_FAILED, error: 'Agent failed custom criteria check' };
       }
     }
 
     return baseResult;
 
   } catch (err: any) {
-    return { valid: false, address: '', agentId: 0, agentRegistry: '', chainId: 0, code: 'VERIFICATION_FAILED', error: err.message || 'Verification failed' };
+    return { valid: false, address: '', agentId: 0, agentRegistry: '', chainId: 0, code: SIWAErrorCode.VERIFICATION_FAILED, error: err.message || 'Verification failed' };
   }
 }
