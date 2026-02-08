@@ -47,6 +47,16 @@ export function createNonce(address: string): {
   };
 }
 
+/**
+ * Store an externally-generated nonce (e.g. from SDK's createSIWANonce)
+ * for later validation.
+ */
+export function storeNonce(nonce: string, address: string): void {
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + NONCE_EXPIRY_MS);
+  nonces.set(nonce, { nonce, address, createdAt, expiresAt, consumed: false });
+}
+
 export function validateNonce(nonce: string): boolean {
   const stored = nonces.get(nonce);
   if (!stored) return false;

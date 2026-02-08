@@ -1,10 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
 import { createPublicClient, http, type PublicClient } from 'viem';
-import { createNonce, validateNonce, getNonceCount } from './nonce-store.js';
+import { createNonce, storeNonce, validateNonce, getNonceCount } from './nonce-store.js';
 import { createSession, validateToken, getSessions, getSessionCount } from './session-store.js';
 import { verifySIWARequest } from './siwa-verifier.js';
-import { buildSIWAResponse, SIWAErrorCode } from '@buildersgarden/siwa/siwa';
+import { buildSIWAResponse, createSIWANonce, SIWAErrorCode } from '@buildersgarden/siwa/siwa';
 import { renderDashboard } from './dashboard.js';
 
 const app = express();
@@ -49,22 +49,36 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// Request nonce
-app.post('/siwa/nonce', (req, res) => {
+// Request nonce (validates registration before issuing)
+app.post('/siwa/nonce', async (req, res) => {
   const { address, agentId, agentRegistry } = req.body;
   if (!address) {
-    res.status(400).json({ error: 'Missing address' });
+    res.status(400).json({ status: 'rejected', code: SIWAErrorCode.VERIFICATION_FAILED, error: 'Missing address' });
     return;
   }
 
-  const { nonce, issuedAt, expirationTime } = createNonce(address);
+  const result = await createSIWANonce(
+    { address, agentId, agentRegistry },
+    isLiveMode ? client : null,
+  );
+
+  if (result.status !== 'nonce_issued') {
+    // Forward the SIWAResponse directly to the agent
+    console.log(`\u{274C} Nonce rejected for ${address.slice(0, 6)}...${address.slice(-4)}: ${result.error}`);
+    res.status(403).json(result);
+    return;
+  }
+
+  // Store the nonce for later validation
+  storeNonce(result.nonce, address);
+
   const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
-  console.log(`\u{1F4E8} Nonce requested by ${truncated}`);
+  console.log(`\u{1F4E8} Nonce issued to ${truncated}`);
 
   res.json({
-    nonce,
-    issuedAt,
-    expirationTime,
+    nonce: result.nonce,
+    issuedAt: result.issuedAt,
+    expirationTime: result.expirationTime,
     domain: SERVER_DOMAIN,
     uri: `http://${SERVER_DOMAIN}/siwa/verify`,
     chainId: parseInt(agentRegistry?.split(':')[1] || '84532'),

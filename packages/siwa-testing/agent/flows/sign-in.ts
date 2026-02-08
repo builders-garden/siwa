@@ -28,8 +28,29 @@ export async function signInFlow(): Promise<string | null> {
   });
 
   if (!nonceRes.ok) {
-    const err = await nonceRes.text();
-    console.log(chalk.red(`\u{274C} Failed to get nonce: ${err}`));
+    // The nonce endpoint may return a SIWAResponse (e.g. NOT_REGISTERED)
+    const body: VerifyResponse | { error: string } = await nonceRes.json().catch(() => ({ error: `HTTP ${nonceRes.status}` }));
+    if ('status' in body && body.status === 'not_registered') {
+      console.log(chalk.red(`\u{274C} Nonce rejected: ${body.error}`));
+      console.log('');
+      console.log(chalk.yellow.bold('Agent is not registered on the ERC-8004 Identity Registry.'));
+      if (body.action) {
+        console.log(chalk.yellow(`Registry: ${body.action.registryAddress} (chain ${body.action.chainId})`));
+        console.log('');
+        console.log(chalk.cyan.bold('To register, follow these steps:'));
+        for (const [i, step] of body.action.steps.entries()) {
+          console.log(chalk.cyan(`  ${i + 1}. ${step}`));
+        }
+      }
+      if (body.skill) {
+        console.log('');
+        console.log(chalk.dim(`SDK: ${body.skill.install}`));
+        console.log(chalk.dim(`Skill: ${body.skill.url}`));
+      }
+    } else {
+      const errMsg = 'error' in body ? body.error : 'Unknown error';
+      console.log(chalk.red(`\u{274C} Failed to get nonce: ${errMsg}`));
+    }
     return null;
   }
 

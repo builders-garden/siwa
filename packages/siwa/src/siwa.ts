@@ -266,6 +266,111 @@ export function generateNonce(length: number = 16): string {
   return crypto.randomBytes(length).toString('base64url').slice(0, length);
 }
 
+// ─── Server-Side Nonce Creation ─────────────────────────────────────
+
+export interface SIWANonceParams {
+  address: string;
+  agentId: number;
+  agentRegistry: string;   // e.g. "eip155:84532:0x8004AA63..."
+}
+
+export interface SIWANonceOptions {
+  expirationTTL?: number;  // milliseconds, defaults to 300_000 (5 min)
+}
+
+export type SIWANonceResult =
+  | { status: 'nonce_issued'; nonce: string; issuedAt: string; expirationTime: string }
+  | SIWAResponse;
+
+/**
+ * Validate agent registration and create a SIWA nonce.
+ *
+ * Platforms call this in their nonce endpoint. When a `client` is provided,
+ * the function checks onchain that the agent NFT exists and is owned by the
+ * requesting address **before** issuing a nonce.  This lets the agent fail
+ * fast with actionable registration instructions instead of going through
+ * the full sign → verify cycle.
+ *
+ * The nonce and timestamps are returned to the platform, which is responsible
+ * for storing them and validating them later during verification.
+ *
+ * @param params   Agent identity (address, agentId, agentRegistry)
+ * @param client   viem PublicClient for onchain checks (skip registration check if null)
+ * @param options  Optional config (expirationTTL)
+ * @returns        `{ status: 'nonce_issued', nonce, ... }` on success, or a `SIWAResponse` on failure
+ */
+export async function createSIWANonce(
+  params: SIWANonceParams,
+  client?: PublicClient | null,
+  options?: SIWANonceOptions,
+): Promise<SIWANonceResult> {
+  const { address, agentId, agentRegistry } = params;
+  const ttl = options?.expirationTTL ?? 300_000; // 5 minutes
+
+  // Validate agentRegistry format
+  const registryParts = agentRegistry.split(':');
+  if (registryParts.length !== 3 || registryParts[0] !== 'eip155') {
+    return buildSIWAResponse({
+      valid: false,
+      address,
+      agentId,
+      agentRegistry,
+      chainId: 0,
+      code: SIWAErrorCode.INVALID_REGISTRY_FORMAT,
+      error: 'Invalid agentRegistry format',
+    });
+  }
+
+  const registryAddress = registryParts[2] as Address;
+  const chainId = parseInt(registryParts[1]);
+
+  // Onchain registration check (if client is available)
+  if (client) {
+    let owner: string;
+    try {
+      owner = await client.readContract({
+        address: registryAddress,
+        abi: [{ name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] }] as const,
+        functionName: 'ownerOf',
+        args: [BigInt(agentId)],
+      }) as string;
+    } catch {
+      return buildSIWAResponse({
+        valid: false,
+        address,
+        agentId,
+        agentRegistry,
+        chainId,
+        code: SIWAErrorCode.NOT_REGISTERED,
+        error: 'Agent is not registered on the ERC-8004 Identity Registry',
+      });
+    }
+
+    if (owner.toLowerCase() !== address.toLowerCase()) {
+      return buildSIWAResponse({
+        valid: false,
+        address,
+        agentId,
+        agentRegistry,
+        chainId,
+        code: SIWAErrorCode.NOT_OWNER,
+        error: 'Signer is not the owner of this agent NFT',
+      });
+    }
+  }
+
+  // Agent is registered (or offline mode) — issue the nonce
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + ttl);
+
+  return {
+    status: 'nonce_issued',
+    nonce: generateNonce(),
+    issuedAt: now.toISOString(),
+    expirationTime: expiresAt.toISOString(),
+  };
+}
+
 // ─── Agent-Side Signing ──────────────────────────────────────────────
 
 /**
