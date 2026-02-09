@@ -692,6 +692,45 @@ const response = buildSIWAResponse(result);
 | `/siwa/nonce`  | POST   | Validate registration via `createSIWANonce()`, return nonce or `SIWAResponse` error    |
 | `/siwa/verify` | POST   | Verify via `verifySIWA()`, return `SIWAResponse` with verification receipt or error + instructions |
 
+### Server-Side Wrappers (Recommended)
+
+For protecting API routes with ERC-8128 verification, use the framework wrappers instead of calling `verifyAuthenticatedRequest()` directly. They handle CORS, body cloning, request adaptation, and env var resolution in one call.
+
+**Next.js App Router:**
+
+```typescript
+import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
+
+// Protected POST route — withSiwa handles clone, verify, CORS, 401
+export const POST = withSiwa(async (agent, req) => {
+  const body = await req.json();
+  return { received: body, agent: { address: agent.address, agentId: agent.agentId } };
+});
+
+// Protected GET route
+export const GET = withSiwa(async (agent) => {
+  return { message: `Hello Agent #${agent.agentId}!` };
+});
+
+// CORS preflight
+export { siwaOptions as OPTIONS };
+```
+
+**Express:**
+
+```typescript
+import { siwaMiddleware, siwaJsonParser, siwaCors } from "@buildersgarden/siwa/express";
+
+app.use(siwaJsonParser()); // express.json() + rawBody capture
+app.use(siwaCors());       // CORS with SIWA headers + OPTIONS
+
+app.get('/api/protected', siwaMiddleware(), (req, res) => {
+  res.json({ agent: req.agent }); // req.agent set by middleware
+});
+```
+
+Options: `receiptSecret` (defaults to `RECEIPT_SECRET` or `SIWA_SECRET` env), `rpcUrl`, `verifyOnchain`, `publicClient`.
+
 ---
 
 ## IDENTITY.md Quick Reference
@@ -720,7 +759,9 @@ const response = buildSIWAResponse(result);
 - **`@buildersgarden/siwa/identity`** — IDENTITY.md read/write helpers (public data only)
 - **`@buildersgarden/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
 - **`@buildersgarden/siwa/receipt`** — Stateless HMAC receipt creation (`createReceipt`) and verification (`verifyReceipt`)
-- **`@buildersgarden/siwa/erc8128`** — ERC-8128 HTTP Message Signatures (`signAuthenticatedRequest`, `verifyAuthenticatedRequest`, `expressToFetchRequest`, `nextjsToFetchRequest`)
+- **`@buildersgarden/siwa/erc8128`** — ERC-8128 HTTP Message Signatures (`signAuthenticatedRequest`, `verifyAuthenticatedRequest`, `expressToFetchRequest`, `nextjsToFetchRequest`). Low-level primitives — prefer the framework wrappers below for new projects.
+- **`@buildersgarden/siwa/next`** — Server-side wrappers for Next.js App Router: `withSiwa(handler, options?)` (auth + CORS + body clone in one call), `siwaOptions()` (OPTIONS handler), `corsJson(data, init?)`, `corsHeaders()`. No `next` dependency needed — uses web standard Request/Response.
+- **`@buildersgarden/siwa/express`** — Server-side wrappers for Express: `siwaMiddleware(options?)` (auth middleware, sets `req.agent`), `siwaJsonParser()` (JSON with rawBody capture), `siwaCors(options?)` (CORS + OPTIONS). Requires `express` as peer dependency.
 - **`@buildersgarden/siwa/registry`** — Read agent profiles (`getAgent`) and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
 - **`@buildersgarden/siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
 
