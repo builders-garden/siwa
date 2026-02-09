@@ -155,7 +155,8 @@ export async function signMessage(
   message: string,
   config: KeystoreConfig = {}
 ): Promise<SignResult> {
-  const data = await proxyRequest(config, "/sign-message", { message });
+  const msg = typeof message === "string" ? message : String(message ?? "");
+  const data = await proxyRequest(config, "/sign-message", { message: msg });
   return { signature: data.signature, address: data.address };
 }
 
