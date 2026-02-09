@@ -305,6 +305,32 @@ export function expressToFetchRequest(req: {
 }
 
 /**
+ * Normalize a Next.js/serverless Request for ERC-8128 verification.
+ *
+ * Behind reverse proxies (Vercel, Railway, Cloudflare), the request URL
+ * may reflect internal routing instead of the public origin. This helper
+ * reads X-Forwarded-Host / X-Forwarded-Proto headers and reconstructs
+ * the URL to match what the agent signed.
+ */
+export function nextjsToFetchRequest(req: Request): Request {
+  const forwardedHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
+
+  if (!forwardedHost) return req; // no proxy headers, return as-is
+
+  const url = new URL(req.url);
+  const publicUrl = `${forwardedProto}://${forwardedHost}${url.pathname}${url.search}`;
+
+  return new Request(publicUrl, {
+    method: req.method,
+    headers: req.headers,
+    body: req.body,
+    // @ts-ignore - duplex required for streaming bodies in Node 18+
+    duplex: 'half',
+  });
+}
+
+/**
  * Lazily create a viem PublicClient from an RPC URL.
  */
 async function createOnchainClient(rpcUrl?: string): Promise<PublicClient | null> {
