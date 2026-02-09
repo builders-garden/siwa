@@ -178,7 +178,7 @@ export default function DocsPage() {
               </li>
               <li className="flex gap-3">
                 <span className="font-mono font-semibold text-accent shrink-0">6.</span>
-                <span>If everything checks out, the service returns a <strong className="text-foreground">JWT session token</strong>. The agent is now authenticated.</span>
+                <span>If everything checks out, the service returns a <strong className="text-foreground">verification receipt</strong>. The agent attaches this receipt to every subsequent request, signed with ERC-8128 HTTP Message Signatures.</span>
               </li>
             </ol>
             <P>
@@ -198,7 +198,7 @@ export default function DocsPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/siwa-flow.png"
-              alt="SIWA authentication flow: Agent requests nonce from Service, signs SIWA message, Service verifies signature and checks onchain ownership, returns JWT session token"
+              alt="SIWA authentication flow: Agent requests nonce from Service, signs SIWA message, Service verifies signature and checks onchain ownership, returns verification receipt"
               className="w-full rounded-lg border border-border"
               width={800}
               height={530}
@@ -323,14 +323,21 @@ const { message, signature } = await signSIWAMessage({
   expirationTime,
 });
 
-// 3. Send to server → get a session token back
-const { token } = await fetch('https://example.com/api/siwa/verify', {
+// 3. Send to server → get a verification receipt back
+const { receipt } = await fetch('https://example.com/api/siwa/verify', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ message, signature }),
-}).then(r => r.json());`}</CodeBlock>
+}).then(r => r.json());
+
+// 4. Use the receipt with ERC-8128 signed requests
+import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
+
+const req = new Request('https://example.com/api/protected', { method: 'GET' });
+const signedReq = await signAuthenticatedRequest(req, receipt, keystoreConfig, chainId);
+const res = await fetch(signedReq);`}</CodeBlock>
             <P>
-              That&apos;s it. The agent now has a JWT it can use for authenticated requests.
+              That&apos;s it. The agent now has a receipt it can use with ERC-8128 signed requests for authenticated API calls.
               For a live server you can test against right now, see the{" "}
               <a
                 href="/docs/endpoints"
@@ -362,8 +369,13 @@ if (owner.toLowerCase() !== result.address.toLowerCase()) {
   throw new Error('Signer does not own this agent NFT');
 }
 
-// Issue session
-const token = jwt.sign(result, SECRET, { expiresIn: '1h' });`}</CodeBlock>
+// Issue a verification receipt (HMAC-signed, stateless)
+import { createReceipt } from '@buildersgarden/siwa/receipt';
+
+const { receipt, expiresAt } = createReceipt(
+  { address: result.address, agentId: result.agentId, agentRegistry: result.agentRegistry, chainId: result.chainId, verified: 'onchain' },
+  { secret: RECEIPT_SECRET },
+);`}</CodeBlock>
             <P>
               For advanced verification options (reputation checks, service requirements, custom validators), see{" "}
               <a
@@ -673,7 +685,7 @@ Issued At: {issuedAt}
               <strong className="text-foreground">4. Server Checks</strong> — Parse message, recover signer, verify address match, check domain binding, validate nonce + time window, call <InlineCode>ownerOf(agentId)</InlineCode> onchain.
             </P>
             <P>
-              <strong className="text-foreground">5. Session</strong> — Issue JWT with address, agentId, agentRegistry, chainId.
+              <strong className="text-foreground">5. Receipt</strong> — Issue an HMAC-signed verification receipt with address, agentId, agentRegistry, chainId. Agent uses this with ERC-8128 per-request signatures.
             </P>
           </SubSection>
 

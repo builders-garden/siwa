@@ -1,15 +1,19 @@
 import 'dotenv/config';
 import express from 'express';
 import { createPublicClient, http } from 'viem';
-import { createSession, validateToken, getSessions, getSessionCount } from './session-store.js';
+import { recordSession, getSessions, getSessionCount, createReceiptForAgent } from './session-store.js';
 import { verifySIWA, buildSIWAResponse, createSIWANonce, SIWAErrorCode } from '@buildersgarden/siwa';
+import { verifyAuthenticatedRequest, expressToFetchRequest } from '@buildersgarden/siwa/erc8128';
 import { renderDashboard } from './dashboard.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000');
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || 'localhost:3000';
 const RPC_URL = process.env.RPC_URL;
-const SIWA_NONCE_SECRET = process.env.SIWA_NONCE_SECRET || process.env.JWT_SECRET || 'test-secret-change-in-production';
+const SIWA_NONCE_SECRET = process.env.SIWA_NONCE_SECRET || process.env.SIWA_SECRET || 'test-secret-change-in-production';
+const RECEIPT_SECRET = process.env.RECEIPT_SECRET || process.env.SIWA_SECRET || 'test-secret-change-in-production';
+const ERC8128_VERIFY_ONCHAIN = process.env.ERC8128_VERIFY_ONCHAIN === 'true';
+const ERC8128_RPC_URL = process.env.ERC8128_RPC_URL || RPC_URL;
 
 if (!RPC_URL) {
   console.error('RPC_URL is required. Set it in your environment or .env file.');
@@ -18,11 +22,15 @@ if (!RPC_URL) {
 
 const client = createPublicClient({ transport: http(RPC_URL) });
 
-// Middleware
-app.use(express.json());
+// Middleware — raw body capture for Content-Digest verification (ERC-8128)
+app.use(express.json({
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf.toString();
+  },
+}));
 app.use((_req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-SIWA-Receipt, Signature, Signature-Input, Content-Digest');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   next();
 });
@@ -109,23 +117,23 @@ app.post('/siwa/verify', async (req, res) => {
     return;
   }
 
-  const session = createSession(
-    {
-      address: result.address,
-      agentId: result.agentId,
-      agentRegistry: result.agentRegistry,
-      chainId: result.chainId,
-    },
-    result.verified
-  );
+  const verificationResult = {
+    address: result.address,
+    agentId: result.agentId,
+    agentRegistry: result.agentRegistry,
+    chainId: result.chainId,
+  };
+
+  const receiptResult = createReceiptForAgent({ ...verificationResult, verified: result.verified });
+  recordSession(verificationResult, result.verified, receiptResult.expiresAt);
 
   const truncated = `${result.address.slice(0, 6)}...${result.address.slice(-4)}`;
   console.log(`\u{2705} Agent #${result.agentId} (${truncated}) signed in [${result.verified}]`);
 
   res.json({
     ...response,
-    token: session.token,
-    expiresAt: session.expiresAt.toISOString(),
+    receipt: receiptResult.receipt,
+    receiptExpiresAt: receiptResult.expiresAt,
   });
 });
 
@@ -139,21 +147,35 @@ app.get('/siwa/sessions', (_req, res) => {
   res.json(sessions);
 });
 
-// Auth middleware
-function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction): void {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Unauthorized' });
+// Auth middleware — ERC-8128 HTTP Message Signatures + Receipt
+async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> {
+  const hasSignature = req.headers['signature'] && req.headers['x-siwa-receipt'];
+
+  if (!hasSignature) {
+    res.status(401).json({ error: 'Unauthorized — provide ERC-8128 Signature + X-SIWA-Receipt headers' });
     return;
   }
-  const token = auth.slice(7);
-  const payload = validateToken(token);
-  if (!payload) {
-    res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const fetchReq = expressToFetchRequest(req as any);
+    const result = await verifyAuthenticatedRequest(fetchReq, {
+      receiptSecret: RECEIPT_SECRET,
+      rpcUrl: ERC8128_RPC_URL,
+      verifyOnchain: ERC8128_VERIFY_ONCHAIN,
+      publicClient: ERC8128_VERIFY_ONCHAIN ? client : undefined,
+    });
+
+    if (!result.valid) {
+      res.status(401).json({ error: result.error });
+      return;
+    }
+
+    (req as any).agent = result.agent;
+    return next();
+  } catch (err: any) {
+    res.status(401).json({ error: `ERC-8128 auth failed: ${err.message}` });
     return;
   }
-  (req as any).agent = payload;
-  next();
 }
 
 // Protected endpoint

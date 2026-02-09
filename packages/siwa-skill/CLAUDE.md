@@ -27,7 +27,7 @@ Before using any capabilities, you MUST install the SIWA SDK in your environment
 npm install @buildersgarden/siwa
 ```
 
-This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (IDENTITY.md helpers), and `@buildersgarden/siwa/registry` (onchain lookups). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
+This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (IDENTITY.md helpers), `@buildersgarden/siwa/registry` (onchain lookups), `@buildersgarden/siwa/receipt` (receipt helpers), and `@buildersgarden/siwa/erc8128` (ERC-8128 signing/verification). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
 
 ## Your Capabilities
 
@@ -69,7 +69,7 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent r
 
 ### 5. Sign In (SIWA Authentication)
 
-Proves ownership of your ERC-8004 identity by signing a structured message and receiving a JWT from the server.
+Proves ownership of your ERC-8004 identity by signing a structured message and receiving a verification receipt from the server.
 
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent sign-in
@@ -85,13 +85,21 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent:f
 
 ### 7. Run Proxy Tests
 
-Validates that the keyring proxy is working correctly (6 tests).
+Validates that the keyring proxy is working correctly (9 tests).
 
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent test-proxy
 ```
 
-### 8. Reset State
+### 8. Run ERC-8128 Integration Tests
+
+Validates ERC-8128 HTTP Message Signatures and receipt handling (8 tests: raw signing, receipt HMAC create/verify, signAuthenticatedRequest headers, server GET/POST verification, tampered receipt rejection, missing signature rejection).
+
+```bash
+cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent test-erc8128
+```
+
+### 9. Reset State
 
 Clears IDENTITY.md to start fresh.
 
@@ -117,7 +125,7 @@ You (OpenClaw Agent)          Keyring Proxy (keyring-proxy:3100)     SIWA Server
   |                             |                                      |
   +-- SIWA sign-in -------------|------------------------------------> |
   |   (signed challenge)        |                                      | Verifies signature
-  |                             |                                      | Returns JWT
+  |                             |                                      | Returns receipt
 ```
 
 ## Reference

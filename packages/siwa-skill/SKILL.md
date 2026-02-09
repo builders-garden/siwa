@@ -89,6 +89,7 @@ The `@buildersgarden/siwa/keystore` module exposes ONLY these operations — non
 ```
 createWallet()           → { address }              // Creates key, returns ONLY address
 signMessage(msg)         → { signature, address }   // Signs via proxy, key never exposed
+signRawMessage(rawHex)   → { signature, address }   // Sign raw bytes (no EIP-191 prefix). Used by ERC-8128.
 signTransaction(tx)      → { signedTx, address }    // Same pattern
 signAuthorization(auth)  → SignedAuthorization       // EIP-7702 delegation signing
 getAddress()             → string                    // Public address only
@@ -237,7 +238,7 @@ sig = proxy_request("/sign-message", {"message": "hello"})  # {"signature": "0x.
 | `POST /create-wallet`      | `{}`                                                            | `{ address, backend }`                         |
 | `POST /has-wallet`         | `{}`                                                            | `{ hasWallet: boolean }`                       |
 | `POST /get-address`        | `{}`                                                            | `{ address }`                                  |
-| `POST /sign-message`       | `{ message: string }`                                           | `{ signature, address }`                       |
+| `POST /sign-message`       | `{ message: string, raw?: boolean }`                            | `{ signature, address }` (`raw: true` signs without EIP-191 prefix, used by ERC-8128) |
 | `POST /sign-transaction`   | `{ tx: { to, data, nonce, chainId, type, maxFeePerGas, ... } }` | `{ signedTx, address }`                        |
 | `POST /sign-authorization` | `{ auth: { chainId, address, nonce } }`                         | `{ signedAuthorization }`                      |
 | `GET /health`              | —                                                               | `{ status: "ok", backend }` (no auth required) |
@@ -589,13 +590,37 @@ const verifyRes = await fetch("https://api.targetservice.com/siwa/verify", {
 const session = await verifyRes.json();
 
 if (session.status === "authenticated") {
-  // Use session.token for authenticated API calls
-  console.log("Authenticated! Token:", session.token);
+  // Use session.receipt for authenticated API calls via ERC-8128
+  console.log("Authenticated! Receipt:", session.receipt);
 } else if (session.status === "not_registered") {
   // session.action contains registration steps and SDK install instructions
   // session.skill contains the SDK name and install URL
   console.log(session.action.steps);
 }
+```
+
+### Step 4: Make Authenticated API Calls (ERC-8128)
+
+After sign-in, use the receipt with `signAuthenticatedRequest()` to make per-request authenticated API calls using ERC-8128 HTTP Message Signatures:
+
+```typescript
+import { signAuthenticatedRequest } from "@buildersgarden/siwa/erc8128";
+
+const request = new Request("https://api.targetservice.com/agent-action", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "do-something" }),
+});
+
+// Signs the request and attaches the receipt + ERC-8128 signature headers
+const signedRequest = await signAuthenticatedRequest(
+  request,
+  session.receipt, // receipt from Step 3
+  keystoreConfig,  // { proxyUrl, proxySecret }
+  chainId,         // e.g. 84532
+);
+
+const res = await fetch(signedRequest);
 ```
 
 ### SIWA Message Format
@@ -627,7 +652,7 @@ The server MUST:
 3. Validate domain binding, nonce, time window
 4. **Call `ownerOf(agentId)` onchain** to confirm signer owns the agent NFT
 5. _(Optional)_ Evaluate `SIWAVerifyCriteria` — activity status, required services, trust models, reputation score
-6. Issue session token
+6. Issue verification receipt (HMAC-signed)
 
 The SDK provides three server-side functions. `createSIWANonce()` validates registration before issuing a nonce, `verifySIWA()` verifies the signed message, and `buildSIWAResponse()` converts the result into a standard response that platforms forward directly to agents:
 
@@ -665,7 +690,7 @@ const response = buildSIWAResponse(result);
 | Endpoint       | Method | Description                                                                            |
 | -------------- | ------ | -------------------------------------------------------------------------------------- |
 | `/siwa/nonce`  | POST   | Validate registration via `createSIWANonce()`, return nonce or `SIWAResponse` error    |
-| `/siwa/verify` | POST   | Verify via `verifySIWA()`, return `SIWAResponse` with session token or error + instructions |
+| `/siwa/verify` | POST   | Verify via `verifySIWA()`, return `SIWAResponse` with verification receipt or error + instructions |
 
 ---
 
@@ -694,6 +719,8 @@ const response = buildSIWAResponse(result);
 - **`@buildersgarden/siwa/keystore`** — Proxy-only signing abstraction (createWallet, signMessage, signTransaction, getAddress, hasWallet)
 - **`@buildersgarden/siwa/identity`** — IDENTITY.md read/write helpers (public data only)
 - **`@buildersgarden/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
+- **`@buildersgarden/siwa/receipt`** — Stateless HMAC receipt creation (`createReceipt`) and verification (`verifyReceipt`)
+- **`@buildersgarden/siwa/erc8128`** — ERC-8128 HTTP Message Signatures (`signAuthenticatedRequest`, `verifyAuthenticatedRequest`, `expressToFetchRequest`)
 - **`@buildersgarden/siwa/registry`** — Read agent profiles (`getAgent`) and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
 - **`@buildersgarden/siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
 

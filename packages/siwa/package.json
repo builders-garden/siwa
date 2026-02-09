@@ -1,6 +1,6 @@
 {
   "name": "@buildersgarden/siwa",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "type": "module",
   "exports": {
     ".": {
@@ -30,6 +30,14 @@
     "./addresses": {
       "types": "./dist/addresses.d.ts",
       "default": "./dist/addresses.js"
+    },
+    "./receipt": {
+      "types": "./dist/receipt.d.ts",
+      "default": "./dist/receipt.js"
+    },
+    "./erc8128": {
+      "types": "./dist/erc8128.d.ts",
+      "default": "./dist/erc8128.js"
     }
   },
   "main": "./dist/index.js",
@@ -50,6 +58,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@slicekit/erc8128": "^0.1.0",
     "viem": "^2.21.0"
   },
   "devDependencies": {

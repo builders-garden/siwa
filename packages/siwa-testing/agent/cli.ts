@@ -4,8 +4,10 @@ import { createWalletFlow } from './flows/create-wallet.js';
 import { registerFlow } from './flows/register.js';
 import { signInFlow, callApiFlow } from './flows/sign-in.js';
 import { testProxyFlow } from './flows/test-proxy.js';
+import { testErc8128Flow } from './flows/test-erc8128.js';
 import { hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
 import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
+import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
 import { config, getKeystoreConfig } from './config.js';
 
 const command = process.argv[2];
@@ -23,10 +25,11 @@ function printUsage(): void {
   console.log('  create-wallet  Create wallet via keyring proxy, write address to IDENTITY.md');
   console.log('  register       Mock-register the agent (write mock data to IDENTITY.md)');
   console.log('  sign-in        Full SIWA flow against the local server');
-  console.log('  call-api       Make an authenticated call using SIWA');
+  console.log('  call-api       Make an authenticated call using ERC-8128 signed requests');
   console.log('  full-flow      Run all steps sequentially');
   console.log('  status         Print current IDENTITY.md state + keystore status');
   console.log('  test-proxy     Run keyring proxy tests (requires running proxy server)');
+  console.log('  test-erc8128   Run ERC-8128 integration tests (requires proxy + server)');
   console.log('');
 }
 
@@ -50,6 +53,7 @@ async function statusCommand(): Promise<void> {
 }
 
 async function fullFlow(): Promise<void> {
+  const kc = getKeystoreConfig();
   const sep = '\u{2550}'.repeat(47);
   console.log(sep);
   console.log('  ERC-8004 Agent \u{2014} Local Test Flow');
@@ -83,9 +87,9 @@ async function fullFlow(): Promise<void> {
   // Step 3
   console.log(chalk.bold('Step 3/4: SIWA Sign-In'));
   console.log('\u{2500}'.repeat(24));
-  let token: string | null = null;
+  let result: { receipt: string } | null = null;
   try {
-    token = await signInFlow();
+    result = await signInFlow();
   } catch (err: any) {
     console.log(chalk.red(`\u{274C} Sign-in failed: ${err.message}`));
     return;
@@ -94,19 +98,23 @@ async function fullFlow(): Promise<void> {
   await sleep(1000);
 
   // Step 4
-  console.log(chalk.bold('Step 4/4: Authenticated API Call'));
-  console.log('\u{2500}'.repeat(33));
-  if (token) {
+  console.log(chalk.bold('Step 4/4: Authenticated API Call (ERC-8128)'));
+  console.log('\u{2500}'.repeat(44));
+  if (result) {
     try {
+      const identity = readIdentity(config.identityPath);
+      const chainId = identity.chainId!;
+
       console.log(chalk.cyan(`\u{1F310} POST /api/agent-action`));
-      const res = await fetch(`${config.serverUrl}/api/agent-action`, {
+      const body = JSON.stringify({ action: 'test', data: { hello: 'world' } });
+      const request = new Request(`${config.serverUrl}/api/agent-action`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ action: 'test', data: { hello: 'world' } }),
+        headers: { 'Content-Type': 'application/json' },
+        body,
       });
+      const signedRequest = await signAuthenticatedRequest(request, result.receipt, kc, chainId);
+      const res = await fetch(signedRequest);
+
       if (res.ok) {
         const data = await res.json();
         console.log(chalk.green.bold(`\u{2705} Response:`));
@@ -118,7 +126,7 @@ async function fullFlow(): Promise<void> {
       console.log(chalk.red(`\u{274C} API call failed: ${err.message}`));
     }
   } else {
-    console.log(chalk.red(`\u{274C} No token available (sign-in failed)`));
+    console.log(chalk.red(`\u{274C} No receipt available (sign-in failed)`));
   }
 
   console.log('');
@@ -151,6 +159,11 @@ async function main(): Promise<void> {
         break;
       case 'test-proxy': {
         const ok = await testProxyFlow();
+        if (!ok) process.exit(1);
+        break;
+      }
+      case 'test-erc8128': {
+        const ok = await testErc8128Flow();
         if (!ok) process.exit(1);
         break;
       }

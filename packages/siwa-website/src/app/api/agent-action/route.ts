@@ -1,17 +1,17 @@
 import { NextRequest } from "next/server";
-import { validateToken } from "@/lib/session-store";
+import { verifyAuthenticatedRequest } from "@buildersgarden/siwa";
 import { corsJson, corsOptions } from "@/lib/cors";
 
-export async function POST(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (!auth || !auth.startsWith("Bearer ")) {
-    return corsJson({ error: "Unauthorized" }, { status: 401 });
-  }
+const RECEIPT_SECRET =
+  process.env.RECEIPT_SECRET || process.env.SIWA_SECRET || "siwa-demo-secret-change-in-production";
 
-  const token = auth.slice(7);
-  const payload = validateToken(token);
-  if (!payload) {
-    return corsJson({ error: "Unauthorized" }, { status: 401 });
+export async function POST(req: NextRequest) {
+  const result = await verifyAuthenticatedRequest(req, {
+    receiptSecret: RECEIPT_SECRET,
+  });
+
+  if (!result.valid) {
+    return corsJson({ error: result.error }, { status: 401 });
   }
 
   const body = await req.json();
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   return corsJson({
     received: body,
     processedBy: "siwa-server",
-    agent: { address: payload.address, agentId: payload.agentId },
+    agent: { address: result.agent.address, agentId: result.agent.agentId },
     timestamp: new Date().toISOString(),
   });
 }

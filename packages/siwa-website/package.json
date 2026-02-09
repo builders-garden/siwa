@@ -9,8 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@buildersgarden/siwa": "^0.0.7",
-    "jsonwebtoken": "^9.0.3",
+    "@buildersgarden/siwa": "^0.0.8",
     "next": "16.1.6",
     "prism-react-renderer": "^2.4.1",
     "react": "19.2.3",
@@ -19,7 +18,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

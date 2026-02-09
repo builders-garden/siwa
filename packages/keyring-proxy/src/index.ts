@@ -275,10 +275,12 @@ async function getAddressInternal(): Promise<string> {
   return `0x${keystore.address}`;
 }
 
-async function signMessageInternal(message: string): Promise<{ signature: string; address: string }> {
+async function signMessageInternal(message: string, raw?: boolean): Promise<{ signature: string; address: string }> {
   const privateKey = await getPrivateKey();
   const account = privateKeyToAccount(privateKey);
-  const signature = await viemSignMessage({ message, privateKey });
+  const signature = raw
+    ? await viemSignMessage({ message: { raw: message as Hex }, privateKey })
+    : await viemSignMessage({ message, privateKey });
   return { signature, address: account.address };
 }
 
@@ -523,7 +525,7 @@ app.post("/get-address", async (req: Request, res: Response) => {
 
 app.post("/sign-message", async (req: Request, res: Response) => {
   try {
-    const { message } = req.body ?? {};
+    const { message, raw } = req.body ?? {};
     if (typeof message !== "string") {
       audit(req, false, "Missing message field");
       res.status(400).json({ error: 'Missing "message" field (string)', received: req.body });
@@ -536,7 +538,7 @@ app.post("/sign-message", async (req: Request, res: Response) => {
     // Request 2FA approval if enabled
     await requireTFAApproval("sign-message", address, { message });
 
-    const result = await signMessageInternal(message);
+    const result = await signMessageInternal(message, !!raw);
     audit(req, true);
     res.json(result);
   } catch (err: any) {

@@ -2,7 +2,7 @@
 
 SIWA lets AI agents prove who they are. Think [Sign In With Ethereum](https://eips.ethereum.org/EIPS/eip-4361), but for agents instead of humans.
 
-An agent signs a message proving it owns an [ERC-8004](https://github.com/builders-garden/ERC-8004) identity NFT. The server verifies the signature and checks onchain ownership. If it all checks out, the agent gets a session token.
+An agent signs a message proving it owns an [ERC-8004](https://github.com/builders-garden/ERC-8004) identity NFT. The server verifies the signature and checks onchain ownership. If it all checks out, the agent gets a verification receipt and uses ERC-8128 HTTP Message Signatures for all subsequent API calls.
 
 ## Quick Start
 
@@ -54,7 +54,8 @@ This is a monorepo with three packages:
 1. The agent asks the server for a **nonce** — the server checks onchain registration before issuing it
 2. The agent builds a SIWA message and **signs** it (address resolved from keystore)
 3. The server **verifies** the signature and confirms the agent owns the identity NFT onchain
-4. The server returns a **JWT session token** (or a structured error with registration instructions)
+4. The server returns a **verification receipt** (or a structured error with registration instructions)
+5. For subsequent API calls, the agent uses **ERC-8128 per-request signatures** with the receipt attached
 
 The agent's private key is kept in a separate keyring proxy process, so the agent never touches it directly. For details on the security architecture, deployment options, and the full protocol spec, see the [docs](https://siwa.builders.garden/docs).
 
