@@ -102,9 +102,9 @@ export async function testProxyFlow(): Promise<boolean> {
     fail('signMessage() via proxy', err.message);
   }
 
-  // ── Test 6: signTransaction() via proxy ─────────────────────────────
+  // ── Test 6a: signTransaction() — legacy tx ─────────────────────────
   try {
-    const testTx = {
+    const legacyTx = {
       to: '0x0000000000000000000000000000000000000000' as Address,
       value: BigInt(0),
       nonce: 0,
@@ -113,20 +113,53 @@ export async function testProxyFlow(): Promise<boolean> {
       gas: BigInt(21000),
     };
 
-    const result = await signTransaction(testTx, kc);
+    const result = await signTransaction(legacyTx, kc);
     if (result.signedTx && result.signedTx.startsWith('0x')) {
-      // Parse the signed transaction to verify it's valid
       const parsed = parseTransaction(result.signedTx as Hex);
-      if (parsed.to?.toLowerCase() === testTx.to.toLowerCase()) {
-        pass(`signTransaction() via proxy → valid signed tx`);
+      if (parsed.to?.toLowerCase() !== legacyTx.to.toLowerCase()) {
+        fail('signTransaction() legacy', `Parsed tx has wrong 'to' address`);
+      } else if (parsed.type !== 'legacy') {
+        fail('signTransaction() legacy', `Expected type 'legacy', got '${parsed.type}'`);
       } else {
-        fail('signTransaction() via proxy', `Parsed tx has wrong 'to' address`);
+        pass(`signTransaction() legacy → valid signed tx (type=${parsed.type})`);
       }
     } else {
-      fail('signTransaction() via proxy', `Invalid signedTx: ${result.signedTx}`);
+      fail('signTransaction() legacy', `Invalid signedTx: ${result.signedTx}`);
     }
   } catch (err: any) {
-    fail('signTransaction() via proxy', err.message);
+    fail('signTransaction() legacy', err.message);
+  }
+
+  // ── Test 6b: signTransaction() — EIP-1559 tx ─────────────────────
+  try {
+    const eip1559Tx = {
+      to: '0x0000000000000000000000000000000000000001' as Address,
+      value: BigInt(0),
+      nonce: 0,
+      chainId: 1,
+      type: 2,
+      maxFeePerGas: BigInt(1000000000),
+      maxPriorityFeePerGas: BigInt(1000000),
+      gas: BigInt(21000),
+    };
+
+    const result = await signTransaction(eip1559Tx, kc);
+    if (result.signedTx && result.signedTx.startsWith('0x')) {
+      const parsed = parseTransaction(result.signedTx as Hex);
+      if (parsed.to?.toLowerCase() !== eip1559Tx.to.toLowerCase()) {
+        fail('signTransaction() EIP-1559', `Parsed tx has wrong 'to' address`);
+      } else if (parsed.type !== 'eip1559') {
+        fail('signTransaction() EIP-1559', `Expected type 'eip1559', got '${parsed.type}'`);
+      } else if (parsed.maxFeePerGas !== eip1559Tx.maxFeePerGas) {
+        fail('signTransaction() EIP-1559', `maxFeePerGas mismatch: ${parsed.maxFeePerGas}`);
+      } else {
+        pass(`signTransaction() EIP-1559 → valid signed tx (type=${parsed.type})`);
+      }
+    } else {
+      fail('signTransaction() EIP-1559', `Invalid signedTx: ${result.signedTx}`);
+    }
+  } catch (err: any) {
+    fail('signTransaction() EIP-1559', err.message);
   }
 
   // ── Test 7: signAuthorization() via proxy (EIP-7702) ───────────────

@@ -146,7 +146,7 @@ async function testProxy() {
     fail('signMessage()', err.message);
   }
 
-  // 1.8 signTransaction
+  // 1.8a signTransaction — EIP-1559
   try {
     const tx = {
       to: '0x0000000000000000000000000000000000000001',
@@ -159,10 +159,27 @@ async function testProxy() {
       gas: BigInt(21000),
     };
     const result = await signTransaction(tx, kc);
-    if (result.signedTx && result.address) pass(`signTransaction() → signed tx (${result.signedTx.slice(0, 20)}...)`);
-    else fail('signTransaction()', 'Missing signedTx or address');
+    if (result.signedTx && result.address) pass(`signTransaction() EIP-1559 → signed tx (${result.signedTx.slice(0, 20)}...)`);
+    else fail('signTransaction() EIP-1559', 'Missing signedTx or address');
   } catch (err: any) {
-    fail('signTransaction()', err.message);
+    fail('signTransaction() EIP-1559', err.message);
+  }
+
+  // 1.8b signTransaction — legacy
+  try {
+    const tx = {
+      to: '0x0000000000000000000000000000000000000001',
+      value: BigInt(0),
+      nonce: 0,
+      chainId: 84532,
+      gasPrice: BigInt(20000000000),
+      gas: BigInt(21000),
+    };
+    const result = await signTransaction(tx, kc);
+    if (result.signedTx && result.address) pass(`signTransaction() legacy → signed tx (${result.signedTx.slice(0, 20)}...)`);
+    else fail('signTransaction() legacy', 'Missing signedTx or address');
+  } catch (err: any) {
+    fail('signTransaction() legacy', err.message);
   }
 
   // 1.9 signAuthorization

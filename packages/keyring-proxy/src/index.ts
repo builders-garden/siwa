@@ -274,10 +274,42 @@ async function signMessageInternal(message: string): Promise<{ signature: string
   return { signature, address: account.address };
 }
 
-async function signTransactionInternal(tx: TransactionSerializable): Promise<{ signedTx: string; address: string }> {
+async function signTransactionInternal(tx: Record<string, any>): Promise<{ signedTx: string; address: string }> {
   const privateKey = await getPrivateKey();
   const account = privateKeyToAccount(privateKey);
-  const signedTx = await viemSignTransaction({ transaction: tx, privateKey });
+
+  // JSON transport converts BigInts to hex strings — parse them back
+  const parseBigInt = (v: unknown): bigint | undefined => {
+    if (v === null || v === undefined) return undefined;
+    if (typeof v === "bigint") return v;
+    if (typeof v === "number") return BigInt(v);
+    if (typeof v === "string") return BigInt(v);
+    return undefined;
+  };
+
+  const viemTx: Record<string, any> = {
+    to: tx.to,
+    data: tx.data,
+    value: parseBigInt(tx.value),
+    nonce: tx.nonce != null ? Number(tx.nonce) : undefined,
+    chainId: tx.chainId != null ? Number(tx.chainId) : undefined,
+    gas: parseBigInt(tx.gasLimit ?? tx.gas),
+  };
+
+  if (tx.type === 2 || tx.type === "eip1559" || tx.maxFeePerGas !== undefined) {
+    viemTx.type = "eip1559";
+    viemTx.maxFeePerGas = parseBigInt(tx.maxFeePerGas);
+    viemTx.maxPriorityFeePerGas = parseBigInt(tx.maxPriorityFeePerGas);
+  } else if (tx.gasPrice !== undefined) {
+    viemTx.type = "legacy";
+    viemTx.gasPrice = parseBigInt(tx.gasPrice);
+  }
+
+  if (tx.accessList) {
+    viemTx.accessList = tx.accessList;
+  }
+
+  const signedTx = await viemSignTransaction({ transaction: viemTx as TransactionSerializable, privateKey });
   return { signedTx, address: account.address };
 }
 

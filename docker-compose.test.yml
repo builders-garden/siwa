@@ -68,7 +68,7 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - SERVER_DOMAIN=siwa-server:3000
+      - SERVER_DOMAIN=localhost:3000
       - JWT_SECRET=test-secret-change-in-production
       - RPC_URL=https://sepolia.base.org
     command: ["pnpm", "run", "server"]
