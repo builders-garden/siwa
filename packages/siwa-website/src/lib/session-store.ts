@@ -1,11 +1,10 @@
-import jwt from "jsonwebtoken";
+import { createReceipt, verifyReceipt, DEFAULT_RECEIPT_TTL, type ReceiptPayload } from "@buildersgarden/siwa";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "siwa-demo-secret-change-in-production";
-const JWT_EXPIRY = "1h";
+const RECEIPT_SECRET =
+  process.env.RECEIPT_SECRET || process.env.SIWA_SECRET || "siwa-demo-secret-change-in-production";
+const RECEIPT_TTL = parseInt(process.env.RECEIPT_TTL || String(DEFAULT_RECEIPT_TTL));
 
 export interface AgentSession {
-  token: string;
   address: string;
   agentId: number;
   agentRegistry: string;
@@ -24,23 +23,32 @@ interface VerificationResult {
 
 const sessions: AgentSession[] = [];
 
-export function createSession(
+export function createReceiptForAgent(result: VerificationResult & { verified: "offline" | "onchain" }) {
+  return createReceipt(
+    {
+      address: result.address,
+      agentId: result.agentId,
+      agentRegistry: result.agentRegistry,
+      chainId: result.chainId,
+      verified: result.verified,
+    },
+    { secret: RECEIPT_SECRET, ttl: RECEIPT_TTL },
+  );
+}
+
+export function validateReceiptToken(receipt: string): ReceiptPayload | null {
+  return verifyReceipt(receipt, RECEIPT_SECRET);
+}
+
+export function recordSession(
   result: VerificationResult,
-  mode: "offline" | "onchain"
+  mode: "offline" | "onchain",
+  receiptExpiresAt: string,
 ): AgentSession {
-  const payload = {
-    address: result.address,
-    agentId: result.agentId,
-    agentRegistry: result.agentRegistry,
-  };
-
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY });
-
   const issuedAt = new Date();
-  const expiresAt = new Date(issuedAt.getTime() + 60 * 60 * 1000);
+  const expiresAt = new Date(receiptExpiresAt);
 
   const session: AgentSession = {
-    token,
     address: result.address,
     agentId: result.agentId,
     agentRegistry: result.agentRegistry,
@@ -52,21 +60,6 @@ export function createSession(
 
   sessions.push(session);
   return session;
-}
-
-export function validateToken(
-  token: string
-): { address: string; agentId: number; agentRegistry: string } | null {
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as {
-      address: string;
-      agentId: number;
-      agentRegistry: string;
-    };
-    return payload;
-  } catch {
-    return null;
-  }
 }
 
 export function getSessions(): AgentSession[] {

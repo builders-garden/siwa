@@ -87,7 +87,7 @@ function EndpointHeader({
       <code className="font-mono text-sm text-foreground">{path}</code>
       {auth && (
         <span className="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-xs text-amber-400">
-          Bearer token
+          ERC-8128 signed
         </span>
       )}
     </div>
@@ -155,7 +155,7 @@ export default function EndpointsPage() {
         {/* Overview */}
         <Section id="overview" title="Overview">
           <P>
-            The SIWA server implements a challenge-response authentication flow. An agent requests a nonce, signs a structured message, and submits it for verification. On success, the server returns a JWT session token for subsequent authenticated requests.
+            The SIWA server implements a challenge-response authentication flow. An agent requests a nonce, signs a structured message, and submits it for verification. On success, the server returns a verification receipt. The agent then uses ERC-8128 HTTP Message Signatures with the receipt for subsequent authenticated requests.
           </P>
 
           <SubSection id="base-url" title="Base URL">
@@ -202,14 +202,14 @@ export default function EndpointsPage() {
                     <span className="inline-block rounded border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-xs text-blue-400 mr-2">POST</span>
                     <span className="text-muted">/api/siwa/verify</span>
                     <span className="text-dim mx-2">&rarr;</span>
-                    <span className="text-foreground">Server returns JWT token</span>
+                    <span className="text-foreground">Server returns verification receipt</span>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-accent font-semibold shrink-0">4.</span>
                   <div>
                     <span className="text-foreground">Agent uses</span>
-                    <span className="mx-1 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-400">Bearer token</span>
+                    <span className="mx-1 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-400">ERC-8128 signature + receipt</span>
                     <span className="text-foreground">for protected endpoints</span>
                   </div>
                 </div>
@@ -253,7 +253,7 @@ export default function EndpointsPage() {
           <SubSection id="post-siwa-verify" title="Verify Signature">
             <EndpointHeader method="POST" path="/api/siwa/verify" />
             <P>
-              Submit the signed SIWA message for verification. On success, the server validates the signature, checks nonce freshness, verifies domain binding, and returns a JWT session token (1 hour expiry).
+              Submit the signed SIWA message for verification. On success, the server validates the signature, checks nonce freshness, verifies domain binding, and returns a verification receipt (30 minute default expiry).
             </P>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Request Body</h4>
@@ -267,13 +267,13 @@ export default function EndpointsPage() {
 
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
             <CodeBlock language="json">{`{
-  "success": true,
-  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "status": "authenticated",
+  "receipt": "eyJhZGRyZXNzIjoiMHg3NDJk...",
+  "receiptExpiresAt": "2026-02-05T12:30:00.000Z",
   "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
   "agentId": 42,
   "agentRegistry": "eip155:84532:0x8004A818...",
-  "verified": "offline",
-  "expiresAt": "2026-02-05T13:00:00.000Z"
+  "verified": "onchain"
 }`}</CodeBlock>
             <P>
               The <InlineCode>verified</InlineCode> field indicates the verification mode:{" "}
@@ -298,10 +298,13 @@ export default function EndpointsPage() {
         {/* Protected Endpoints */}
         <Section id="protected" title="Protected Endpoints">
           <P>
-            These endpoints require a valid JWT token in the <InlineCode>Authorization</InlineCode> header.
-            Get a token by completing the nonce + verify flow above.
+            These endpoints require ERC-8128 HTTP Message Signatures with a valid verification receipt.
+            Get a receipt by completing the nonce + verify flow above, then sign requests using <InlineCode>signAuthenticatedRequest()</InlineCode>.
           </P>
-          <CodeBlock language="text">{`Authorization: Bearer <token>`}</CodeBlock>
+          <CodeBlock language="text">{`X-SIWA-Receipt: <receipt>
+Signature: eth=:<base64-signature>:
+Signature-Input: eth=(...);keyid="erc8128:<chainId>:<address>";...
+Content-Digest: sha-256=:<base64-hash>:  (for POST requests)`}</CodeBlock>
 
           <SubSection id="get-api-protected" title="Test Auth">
             <EndpointHeader method="GET" path="/api/protected" auth />
@@ -402,21 +405,13 @@ const { message, signature } = await signSIWAMessage({
   }'`}</CodeBlock>
 
             <P>
-              <strong className="text-foreground">Step 4</strong> — Use the JWT token for authenticated requests:
+              <strong className="text-foreground">Step 4</strong> — Use the receipt with ERC-8128 signed requests. In code, this is one function call:
             </P>
-            <CodeBlock language="bash">{`curl -s https://siwa.builders.garden/api/protected \\
-  -H "Authorization: Bearer <token-from-step-3>"`}</CodeBlock>
+            <CodeBlock language="typescript">{`import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
 
-            <P>
-              <strong className="text-foreground">Step 5</strong> — Submit an agent action:
-            </P>
-            <CodeBlock language="bash">{`curl -s -X POST https://siwa.builders.garden/api/agent-action \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer <token-from-step-3>" \\
-  -d '{
-    "action": "ping",
-    "data": { "hello": "world" }
-  }'`}</CodeBlock>
+const req = new Request('https://siwa.builders.garden/api/protected', { method: 'GET' });
+const signedReq = await signAuthenticatedRequest(req, receipt, keystoreConfig, chainId);
+const res = await fetch(signedReq);`}</CodeBlock>
           </SubSection>
         </Section>
 

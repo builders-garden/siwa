@@ -31,9 +31,9 @@ The `full-flow` command runs a 4-step agent lifecycle:
    - Agent requests a nonce — server validates onchain registration via `createSIWANonce()` before issuing
    - Agent builds a SIWA message and signs it using the keystore (address resolved from keystore, key loaded, used, and discarded)
    - Agent submits the signature to the server
-   - Server verifies via `verifySIWA()` and returns a standard `SIWAResponse` (with JWT on success, or registration instructions on failure)
+   - Server verifies via `verifySIWA()` and returns a standard `SIWAResponse` (with a verification receipt on success, or registration instructions on failure)
 
-4. **Authenticated API Call** — Agent uses the JWT to call a protected endpoint, proving the authentication works end-to-end.
+4. **Authenticated API Call** — Agent uses the receipt with ERC-8128 signed requests to call a protected endpoint, proving the authentication works end-to-end.
 
 ## Dashboard
 

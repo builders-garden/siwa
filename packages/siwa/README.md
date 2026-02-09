@@ -6,7 +6,7 @@ A Claude Code skill for registering AI agents on the [ERC-8004 (Trustless Agents
 
 - **Create Wallet** — Generate an Ethereum wallet via a keyring proxy (private key never enters the agent process)
 - **Register Agent (Sign Up)** — Mint an ERC-721 identity NFT on the ERC-8004 Identity Registry with metadata (endpoints, trust model, services)
-- **Authenticate (Sign In)** — Prove ownership of an onchain agent identity by signing a structured SIWA message; receive a JWT from the relying party
+- **Authenticate (Sign In)** — Prove ownership of an onchain agent identity by signing a structured SIWA message; receive a verification receipt from the relying party and use ERC-8128 per-request signatures for subsequent API calls
 
 ## Project Structure
 
@@ -18,6 +18,8 @@ src/               Core SDK modules
   proxy-auth.ts      HMAC-SHA256 authentication utilities
   registry.ts        Onchain agent profile & reputation lookups
   addresses.ts       Deployed contract addresses
+  receipt.ts         Stateless HMAC receipt creation and verification
+  erc8128.ts         ERC-8128 HTTP Message Signatures (sign/verify)
 
 references/        Protocol documentation
   siwa-spec.md       Full SIWA specification
@@ -26,13 +28,14 @@ references/        Protocol documentation
 assets/            Templates
   IDENTITY.template.md
 
-test/              Local test environment (Express server + CLI agent)
 ```
 
 ## Quick Start (Local Test)
 
+The test harness lives in the `siwa-testing` package (sibling in this monorepo):
+
 ```bash
-cd test
+cd packages/siwa-testing
 pnpm install
 
 # Terminal 1: Start the SIWA relying-party server
@@ -45,7 +48,7 @@ pnpm run agent:flow
 pnpm run dev
 ```
 
-See [`test/README.md`](test/README.md) for full details on the test environment.
+See [`packages/siwa-testing/README.md`](../siwa-testing/README.md) for full details on the test environment.
 
 ## Security Model
 

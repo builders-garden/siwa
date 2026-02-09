@@ -161,6 +161,24 @@ export async function signMessage(
 }
 
 /**
+ * Sign a raw hex message via the keyring proxy (no EIP-191 prefix).
+ *
+ * Used internally by the ERC-8128 signer — the signature base bytes are
+ * passed as a hex string and signed with `{ raw: true }` so the proxy
+ * treats them as raw bytes rather than applying personal_sign wrapping.
+ */
+export async function signRawMessage(
+  rawHex: string,
+  config: KeystoreConfig = {}
+): Promise<SignResult> {
+  const data = await proxyRequest(config, "/sign-message", {
+    message: rawHex,
+    raw: true,
+  });
+  return { signature: data.signature, address: data.address };
+}
+
+/**
  * Sign a transaction via the keyring proxy.
  * Only the signed transaction is returned.
  */

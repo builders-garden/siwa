@@ -36,8 +36,8 @@ export interface VerifyResponse {
   action?: import('@buildersgarden/siwa').SIWAAction;
   skill?: { name: string; install: string; url: string };
   // On authenticated
-  token?: string;
-  expiresAt?: string;
+  receipt?: string;
+  receiptExpiresAt?: string;
 }
 
 export interface ProtectedResponse {

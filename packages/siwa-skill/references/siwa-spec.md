@@ -152,7 +152,7 @@ The server MUST perform ALL of the following:
 7. **Onchain ownership** — Call `ownerOf(agentId)` on the Identity Registry at the address specified in `agentRegistry`. Confirm the returned owner matches the recovered signer address.
 8. **Consume nonce** — Mark the nonce as used to prevent replay.
 
-If all checks pass, issue a session token (JWT or equivalent) containing at minimum: `address`, `agentId`, `agentRegistry`, `chainId`, `iat`, `exp`.
+If all checks pass, issue a verification receipt (HMAC-signed token) containing at minimum: `address`, `agentId`, `agentRegistry`, `chainId`, `verified`, `iat`, `exp`. The agent uses this receipt with ERC-8128 HTTP Message Signatures for subsequent authenticated requests.
 
 ### 5. Server Response
 
@@ -160,13 +160,13 @@ Success:
 
 ```json
 {
-  "success": true,
-  "token": "eyJhbGciOiJIUzI1NiIs...",
-  "agent": {
-    "agentId": 42,
-    "agentRegistry": "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
-    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0"
-  }
+  "status": "authenticated",
+  "receipt": "eyJhZGRyZXNzIjoiMHg3NDJk...",
+  "receiptExpiresAt": "2025-09-01T12:30:00Z",
+  "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+  "agentId": 42,
+  "agentRegistry": "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  "verified": "onchain"
 }
 ```
 

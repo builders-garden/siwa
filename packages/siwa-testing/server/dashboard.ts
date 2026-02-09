@@ -14,10 +14,7 @@ export function renderDashboard(
         <td><span class="badge badge-${s.verified === 'onchain' ? 'live' : 'offline'}">${s.verified}</span></td>
         <td>${s.issuedAt.toISOString()}</td>
         <td>${s.expiresAt.toISOString()}</td>
-        <td>
-          <span class="token" title="${s.token}">${s.token.slice(0, 20)}...</span>
-          <button class="copy-btn" onclick="navigator.clipboard.writeText('${s.token}')">copy</button>
-        </td>
+        <td><span class="badge badge-${s.verified === 'onchain' ? 'live' : 'offline'}">receipt</span></td>
       </tr>`
     )
     .join('');
@@ -49,7 +46,6 @@ export function renderDashboard(
   th { text-align: left; padding: 10px 12px; background: #21262d; color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
   td { padding: 10px 12px; border-top: 1px solid #21262d; font-size: 13px; }
   tr:hover td { background: #1c2128; }
-  .token { color: #8b949e; font-size: 11px; }
   .copy-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-left: 6px; }
   .copy-btn:hover { background: #30363d; color: #c9d1d9; }
   .empty { text-align: center; padding: 32px; color: #484f58; }
@@ -101,7 +97,7 @@ export function renderDashboard(
         <th>Verified</th>
         <th>Issued At</th>
         <th>Expires At</th>
-        <th>Token</th>
+        <th>Auth</th>
       </tr>
     </thead>
     <tbody id="sessions-body">
@@ -190,7 +186,6 @@ async function refreshSessions() {
       const truncAddr = addr.slice(0,6) + '...' + addr.slice(-4);
       const reg = s.agentRegistry.length > 30 ? s.agentRegistry.slice(0,30) + '...' : s.agentRegistry;
       const badgeClass = s.verified === 'onchain' ? 'live' : 'offline';
-      const tokenTrunc = s.token.slice(0,20) + '...';
       return '<tr>' +
         '<td>' + s.agentId + '</td>' +
         '<td title="' + addr + '">' + truncAddr + '</td>' +
@@ -198,8 +193,7 @@ async function refreshSessions() {
         '<td><span class="badge badge-' + badgeClass + '">' + s.verified + '</span></td>' +
         '<td>' + s.issuedAt + '</td>' +
         '<td>' + s.expiresAt + '</td>' +
-        '<td><span class="token" title="' + s.token + '">' + tokenTrunc + '</span>' +
-        '<button class="copy-btn" onclick="navigator.clipboard.writeText(\\'' + s.token + '\\')">copy</button></td>' +
+        '<td><span class="badge badge-' + badgeClass + '">receipt</span></td>' +
         '</tr>';
     }).join('');
   } catch(e) { /* ignore polling errors */ }

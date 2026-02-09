@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
 import { verifySIWA, buildSIWAResponse, SIWAErrorCode } from "@buildersgarden/siwa";
-import { createSession } from "@/lib/session-store";
+import { createReceiptForAgent, recordSession } from "@/lib/session-store";
+
 import { corsJson, corsOptions } from "@/lib/cors";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.builders.garden";
 const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";
 const SIWA_NONCE_SECRET =
   process.env.SIWA_NONCE_SECRET ||
-  process.env.JWT_SECRET ||
+  process.env.SIWA_SECRET ||
   "siwa-demo-secret-change-in-production";
 
 const client = createPublicClient({ transport: http(RPC_URL) });
@@ -45,20 +46,20 @@ export async function POST(req: NextRequest) {
     return corsJson(response, { status: statusCode });
   }
 
-  const session = createSession(
-    {
-      address: result.address,
-      agentId: result.agentId,
-      agentRegistry: result.agentRegistry,
-      chainId: result.chainId,
-    },
-    result.verified,
-  );
+  const verificationResult = {
+    address: result.address,
+    agentId: result.agentId,
+    agentRegistry: result.agentRegistry,
+    chainId: result.chainId,
+  };
+
+  const receiptResult = createReceiptForAgent({ ...verificationResult, verified: result.verified });
+  recordSession(verificationResult, result.verified, receiptResult.expiresAt);
 
   return corsJson({
     ...response,
-    token: session.token,
-    expiresAt: session.expiresAt.toISOString(),
+    receipt: receiptResult.receipt,
+    receiptExpiresAt: receiptResult.expiresAt,
   });
 }
 

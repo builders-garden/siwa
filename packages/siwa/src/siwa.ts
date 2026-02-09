@@ -300,7 +300,7 @@ export interface SIWANonceParams {
 
 export interface SIWANonceOptions {
   expirationTTL?: number;  // milliseconds, defaults to 300_000 (5 min)
-  secret?: string;         // HMAC secret for stateless nonce tokens (pass your JWT_SECRET or any server secret)
+  secret?: string;         // HMAC secret for stateless nonce tokens (pass your SIWA_SECRET or any server secret)
 }
 
 export type SIWANonceResult =

@@ -1,10 +1,15 @@
 import chalk from 'chalk';
 import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
 import { signSIWAMessage } from '@buildersgarden/siwa';
+import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
 import { config, getKeystoreConfig } from '../config.js';
 import type { NonceResponse, VerifyResponse } from '../../shared/types.js';
 
-export async function signInFlow(): Promise<string | null> {
+export interface SignInResult {
+  receipt: string;
+}
+
+export async function signInFlow(): Promise<SignInResult | null> {
   const kc = getKeystoreConfig();
 
   // Read IDENTITY.md
@@ -125,18 +130,22 @@ export async function signInFlow(): Promise<string | null> {
   }
 
   // Success
-  const tokenTrunc = verifyData.token!.slice(0, 32) + '...';
+  const receiptTrunc = verifyData.receipt ? verifyData.receipt.slice(0, 32) + '...' : 'none';
   console.log(chalk.green.bold(`\u{2705} SIWA Sign-In Successful!`));
-  console.log(chalk.dim(`   Token:    ${tokenTrunc}`));
+  console.log(chalk.dim(`   Receipt:  ${receiptTrunc}`));
   console.log(chalk.dim(`   Verified: ${verifyData.verified}`));
-  console.log(chalk.dim(`   Expires:  ${verifyData.expiresAt}`));
+  if (verifyData.receiptExpiresAt) {
+    console.log(chalk.dim(`   Expires:  ${verifyData.receiptExpiresAt}`));
+  }
 
-  // 4. Test authenticated API call
-  console.log(chalk.cyan(`\u{1F310} Testing authenticated API call...`));
+  // 4. Test authenticated API call via ERC-8128
+  console.log(chalk.cyan(`\u{1F310} Testing authenticated API call (ERC-8128)...`));
 
-  const apiRes = await fetch(`${config.serverUrl}/api/protected`, {
-    headers: { Authorization: `Bearer ${verifyData.token}` },
+  const testRequest = new Request(`${config.serverUrl}/api/protected`, {
+    method: 'GET',
   });
+  const signedTestRequest = await signAuthenticatedRequest(testRequest, verifyData.receipt!, kc, chainId);
+  const apiRes = await fetch(signedTestRequest);
 
   if (apiRes.ok) {
     const apiData = await apiRes.json();
@@ -146,25 +155,31 @@ export async function signInFlow(): Promise<string | null> {
     console.log(chalk.red(`\u{274C} API call failed: ${apiRes.status}`));
   }
 
-  return verifyData.token!;
+  return { receipt: verifyData.receipt! };
 }
 
 export async function callApiFlow(): Promise<void> {
-  // For the call-api command, we re-do the sign-in to get a fresh token.
-  console.log(chalk.yellow(`\u{2139}\u{FE0F}  call-api performs a fresh sign-in to obtain a token`));
-  const token = await signInFlow();
-  if (!token) return;
+  const kc = getKeystoreConfig();
+  const identity = readIdentity(config.identityPath);
+  const chainId = identity.chainId!;
+
+  // For the call-api command, we re-do the sign-in to get a fresh receipt.
+  console.log(chalk.yellow(`\u{2139}\u{FE0F}  call-api performs a fresh sign-in to obtain a receipt`));
+  const result = await signInFlow();
+  if (!result) return;
 
   console.log('');
-  console.log(chalk.cyan(`\u{1F310} POST /api/agent-action`));
-  const res = await fetch(`${config.serverUrl}/api/agent-action`, {
+  console.log(chalk.cyan(`\u{1F310} POST /api/agent-action (ERC-8128 signed request)`));
+
+  const body = JSON.stringify({ action: 'test', data: { hello: 'world' } });
+  const request = new Request(`${config.serverUrl}/api/agent-action`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ action: 'test', data: { hello: 'world' } }),
+    headers: { 'Content-Type': 'application/json' },
+    body,
   });
+
+  const signedRequest = await signAuthenticatedRequest(request, result.receipt, kc, chainId);
+  const res = await fetch(signedRequest);
 
   if (res.ok) {
     const data = await res.json();
