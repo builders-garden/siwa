@@ -258,7 +258,8 @@ IDENTITY.md stores the agent's minimal public identity state — **never the pri
 
 1. **Before any action** — Read IDENTITY.md. If wallet exists, skip creation. If registered, skip re-registration.
 2. **After wallet creation** — Write address to IDENTITY.md. Private key goes to proxy keystore only.
-3. **After registration** — Write agentId, agentRegistry, chainId to IDENTITY.md.
+3. **Before registration** — Run `register` (without `--confirm`) to display all fields. Show the output to the user and ask for confirmation. Only proceed with `--confirm` after user approval.
+4. **After registration** — Write agentId, agentRegistry, chainId to IDENTITY.md.
 
 **Template**: [assets/IDENTITY.template.md](assets/IDENTITY.template.md)
 
@@ -389,6 +390,8 @@ Create a JSON file following the ERC-8004 schema. Use [assets/registration-templ
 Required fields: `type`, `name`, `description`, `image`, `services`, `active`.
 
 After building, the metadata is uploaded and used in registration.
+
+**Human-in-the-loop confirmation**: Running the `register` CLI command without `--confirm` will display all registration fields and exit, so the agent can present the data to the user for review. The agent MUST ask the user to confirm or update values before re-running with `--confirm`. This prevents registering with placeholder data (e.g. `AGENT_NAME`, `YOUR_DOMAIN`) which would be recorded onchain permanently.
 
 ### Step 3: Upload Metadata
 

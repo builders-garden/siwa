@@ -63,8 +63,16 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent s
 
 Registers your wallet as an ERC-8004 agent identity (mock mode for testing, or live onchain).
 
+**Step 1 — Review registration data** (shows all fields, does NOT register):
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent register
+```
+
+This prints all ERC-8004 registration fields (name, description, image, services, x402Support, active, supportedTrust) and exits. **You MUST show this output to the user and ask them to confirm or update the values** before proceeding. The registration file is at `packages/siwa-skill/assets/registration-template.json` (or `REGISTRATION_FILE` env var).
+
+**Step 2 — Confirm and register** (only after user approval):
+```bash
+cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent register -- --confirm
 ```
 
 ### 5. Sign In (SIWA Authentication)
