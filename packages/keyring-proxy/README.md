@@ -7,6 +7,7 @@ A standalone Express server that acts as the security boundary for agent signing
 - **HMAC-SHA256 Authentication** — All requests require valid HMAC signatures with timestamp-based replay protection
 - **Audit Logging** — All operations are logged with timestamps, source IPs, and success/failure status
 - **EIP-7702 Support** — Sign authorization tuples for account abstraction delegations
+- **Optional 2FA** — Telegram-based two-factor authentication for signing operations
 
 ## Quick Start
 
@@ -32,6 +33,15 @@ The proxy will start on port 3100 (configurable via `KEYRING_PROXY_PORT`).
 | `KEYSTORE_BACKEND`     | Yes      | Backend type: `encrypted-file` or `env` (NOT `proxy`)    |
 | `KEYSTORE_PASSWORD`    | Yes\*    | Password for encrypted-file backend                      |
 | `KEYSTORE_PATH`        | No       | Path to keystore file (default: `./agent-keystore.json`) |
+
+### 2FA Configuration (Optional)
+
+| Variable            | Required | Description                                              |
+| ------------------- | -------- | -------------------------------------------------------- |
+| `TFA_ENABLED`       | No       | Set to `true` to enable Telegram 2FA                     |
+| `TFA_SERVER_URL`    | If 2FA   | URL of the 2FA Telegram server (e.g., `http://localhost:3200`) |
+| `TFA_SERVER_SECRET` | If 2FA   | Shared secret with 2FA server                            |
+| `TFA_OPERATIONS`    | No       | Comma-separated list of operations requiring 2FA (default: all) |
 
 ## API Endpoints
 
@@ -90,6 +100,83 @@ Requests are rejected if:
 │  └─────────────┘  └─────────────────────────┘                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+## 2FA Setup (Optional)
+
+Enable Telegram-based two-factor authentication to require manual approval for all signing operations.
+
+### Architecture with 2FA
+
+```
+┌──────────┐     ┌───────────────┐     ┌──────────────┐     ┌─────────────┐
+│  Agent   │────▶│ Keyring Proxy │────▶│ 2FA Telegram │────▶│  Telegram   │
+│          │HMAC │               │     │ (Internal)   │     │    API      │
+└──────────┘     └───────────────┘     └──────────────┘     └─────────────┘
+                                              ▲
+                                              │
+                                       ┌──────┴──────┐
+                                       │ 2FA Gateway │◀─── Telegram
+                                       │  (Public)   │     Webhooks
+                                       └─────────────┘
+```
+
+### Quick Start
+
+1. **Start the 2FA services:**
+
+   ```bash
+   # Terminal 1: 2FA Telegram server
+   cd packages/2fa-telegram
+   cp .env.example .env
+   # Edit .env with your Telegram bot token and chat ID
+   pnpm dev
+
+   # Terminal 2: 2FA Gateway
+   cd packages/2fa-gateway
+   cp .env.example .env
+   pnpm dev
+   ```
+
+2. **Expose the gateway publicly** (for local development):
+
+   ```bash
+   # Terminal 3
+   ngrok http 3201
+   # Or: cloudflared tunnel --url http://localhost:3201
+   ```
+
+3. **Set the Telegram webhook:**
+
+   ```bash
+   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<PUBLIC_URL>/webhook"
+   ```
+
+4. **Start keyring-proxy with 2FA enabled:**
+
+   ```bash
+   # Terminal 4
+   cd packages/keyring-proxy
+   cp .env.example .env
+   # Edit .env and set TFA_ENABLED=true
+   pnpm dev
+   ```
+
+### Telegram Bot Setup
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) — send `/newbot`
+2. Get your chat ID from [@userinfobot](https://t.me/userinfobot)
+3. Add both to your `packages/2fa-telegram/.env`
+
+### 2FA Flow
+
+When a signing request is received:
+
+1. Keyring proxy contacts the 2FA server
+2. 2FA server sends a Telegram message with Approve/Reject buttons
+3. User clicks a button within the timeout period
+4. If approved, signing proceeds; if rejected or timeout, request fails
+
+See the [2fa-telegram README](../2fa-telegram/README.md) for more details.
 
 ## License
 
