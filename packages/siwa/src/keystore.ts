@@ -161,11 +161,12 @@ export async function signMessage(
 }
 
 /**
- * Sign a raw hex message via the keyring proxy (no EIP-191 prefix).
+ * Sign a raw hex message via the keyring proxy.
  *
  * Used internally by the ERC-8128 signer — the signature base bytes are
  * passed as a hex string and signed with `{ raw: true }` so the proxy
- * treats them as raw bytes rather than applying personal_sign wrapping.
+ * interprets them as raw bytes (not UTF-8). Note: the proxy still applies
+ * EIP-191 personal_sign wrapping (viem `signMessage({ message: { raw } })`).
  */
 export async function signRawMessage(
   rawHex: string,

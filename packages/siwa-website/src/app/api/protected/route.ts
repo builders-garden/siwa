@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
-import { verifyAuthenticatedRequest } from "@buildersgarden/siwa";
+import { verifyAuthenticatedRequest, nextjsToFetchRequest } from "@buildersgarden/siwa/erc8128";
 import { corsJson, corsOptions } from "@/lib/cors";
 
 const RECEIPT_SECRET =
   process.env.RECEIPT_SECRET || process.env.SIWA_SECRET || "siwa-demo-secret-change-in-production";
 
 export async function GET(req: NextRequest) {
-  const result = await verifyAuthenticatedRequest(req, {
+  const result = await verifyAuthenticatedRequest(nextjsToFetchRequest(req), {
     receiptSecret: RECEIPT_SECRET,
   });
 

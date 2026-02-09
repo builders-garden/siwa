@@ -720,7 +720,7 @@ const response = buildSIWAResponse(result);
 - **`@buildersgarden/siwa/identity`** — IDENTITY.md read/write helpers (public data only)
 - **`@buildersgarden/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
 - **`@buildersgarden/siwa/receipt`** — Stateless HMAC receipt creation (`createReceipt`) and verification (`verifyReceipt`)
-- **`@buildersgarden/siwa/erc8128`** — ERC-8128 HTTP Message Signatures (`signAuthenticatedRequest`, `verifyAuthenticatedRequest`, `expressToFetchRequest`)
+- **`@buildersgarden/siwa/erc8128`** — ERC-8128 HTTP Message Signatures (`signAuthenticatedRequest`, `verifyAuthenticatedRequest`, `expressToFetchRequest`, `nextjsToFetchRequest`)
 - **`@buildersgarden/siwa/registry`** — Read agent profiles (`getAgent`) and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
 - **`@buildersgarden/siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
 
