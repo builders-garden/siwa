@@ -9,6 +9,7 @@ import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
 import { config, getKeystoreConfig } from './config.js';
 
 const command = process.argv[2];
+const flags = new Set(process.argv.slice(3));
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -21,7 +22,7 @@ function printUsage(): void {
   console.log('');
   console.log('Commands:');
   console.log('  create-wallet  Create wallet via keyring proxy, write address to IDENTITY.md');
-  console.log('  register       Mock-register the agent (write mock data to IDENTITY.md)');
+  console.log('  register       Register the agent (shows data for review, use --confirm to proceed)');
   console.log('  sign-in        Full SIWA flow against the local server');
   console.log('  call-api       Make an authenticated call using SIWA');
   console.log('  full-flow      Run all steps sequentially');
@@ -135,7 +136,7 @@ async function main(): Promise<void> {
         await createWalletFlow();
         break;
       case 'register':
-        await registerFlow();
+        await registerFlow(flags.has('--confirm'));
         break;
       case 'sign-in':
         await signInFlow();

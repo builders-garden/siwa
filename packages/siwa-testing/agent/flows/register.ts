@@ -50,7 +50,7 @@ async function uploadToIPFS(data: object, pinataJwt: string): Promise<string> {
   return `ipfs://${IpfsHash}`;
 }
 
-export async function registerFlow(): Promise<void> {
+export async function registerFlow(confirmed = false): Promise<void> {
   const kc = getKeystoreConfig();
 
   // Check if already registered
@@ -69,7 +69,7 @@ export async function registerFlow(): Promise<void> {
   }
 
   if (isLiveMode()) {
-    await registerLive();
+    await registerLive(confirmed);
   } else {
     await registerMock();
   }
@@ -89,7 +89,39 @@ async function registerMock(): Promise<void> {
   console.log(chalk.yellow(`   \u{2139}\u{FE0F}  Use --live with RPC_URL for real registration.`));
 }
 
-async function registerLive(): Promise<void> {
+function printRegistrationSummary(data: Record<string, any>, filePath: string): void {
+  const border = '\u{2500}'.repeat(60);
+  console.log('');
+  console.log(chalk.bold('  ERC-8004 Registration Data'));
+  console.log(chalk.dim(`  ${border}`));
+  console.log(chalk.dim(`  File: ${filePath}`));
+  console.log(chalk.dim(`  ${border}`));
+  console.log(`  ${chalk.bold('Name:')}            ${data.name || chalk.red('(missing)')}`);
+  console.log(`  ${chalk.bold('Description:')}     ${data.description || chalk.red('(missing)')}`);
+  console.log(`  ${chalk.bold('Image:')}           ${data.image || chalk.dim('(none)')}`);
+  console.log(`  ${chalk.bold('Active:')}          ${data.active ?? true}`);
+  console.log(`  ${chalk.bold('x402 Support:')}    ${data.x402Support ?? false}`);
+  console.log(`  ${chalk.bold('Supported Trust:')} ${(data.supportedTrust || []).join(', ') || chalk.dim('(none)')}`);
+
+  const services = data.services || [];
+  if (services.length > 0) {
+    console.log(`  ${chalk.bold('Services:')}`);
+    for (const svc of services) {
+      console.log(chalk.dim(`    - ${svc.name || '?'} (v${svc.version || '?'}): ${svc.endpoint || chalk.red('(missing)')}`));
+    }
+  } else {
+    console.log(`  ${chalk.bold('Services:')}        ${chalk.dim('(none)')}`);
+  }
+
+  const registrations = data.registrations || [];
+  if (registrations.length > 0) {
+    console.log(`  ${chalk.bold('Registrations:')}   ${registrations.join(', ')}`);
+  }
+  console.log(chalk.dim(`  ${border}`));
+  console.log('');
+}
+
+async function registerLive(confirmed: boolean): Promise<void> {
   const kc = getKeystoreConfig();
   const chainId = config.chainId;
   const rpcUrl = config.rpcUrl || RPC_ENDPOINTS[chainId];
@@ -158,6 +190,19 @@ async function registerLive(): Promise<void> {
       active: true,
     };
     console.log(chalk.yellow(`   No registration file found, using defaults`));
+  }
+
+  // Show registration data and require --confirm
+  printRegistrationSummary(registrationData, config.registrationFile);
+
+  if (!confirmed) {
+    console.log(chalk.yellow.bold('  Please review the registration data above.'));
+    console.log(chalk.yellow('  This will be recorded onchain and cannot be changed.'));
+    console.log('');
+    console.log(chalk.cyan(`  To update: edit ${config.registrationFile}`));
+    console.log(chalk.cyan('  To proceed: re-run with --confirm'));
+    console.log('');
+    process.exit(0);
   }
 
   // Upload metadata
