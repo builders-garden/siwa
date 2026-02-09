@@ -35,6 +35,11 @@ import {
   signAuthorization as viemSignAuthorization,
 } from "viem/accounts";
 import type { Hex, Address, TransactionSerializable } from "viem";
+import {
+  TFA_ENABLED,
+  validateTFAConfig,
+  requireTFAApproval,
+} from "./tfa-client.js";
 
 // @noble crypto libraries - audited, pure JS, type-safe
 import { scrypt } from "@noble/hashes/scrypt.js";
@@ -75,6 +80,9 @@ if (innerBackend === "env" && !AGENT_PRIVATE_KEY) {
   console.error("FATAL: AGENT_PRIVATE_KEY is required for env backend");
   process.exit(1);
 }
+
+// Validate 2FA config (if enabled)
+validateTFAConfig();
 
 // ---------------------------------------------------------------------------
 // Encrypted Keystore Implementation
@@ -521,12 +529,19 @@ app.post("/sign-message", async (req: Request, res: Response) => {
       return;
     }
 
+    // Get wallet address for 2FA
+    const address = await getAddressInternal();
+
+    // Request 2FA approval if enabled
+    await requireTFAApproval("sign-message", address, { message });
+
     const result = await signMessageInternal(message);
     audit(req, true);
     res.json(result);
   } catch (err: any) {
     audit(req, false, err.message);
-    res.status(500).json({ error: err.message });
+    const statusCode = err.statusCode || (err.message.includes("2FA") ? 503 : 500);
+    res.status(statusCode).json({ error: err.message });
   }
 });
 
@@ -539,12 +554,33 @@ app.post("/sign-transaction", async (req: Request, res: Response) => {
       return;
     }
 
+    // Get wallet address for 2FA
+    const address = await getAddressInternal();
+
+    // Request 2FA approval if enabled
+    await requireTFAApproval(
+      "sign-transaction",
+      address,
+      {
+        to: tx.to,
+        value: tx.value,
+        data: tx.data,
+        gasLimit: tx.gasLimit ?? tx.gas,
+        maxFeePerGas: tx.maxFeePerGas,
+        maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+        gasPrice: tx.gasPrice,
+        nonce: tx.nonce,
+      },
+      tx.chainId ? Number(tx.chainId) : undefined
+    );
+
     const result = await signTransactionInternal(tx);
     audit(req, true);
     res.json(result);
   } catch (err: any) {
     audit(req, false, err.message);
-    res.status(500).json({ error: err.message });
+    const statusCode = err.statusCode || (err.message.includes("2FA") ? 503 : 500);
+    res.status(statusCode).json({ error: err.message });
   }
 });
 
@@ -557,13 +593,29 @@ app.post("/sign-authorization", async (req: Request, res: Response) => {
       return;
     }
 
+    // Get wallet address for 2FA
+    const address = await getAddressInternal();
+
+    // Request 2FA approval if enabled
+    await requireTFAApproval(
+      "sign-authorization",
+      address,
+      {
+        address: auth.address,
+        chainId: auth.chainId,
+        nonce: auth.nonce,
+      },
+      auth.chainId ? Number(auth.chainId) : undefined
+    );
+
     const result = await signAuthorizationInternal(auth);
     audit(req, true);
     // viem returns BigInt values which need conversion for JSON
     res.json(serializeBigInt(result));
   } catch (err: any) {
     audit(req, false, err.message);
-    res.status(500).json({ error: err.message });
+    const statusCode = err.statusCode || (err.message.includes("2FA") ? 503 : 500);
+    res.status(statusCode).json({ error: err.message });
   }
 });
 
@@ -573,6 +625,7 @@ app.post("/sign-authorization", async (req: Request, res: Response) => {
 
 app.listen(PORT, () => {
   console.log(`Keyring proxy server listening on port ${PORT}`);
-  console.log(`Backend: encrypted-file (${KEYSTORE_PATH})`);
+  console.log(`Backend: ${innerBackend}${innerBackend === "encrypted-file" ? ` (${KEYSTORE_PATH})` : ""}`);
   console.log(`HMAC auth: enabled`);
+  console.log(`2FA: ${TFA_ENABLED ? "enabled" : "disabled"}`);
 });

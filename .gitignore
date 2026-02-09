@@ -32,3 +32,9 @@ Thumbs.db
 package-lock.json
 
 # Lockfiles are kept (pnpm-lock.yaml)
+
+# Agent keystore
+packages/keyring-proxy/agent-keystore.json
+
+# Audit logs
+packages/2fa-telegram/audit.jsonl

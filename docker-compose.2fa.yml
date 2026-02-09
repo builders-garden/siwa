@@ -1,0 +1,108 @@
+# docker-compose.2fa.yml
+#
+# Adds Telegram-based 2FA to the keyring proxy setup.
+# Run alongside docker-compose.proxy.yml for full 2FA protection.
+#
+# Usage:
+#   # 1. Set up your Telegram bot:
+#   #    - Create a bot via @BotFather and get the token
+#   #    - Get your chat ID by sending a message to @userinfobot
+#   #    - Set the webhook: https://api.telegram.org/bot<TOKEN>/setWebhook?url=<GATEWAY_PUBLIC_URL>/webhook
+#
+#   # 2. Copy .env.2fa.example to .env and fill in secrets
+#   cp .env.2fa.example .env
+#
+#   # 3. Build and start (combine with proxy compose)
+#   docker compose -f docker-compose.proxy.yml -f docker-compose.2fa.yml up -d
+#
+# Environment Variables Required:
+#   TELEGRAM_BOT_TOKEN     - Bot token from @BotFather
+#   TELEGRAM_CHAT_ID       - Your Telegram chat ID
+#   TFA_SERVER_SECRET      - Shared secret between keyring-proxy and 2fa-telegram
+#
+# The gateway (2fa-gateway) must be publicly accessible for Telegram webhooks.
+# Keyring-proxy and 2fa-telegram remain internal.
+
+services:
+  # ── 2FA Telegram Server ──────────────────────────────────────────────
+  # Handles approval requests and Telegram bot messaging.
+  # Internal only - not exposed to the internet.
+  2fa-telegram:
+    build:
+      context: .
+      dockerfile: packages/2fa-telegram/Dockerfile
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - TFA_INTERNAL_SECRET=${TFA_SERVER_SECRET}
+      - TFA_PORT=3200
+      - TFA_APPROVAL_TIMEOUT_MS=${TFA_APPROVAL_TIMEOUT_MS:-60000}
+      - TFA_AUDIT_LOG_PATH=/data/audit.jsonl
+    volumes:
+      - 2fa-audit-logs:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3200/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - agent-net
+
+  # ── 2FA Gateway ──────────────────────────────────────────────────────
+  # Public webhook endpoint for Telegram callbacks.
+  # Only exposes /webhook endpoint - all other routes return 404.
+  2fa-gateway:
+    build:
+      context: .
+      dockerfile: packages/2fa-gateway/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${TFA_GATEWAY_PORT:-3201}:3201"
+    environment:
+      - TFA_GATEWAY_PORT=3201
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TFA_INTERNAL_URL=http://2fa-telegram:3200
+    depends_on:
+      2fa-telegram:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3201/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - agent-net
+
+  # ── Override keyring-proxy to enable 2FA ─────────────────────────────
+  # This extends the keyring-proxy from docker-compose.proxy.yml
+  keyring-proxy:
+    environment:
+      - TFA_ENABLED=true
+      - TFA_SERVER_URL=http://2fa-telegram:3200
+      - TFA_SERVER_SECRET=${TFA_SERVER_SECRET}
+      - TFA_OPERATIONS=${TFA_OPERATIONS:-sign-message,sign-transaction,sign-authorization}
+    depends_on:
+      2fa-telegram:
+        condition: service_healthy
+
+volumes:
+  2fa-audit-logs:
+
+networks:
+  agent-net:
+    driver: bridge
