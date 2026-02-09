@@ -196,7 +196,7 @@ async function registerLive(): Promise<void> {
     data,
     account: address as Address,
   });
-  const gasLimit = gasEstimate * 120n / 100n; // 20% buffer
+  const gas = gasEstimate * 120n / 100n; // 20% buffer
 
   const txReq = {
     to: registryAddress,
@@ -206,11 +206,11 @@ async function registerLive(): Promise<void> {
     type: 2,
     maxFeePerGas: feeData.maxFeePerGas,
     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-    gasLimit,
+    gas,
   };
 
   console.log(chalk.dim(`   Nonce:     ${nonce}`));
-  console.log(chalk.dim(`   GasLimit:  ${txReq.gasLimit}`));
+  console.log(chalk.dim(`   Gas:       ${txReq.gas}`));
   console.log(chalk.dim(`   MaxFee:    ${feeData.maxFeePerGas} wei`));
 
   const { signedTx } = await signTransaction(txReq, kc);
