@@ -464,6 +464,7 @@ app.use(hmacAuth);
 app.get("/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
+    version: process.env.IMAGE_VERSION || "dev",
     backend: innerBackend,
   });
 });

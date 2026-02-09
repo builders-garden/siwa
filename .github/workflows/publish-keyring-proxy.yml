@@ -29,5 +29,7 @@ jobs:
           tags: |
             buildersgarden/keyring-proxy:latest
             buildersgarden/keyring-proxy:${{ github.sha }}
+          build-args: |
+            IMAGE_VERSION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

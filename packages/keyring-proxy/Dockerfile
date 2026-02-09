@@ -13,6 +13,8 @@ RUN pnpm install --frozen-lockfile || pnpm install
 
 COPY packages/keyring-proxy/src/ src/
 
+ARG IMAGE_VERSION=dev
+ENV IMAGE_VERSION=${IMAGE_VERSION}
 ENV KEYRING_PROXY_PORT=3100
 ENV KEYSTORE_BACKEND=encrypted-file
 ENV KEYSTORE_PATH=/data/agent-keystore.json
