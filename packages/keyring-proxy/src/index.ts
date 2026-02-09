@@ -514,10 +514,10 @@ app.post("/get-address", async (req: Request, res: Response) => {
 
 app.post("/sign-message", async (req: Request, res: Response) => {
   try {
-    const { message } = req.body;
+    const { message } = req.body ?? {};
     if (typeof message !== "string") {
       audit(req, false, "Missing message field");
-      res.status(400).json({ error: 'Missing "message" field' });
+      res.status(400).json({ error: 'Missing "message" field (string)', received: req.body });
       return;
     }
 
