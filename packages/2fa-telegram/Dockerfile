@@ -8,10 +8,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-COPY packages/2fa-telegram/package.json ./
+COPY package.json ./
 RUN pnpm install --frozen-lockfile || pnpm install
 
-COPY packages/2fa-telegram/src/ src/
+COPY src/ src/
 
 ENV TFA_PORT=3200
 ENV TFA_APPROVAL_TIMEOUT_MS=60000

@@ -8,10 +8,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-COPY packages/2fa-gateway/package.json ./
+COPY package.json ./
 RUN pnpm install --frozen-lockfile || pnpm install
 
-COPY packages/2fa-gateway/src/ src/
+COPY src/ src/
 
 ENV TFA_GATEWAY_PORT=3201
 
