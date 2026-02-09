@@ -254,6 +254,10 @@ import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
 // Identity — minimal agent state (address, agentId, registry, chainId)
 import { readIdentity, writeIdentityField } from '@buildersgarden/siwa/identity';
 
+// Server-side wrappers (recommended for new projects)
+import { withSiwa, siwaOptions, corsJson } from '@buildersgarden/siwa/next';
+import { siwaMiddleware, siwaJsonParser, siwaCors } from '@buildersgarden/siwa/express';
+
 // Helpers
 import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
           </SubSection>
@@ -578,6 +582,82 @@ const rep = await getReputation(42, {
               ]}
             />
           </SubSection>
+
+          <SubSection id="api-next" title="@buildersgarden/siwa/next">
+            <P>
+              Server-side wrappers for Next.js App Router route handlers. Uses only web standard APIs (Request, Response) — no <InlineCode>next</InlineCode> dependency required.
+            </P>
+            <Table
+              headers={["Export", "Description"]}
+              rows={[
+                ["withSiwa(handler, options?)", "Wrap a route handler with ERC-8128 auth. Handles body cloning, URL normalization, CORS, and 401 on failure."],
+                ["siwaOptions()", "Return a 204 OPTIONS response with CORS headers. Use as: export { siwaOptions as OPTIONS }"],
+                ["corsJson(data, init?)", "Return a JSON Response with CORS headers. Useful for unprotected routes that still need CORS."],
+                ["corsHeaders()", "Raw CORS headers record for custom responses."],
+              ]}
+            />
+            <P>
+              The <InlineCode>withSiwa</InlineCode> handler receives <InlineCode>(agent: SiwaAgent, req: Request)</InlineCode> and can return a plain object (auto-wrapped in JSON) or a Response.
+            </P>
+            <CodeBlock language="typescript">{`import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
+
+// Protected POST endpoint — 3 lines instead of ~20
+export const POST = withSiwa(async (agent, req) => {
+  const body = await req.json();
+  return {
+    received: body,
+    agent: { address: agent.address, agentId: agent.agentId },
+  };
+});
+
+// Protected GET endpoint
+export const GET = withSiwa(async (agent) => {
+  return { message: \`Hello Agent #\${agent.agentId}!\` };
+});
+
+// CORS preflight
+export { siwaOptions as OPTIONS };`}</CodeBlock>
+            <P>
+              Options: <InlineCode>receiptSecret</InlineCode> (defaults to <InlineCode>RECEIPT_SECRET</InlineCode> or <InlineCode>SIWA_SECRET</InlineCode> env), <InlineCode>rpcUrl</InlineCode>, <InlineCode>verifyOnchain</InlineCode>.
+            </P>
+          </SubSection>
+
+          <SubSection id="api-express" title="@buildersgarden/siwa/express">
+            <P>
+              Server-side wrappers for Express applications. Requires <InlineCode>express</InlineCode> as a peer dependency.
+            </P>
+            <Table
+              headers={["Export", "Description"]}
+              rows={[
+                ["siwaMiddleware(options?)", "Auth middleware: verifies ERC-8128 signature + receipt, sets req.agent, returns 401 on failure."],
+                ["siwaJsonParser()", "express.json() with rawBody capture for Content-Digest verification."],
+                ["siwaCors(options?)", "CORS middleware with SIWA-specific headers. Handles OPTIONS preflight."],
+              ]}
+            />
+            <CodeBlock language="typescript">{`import express from 'express';
+import { siwaMiddleware, siwaJsonParser, siwaCors } from "@buildersgarden/siwa/express";
+
+const app = express();
+app.use(siwaJsonParser());
+app.use(siwaCors());
+
+app.get('/api/protected', siwaMiddleware(), (req, res) => {
+  res.json({ agent: req.agent });
+});
+
+app.post('/api/action', siwaMiddleware(), (req, res) => {
+  res.json({ received: req.body, agent: req.agent });
+});`}</CodeBlock>
+            <P>
+              The middleware adds <InlineCode>agent</InlineCode> and <InlineCode>rawBody</InlineCode> to the Express Request type via module augmentation.
+            </P>
+          </SubSection>
+
+          <div className="mt-8 rounded-lg border border-border bg-surface px-5 py-4">
+            <p className="text-sm text-muted leading-relaxed">
+              <strong className="text-foreground">Low-level primitives</strong> — The wrappers above are the recommended approach for new projects. If you need full control, the underlying functions (<InlineCode>verifyAuthenticatedRequest</InlineCode>, <InlineCode>expressToFetchRequest</InlineCode>, <InlineCode>nextjsToFetchRequest</InlineCode>) are still available from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode>.
+            </p>
+          </div>
         </Section>
 
         {/* Security Model */}

@@ -3,7 +3,7 @@ import { createPublicClient, http } from "viem";
 import { verifySIWA, buildSIWAResponse, SIWAErrorCode } from "@buildersgarden/siwa";
 import { createReceiptForAgent, recordSession } from "@/lib/session-store";
 
-import { corsJson, corsOptions } from "@/lib/cors";
+import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.builders.garden";
 const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";
@@ -63,6 +63,4 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function OPTIONS() {
-  return corsOptions();
-}
+export { siwaOptions as OPTIONS };
