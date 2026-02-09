@@ -6,7 +6,9 @@ const RECEIPT_SECRET =
   process.env.RECEIPT_SECRET || process.env.SIWA_SECRET || "siwa-demo-secret-change-in-production";
 
 export async function POST(req: NextRequest) {
-  const result = await verifyAuthenticatedRequest(nextjsToFetchRequest(req), {
+  // Clone before verification — verifyRequest consumes the body stream
+  // for content-digest checks, so we need the clone for req.json() later.
+  const result = await verifyAuthenticatedRequest(nextjsToFetchRequest(req.clone()), {
     receiptSecret: RECEIPT_SECRET,
   });
 
