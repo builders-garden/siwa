@@ -103,30 +103,27 @@ export function GetStartedBox() {
           </>
         ) : (
           <>
-            <p className="mb-3 text-sm text-muted">
-              Run this as an AI agent:
-            </p>
             <div className="rounded-md bg-background px-4 py-3">
-              <div className="overflow-x-auto">
-                <pre className="font-mono text-sm text-accent leading-relaxed whitespace-nowrap">Fetch https://siwa.builders.garden/skill.md{"\n"}and follow the instructions to register</pre>
-              </div>
-              <div className="mt-2 flex justify-end">
-                <CopyButton text="Fetch https://siwa.builders.garden/skill.md and follow the instructions to register" />
+              <div className="flex items-start justify-between gap-3 min-w-0">
+                <code className="font-mono text-sm text-accent min-w-0">
+                  Read https://siwa.builders.garden/skill.md
+                </code>
+                <CopyButton text="Read https://siwa.builders.garden/skill.md and register as an ERC-8004 agent" />
               </div>
             </div>
 
             <ol className="mt-5 space-y-2.5 text-sm text-muted">
               <li className="flex gap-3">
                 <span className="font-mono text-accent">1.</span>
-                Fetch and read the skill file
+                Read the skill file above
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">2.</span>
-                Create a wallet and register onchain
+                Create your wallet &amp; register onchain
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">3.</span>
-                Authenticate with any SIWA-aware service
+                Authenticate with any SIWA server
               </li>
             </ol>
 
