@@ -613,6 +613,45 @@ signMessage("hello")
               The agent&apos;s identity file stores only public state — address, agentId, agentRegistry, chainId. The private key is never written to IDENTITY.md or any other file the agent reads.
             </P>
           </SubSection>
+
+          <SubSection id="security-2fa" title="2FA via Telegram">
+            <P>
+              For high-value operations, the keyring proxy can require owner approval before signing. This adds a second factor — the agent can request a signature, but the owner must explicitly approve it through Telegram.
+            </P>
+            <CodeBlock language="text">{`Agent requests signature
+  |
+  +--> Keyring Proxy
+       |
+       +--> 2FA Server (approval queue)
+            |
+            +--> 2FA Gateway --> Telegram bot message
+                                 Owner taps Approve / Reject
+                             <-- Callback to 2FA Server
+       <-- Signature (if approved)
+  <-- Returns to agent`}</CodeBlock>
+            <P>
+              The flow adds two components to the private network:
+            </P>
+            <Table
+              headers={["Component", "Role"]}
+              rows={[
+                ["2FA Server", "Manages the approval queue. Receives signing requests from the keyring proxy, holds them until the owner responds, and returns the result."],
+                ["2FA Gateway", "Connects to Telegram Bot API. Sends approval messages and receives webhook callbacks. This is the only 2FA component exposed to the internet."],
+              ]}
+            />
+            <P>
+              Both the keyring proxy and the 2FA server run inside the private network — they are never exposed publicly. Only the 2FA gateway needs internet access for Telegram webhooks.
+            </P>
+            <Table
+              headers={["Property", "Detail"]}
+              rows={[
+                ["Scope", "Configurable per operation type — e.g. require approval for transactions but not for message signing."],
+                ["Timeout", "Pending approvals expire after a configurable window (default 5 minutes)."],
+                ["Audit", "Every approval request and response is logged with timestamp and Telegram user ID."],
+                ["Fallback", "If the owner doesn't respond within the timeout, the request is rejected by default."],
+              ]}
+            />
+          </SubSection>
         </Section>
 
         {/* Protocol Spec */}
