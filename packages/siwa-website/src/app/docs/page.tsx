@@ -133,26 +133,65 @@ export default function DocsPage() {
         {/* Getting Started */}
         <Section id="getting-started" title="Getting Started">
           <P>
-            Think of{" "}
-            <a
-              href="https://eips.ethereum.org/EIPS/eip-4361"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-            >
-              Sign In With Ethereum (SIWE)
-            </a>
-            , but for AI agents instead of humans. SIWE lets a person prove they own a wallet; SIWA lets an agent prove it owns an{" "}
-            <a
-              href="https://eips.ethereum.org/EIPS/eip-8004"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-            >
-              ERC-8004
-            </a>
-            {" "}identity NFT. Same challenge-response pattern, extended with <InlineCode>agentId</InlineCode> and an onchain ownership check.
+            SIWA gives your AI agent an onchain identity — a wallet, a verifiable profile, and secure authentication. The agent can prove who it is to any service, and every request is cryptographically signed. Private keys are kept safe in a separate process, so even if the agent is compromised, the keys stay protected.
           </P>
+
+          <SubSection id="deploy" title="Deploy">
+            <P>
+              Spin up a secure onchain agent in one click. This deploys everything you need — a signing proxy that keeps keys safe and an agent gateway, pre-wired and ready to go.
+            </P>
+            <div className="mb-4">
+              <a
+                href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://railway.com/button.svg"
+                  alt="Deploy on Railway"
+                  className="h-10"
+                  width={180}
+                  height={40}
+                />
+              </a>
+            </div>
+            <P>
+              Once deployed, your agent has a wallet, can register onchain, and authenticate with any SIWA-compatible service. For configuration details, see the{" "}
+              <a
+                href="/docs/deploy"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                deployment guide
+              </a>
+              .
+            </P>
+          </SubSection>
+
+          <div className="mt-6 mb-8 grid gap-3 sm:grid-cols-3">
+            <a
+              href="#how-it-works"
+              className="rounded-lg border border-border bg-surface px-4 py-3 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+            >
+              <h4 className="font-mono text-xs font-semibold text-foreground mb-1">How It Works</h4>
+              <p className="text-xs text-dim">The authentication flow, step by step.</p>
+            </a>
+            <a
+              href="#api"
+              className="rounded-lg border border-border bg-surface px-4 py-3 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+            >
+              <h4 className="font-mono text-xs font-semibold text-foreground mb-1">API Reference</h4>
+              <p className="text-xs text-dim">SDK functions, modules, and types.</p>
+            </a>
+            <a
+              href="#security"
+              className="rounded-lg border border-border bg-surface px-4 py-3 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+            >
+              <h4 className="font-mono text-xs font-semibold text-foreground mb-1">Security Model</h4>
+              <p className="text-xs text-dim">How keys stay safe, even if the agent is compromised.</p>
+            </a>
+          </div>
 
           <SubSection id="how-it-works" title="How It Works">
             <ol className="space-y-3 mb-6 text-sm leading-relaxed text-muted list-none">
@@ -228,247 +267,121 @@ export default function DocsPage() {
             </div>
           </SubSection>
 
-          <SubSection id="quick-start" title="Try It Locally">
+          <SubSection id="network-topology" title="Network Topology">
             <P>
-              Run the full flow (wallet creation, registration, SIWA sign-in) without deploying anything:
+              A deployed SIWA agent runs as a set of containers on a private network. Each component has a single job:
             </P>
-            <CodeBlock language="bash">{`git clone https://github.com/builders-garden/siwa
-cd siwa && pnpm install
-cd packages/siwa-testing && pnpm run dev`}</CodeBlock>
-          </SubSection>
+            <ul className="space-y-2 mb-6 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Keyring Proxy</strong> — holds the agent&apos;s encrypted private key and performs all signing. Never exposed publicly.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">OpenClaw</strong> — the AI agent gateway. Routes messages from users, delegates signing to the keyring proxy, and handles onchain verification and registration.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">2FA Gateway + Server</strong> (optional) — adds Telegram-based owner approval before high-value signing operations. The gateway receives Telegram webhooks; the server manages approval flows. The agent owner gets a Telegram message and taps to approve or reject.</span>
+              </li>
+            </ul>
 
-          <SubSection id="installation" title="Install the SDK">
-            <CodeBlock language="bash">{`npm install @buildersgarden/siwa`}</CodeBlock>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/siwa-topology.png"
+              alt="SIWA network topology: Users connect to OpenClaw gateway, which delegates signing to the Keyring Proxy over a private network. Optional 2FA flow routes through a 2FA Server and Gateway to Telegram for owner approval."
+              className="w-full rounded-lg border border-border"
+              width={800}
+              height={480}
+            />
+
             <P>
-              The package exposes several modules:
-            </P>
-            <CodeBlock language="typescript">{`// Core — build & verify SIWA messages
-import { signSIWAMessage, verifySIWA } from '@buildersgarden/siwa';
-
-// Keystore — wallet creation & signing (agent never sees the private key)
-import { createWallet, signMessage, getAddress } from '@buildersgarden/siwa/keystore';
-
-// Registry — read agent profiles & reputation onchain
-import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
-
-// Identity — minimal agent state (address, agentId, registry, chainId)
-import { readIdentity, writeIdentityField } from '@buildersgarden/siwa/identity';
-
-// Server-side wrappers (recommended for new projects)
-import { withSiwa, siwaOptions, corsJson } from '@buildersgarden/siwa/next';
-import { siwaMiddleware, siwaJsonParser, siwaCors } from '@buildersgarden/siwa/express';
-
-// Helpers
-import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
-          </SubSection>
-
-          <SubSection id="sign-up" title="Step 3: Sign Up (Registration) — Optional">
-            <P>
-              If your agent is already registered onchain (has an <InlineCode>agentId</InlineCode>), skip to Step 4. Otherwise, register by creating a wallet, building a registration file, and calling the Identity Registry contract.
-            </P>
-            <CodeBlock language="typescript">{`import { createWallet, signTransaction, getAddress } from '@buildersgarden/siwa/keystore';
-import { writeIdentityField } from '@buildersgarden/siwa/identity';
-
-// 1. Create wallet (key goes to proxy, never returned)
-const info = await createWallet();
-writeIdentityField('Address', info.address);
-
-// 2. Build registration JSON
-const registration = {
-  type: "AI Agent",
-  name: "My Agent",
-  description: "An ERC-8004 registered agent",
-  services: [{ type: "MCP", url: "https://api.example.com/mcp" }],
-  active: true
-};
-
-// 3. Upload to IPFS or use data URI
-const encoded = Buffer.from(JSON.stringify(registration)).toString('base64');
-const agentURI = \`data:application/json;base64,\${encoded}\`;
-
-// 4. Register onchain (sign via proxy)
-import { encodeFunctionData } from 'viem';
-
-const data = encodeFunctionData({
-  abi: [{ name: 'register', type: 'function', inputs: [{ name: 'agentURI', type: 'string' }], outputs: [{ type: 'uint256' }] }],
-  functionName: 'register',
-  args: [agentURI]
-});
-const { signedTx } = await signTransaction({ to: REGISTRY, data, ... });
-const txHash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx });`}</CodeBlock>
-          </SubSection>
-
-          <SubSection id="sign-in" title="Step 4: Sign In (SIWA Authentication)">
-            <P>
-              Authenticate with any SIWA-aware service using the challenge-response flow.
-            </P>
-            <CodeBlock language="typescript">{`import { signSIWAMessage } from '@buildersgarden/siwa';
-
-// 1. Request a nonce from the server
-const { nonce, issuedAt, expirationTime } = await fetch(
-  'https://example.com/api/siwa/nonce',
-  {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ address, agentId, agentRegistry }),
-  }
-).then(r => r.json());
-
-// 2. Sign the SIWA message (address auto-resolved from keystore)
-const { message, signature, address } = await signSIWAMessage({
-  domain: 'example.com',
-  uri: 'https://example.com/api/siwa',
-  agentId,
-  agentRegistry,
-  chainId,
-  nonce,
-  issuedAt,
-  expirationTime,
-}, keystoreConfig);
-
-// 3. Send to server → get a verification receipt back
-const { receipt } = await fetch('https://example.com/api/siwa/verify', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ message, signature }),
-}).then(r => r.json());
-
-// 4. Use the receipt with ERC-8128 signed requests
-import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
-
-const req = new Request('https://example.com/api/protected', { method: 'GET' });
-const signedReq = await signAuthenticatedRequest(req, receipt, keystoreConfig, chainId);
-const res = await fetch(signedReq);`}</CodeBlock>
-            <P>
-              That&apos;s it. The agent now has a receipt it can use with ERC-8128 signed requests for authenticated API calls.
-              For a live server you can test against right now, see the{" "}
-              <a
-                href="/docs/endpoints"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                API Endpoints
-              </a>
-              {" "}page.
+              The keyring proxy, OpenClaw, and 2FA server communicate over a private Docker network — none of them need public internet access. Only the 2FA gateway (for Telegram webhooks) and OpenClaw (for user-facing chat) are exposed externally.
             </P>
           </SubSection>
 
-          <SubSection id="verify" title="Verify (Server-Side)">
-            <P>
-              On your server, validate the signature and issue a session:
-            </P>
-            <CodeBlock language="typescript">{`import { verifySIWA } from '@buildersgarden/siwa';
-import { createReceipt } from '@buildersgarden/siwa/receipt';
-import { createPublicClient, http } from 'viem';
-import { base } from 'viem/chains';
-
-const client = createPublicClient({ chain: base, transport: http() });
-const { message, signature } = req.body;
-
-// Verify signature + onchain ownership in one call
-const result = await verifySIWA(
-  message,
-  signature,
-  'example.com',
-  (nonce) => nonceStore.consume(nonce),
-  client,
-);
-// → { valid, address, agentId, agentRegistry, chainId, verified }
-
-if (!result.valid) {
-  throw new Error(result.error);
-}
-
-// Issue a verification receipt (HMAC-signed, stateless)
-const { receipt, expiresAt } = createReceipt(
-  { address: result.address, agentId: result.agentId, agentRegistry: result.agentRegistry, chainId: result.chainId, verified: 'onchain' },
-  { secret: RECEIPT_SECRET },
-);`}</CodeBlock>
-            <P>
-              For advanced verification options (reputation checks, service requirements, custom validators), see{" "}
-              <a
-                href="#api-siwa"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                <InlineCode>verifySIWA</InlineCode> in the API Reference
-              </a>
-              {" "}below.
-            </P>
-          </SubSection>
-
-          <div className="mt-8 rounded-lg border border-border bg-surface px-5 py-4">
-            <p className="text-sm text-muted leading-relaxed">
-              <strong className="text-foreground">Next steps:</strong>{" "}
-              The sections below go deeper into each part of SIWA: the full API surface, the security model (including the{" "}
-              <a
-                href="#security-proxy"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                keyring proxy
-              </a>
-              {" "}that keeps private keys out of the agent process), the{" "}
-              <a
-                href="#protocol"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                protocol specification
-              </a>
-              , and{" "}
-              <a
-                href="#contracts"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                contract addresses
-              </a>
-              .
-              To deploy your own keyring proxy and SIWA server, see the{" "}
-              <a
-                href="/docs/deploy"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                deployment guide
-              </a>
-              .
-            </p>
-          </div>
         </Section>
 
         {/* API Reference */}
         <Section id="api" title="API Reference">
-          <SubSection id="api-keystore" title="@buildersgarden/siwa/keystore">
+          <P>
+            Install the SDK: <InlineCode>npm install @buildersgarden/siwa</InlineCode>
+          </P>
+
+          {/* ── Signing ────────────────────────────────────────────── */}
+          <SubSection id="api-signing" title="Signing">
             <P>
-              Secure key storage abstraction. None of these functions return the private key.
+              All signing is delegated to the keyring proxy — the agent process never touches the private key.
             </P>
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
-                ["createWallet()", "{ address, backend }", "Create a new wallet. Key stored in backend, never returned."],
-                ["signMessage(msg)", "{ signature, address }", "Sign a message (EIP-191). Key loaded, used, discarded."],
-                ["signRawMessage(rawHex)", "{ signature, address }", "Sign raw bytes without EIP-191 prefix. Used for ERC-8128 HTTP signatures."],
-                ["signTransaction(tx)", "{ signedTx, address }", "Sign a transaction. Same pattern."],
-                ["signAuthorization(auth)", "SignedAuthorization", "EIP-7702 delegation signing."],
+                ["createWallet()", "{ address, backend }", "Create a new wallet. Key stored in proxy, never returned."],
                 ["getAddress()", "string", "Get the wallet's public address."],
-                ["hasWallet()", "boolean", "Check if a wallet exists in the backend."],
+                ["hasWallet()", "boolean", "Check if a wallet exists."],
+                ["signMessage(msg)", "{ signature, address }", "Sign a message (EIP-191)."],
+                ["signRawMessage(rawHex)", "{ signature, address }", "Sign raw bytes without EIP-191 prefix (used by ERC-8128)."],
+                ["signTransaction(tx)", "{ signedTx, address }", "Sign a transaction."],
+                ["signAuthorization(auth)", "SignedAuthorization", "EIP-7702 delegation signing."],
               ]}
             />
             <P>
-              All signing is delegated to the keyring proxy over HMAC-authenticated HTTP. The agent process never touches the private key.
+              Import from <InlineCode>@buildersgarden/siwa/keystore</InlineCode>. All functions accept an optional <InlineCode>KeystoreConfig</InlineCode> ({"{"}proxyUrl, proxySecret{"}"}).
             </P>
-          </SubSection>
 
-          <SubSection id="api-siwa" title="@buildersgarden/siwa">
-            <P>
-              SIWA protocol operations — message building, signing, and verification.
-            </P>
+            <div id="api-signing-siwa" className="scroll-mt-20 mt-6 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">SIWA Message Signing</h4>
+            </div>
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
                 ["buildSIWAMessage(fields)", "string", "Build a formatted SIWA message string."],
-                ["signSIWAMessage(fields, keystoreConfig?)", "{ message, signature, address }", "Build and sign a SIWA message. Address auto-resolved from keystore."],
-                ["verifySIWA(msg, sig, domain, nonceValid, client, criteria?)", "SIWAVerificationResult", "Verify a SIWA signature. client is a viem PublicClient for onchain ownership check."],
+                ["signSIWAMessage(fields, keystoreConfig?)", "{ message, signature, address }", "Build, sign, and return the SIWA message. Address auto-resolved from keystore."],
               ]}
             />
             <P>
-              <InlineCode>verifySIWA</InlineCode> accepts a viem <InlineCode>PublicClient</InlineCode> as the 5th argument for onchain ownership verification, and an optional <InlineCode>SIWAVerifyCriteria</InlineCode> object as the 6th argument to validate agent profile and reputation. When criteria are provided, the result includes the full <InlineCode>agent</InlineCode> profile.
+              Import from <InlineCode>@buildersgarden/siwa</InlineCode>.
+            </P>
+
+            <div id="api-signing-erc8128" className="scroll-mt-20 mt-6 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">ERC-8128 Request Signing</h4>
+            </div>
+            <P>
+              After SIWA sign-in, every subsequent API request is signed with ERC-8128 HTTP Message Signatures and carries a verification receipt.
+            </P>
+            <Table
+              headers={["Function", "Returns", "Description"]}
+              rows={[
+                ["signAuthenticatedRequest(request, receipt, config, chainId)", "Request", "Attach receipt + ERC-8128 signature to an outgoing request."],
+                ["createProxySigner(config, chainId)", "EthHttpSigner", "Create an RFC 9421 signer backed by the keyring proxy."],
+                ["attachReceipt(request, receipt)", "Request", "Set the X-SIWA-Receipt header on a request."],
+              ]}
+            />
+            <P>
+              Import from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode>.
+            </P>
+          </SubSection>
+
+          {/* ── Verification ───────────────────────────────────────── */}
+          <SubSection id="api-verification" title="Verification">
+            <P>
+              Server-side functions for verifying agent identity and authenticating requests.
+            </P>
+
+            <div id="api-verify-siwa" className="scroll-mt-20 mt-6 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">SIWA Verification</h4>
+            </div>
+            <P>
+              Verify a SIWA signature, check onchain ownership, and optionally validate agent profile and reputation — all in one call.
+            </P>
+            <Table
+              headers={["Function", "Returns", "Description"]}
+              rows={[
+                ["verifySIWA(msg, sig, domain, nonceValid, client, criteria?)", "SIWAVerificationResult", "Verify signature + onchain ownership. client is a viem PublicClient."],
+              ]}
+            />
+            <P>
+              Import from <InlineCode>@buildersgarden/siwa</InlineCode>. The optional <InlineCode>criteria</InlineCode> argument validates the agent&apos;s profile after the ownership check:
             </P>
             <Table
               headers={["Criteria Field", "Type", "Description"]}
@@ -493,186 +406,91 @@ const result = await verifySIWA(
   {
     mustBeActive: true,
     requiredServices: ['MCP'],
-    requiredTrust: ['reputation'],
     minScore: 0.5,
-    minFeedbackCount: 10,
     reputationRegistryAddress: '0x8004BAa1...9b63',
   }
-);
+);`}</CodeBlock>
 
-if (result.valid) {
-  // result.agent contains the full AgentProfile
-  console.log(result.agent.metadata.services);
-}`}</CodeBlock>
-          </SubSection>
-
-          <SubSection id="api-registry" title="@buildersgarden/siwa/registry">
+            <div id="api-verify-erc8128" className="scroll-mt-20 mt-6 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">ERC-8128 Request Verification</h4>
+            </div>
             <P>
-              Read agent profiles and reputation from on-chain registries.
+              Verify the ERC-8128 signature and receipt on incoming requests.
             </P>
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
-                ["getAgent(agentId, options)", "AgentProfile", "Read agent profile from the Identity Registry (owner, tokenURI, agentWallet, metadata)."],
-                ["getReputation(agentId, options)", "ReputationSummary", "Read agent reputation summary from the Reputation Registry."],
-              ]}
-            />
-            <P>
-              <InlineCode>getAgent</InlineCode> fetches and parses the agent&apos;s metadata JSON from its <InlineCode>tokenURI</InlineCode>. Supported URI schemes: <InlineCode>ipfs://</InlineCode>, <InlineCode>data:application/json;base64,</InlineCode>, and <InlineCode>https://</InlineCode>.
-            </P>
-            <CodeBlock language="typescript">{`import { getAgent, getReputation } from '@buildersgarden/siwa/registry';
-
-const agent = await getAgent(42, {
-  registryAddress: '0x8004A169...a432',
-  client,
-});
-// agent.owner        — NFT owner address
-// agent.agentWallet  — linked wallet (null if unset)
-// agent.metadata     — parsed JSON (name, services, active, ...)
-
-const rep = await getReputation(42, {
-  reputationRegistryAddress: '0x8004BAa1...9b63',
-  client,
-  tag1: 'starred',     // filter by reputation tag
-});
-// rep.score  — normalized score
-// rep.count  — total feedback count`}</CodeBlock>
-            <P>
-              The module exports typed string literals for values defined in the{" "}
-              <a
-                href="https://eips.ethereum.org/EIPS/eip-8004"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:text-blue-400 transition-colors duration-200 underline underline-offset-4 cursor-pointer"
-              >
-                ERC-8004
-              </a>
-              {" "}specification. These provide autocompletion while still accepting custom strings.
-            </P>
-            <Table
-              headers={["Type", "Values"]}
-              rows={[
-                ["ServiceType", "'web' | 'A2A' | 'MCP' | 'OASF' | 'ENS' | 'DID' | 'email'"],
-                ["TrustModel", "'reputation' | 'crypto-economic' | 'tee-attestation'"],
-                ["ReputationTag", "'starred' | 'reachable' | 'ownerVerified' | 'uptime' | 'successRate' | 'responseTime' | 'blocktimeFreshness' | 'revenues' | 'tradingYield'"],
-              ]}
-            />
-          </SubSection>
-
-          <SubSection id="api-identity" title="@buildersgarden/siwa/identity">
-            <P>
-              Helpers for reading and writing the agent&apos;s public identity state in IDENTITY.md (4 fields: Address, Agent ID, Agent Registry, Chain ID).
-            </P>
-            <Table
-              headers={["Function", "Description"]}
-              rows={[
-                ["ensureIdentityExists(path, template)", "Initialize IDENTITY.md from template if missing."],
-                ["readIdentity(path)", "Parse IDENTITY.md into a typed AgentIdentity object."],
-                ["writeIdentityField(key, value, path)", "Write a single field to IDENTITY.md."],
-                ["hasWalletRecord(path)", "Check if an address is recorded in IDENTITY.md."],
-                ["isRegistered({ identityPath, client? })", "Check registration (local cache or onchain ownerOf)."],
-              ]}
-            />
-          </SubSection>
-
-          <SubSection id="api-proxy-auth" title="@buildersgarden/siwa/proxy-auth">
-            <P>
-              HMAC-SHA256 authentication utilities for the keyring proxy transport.
-            </P>
-            <Table
-              headers={["Function", "Description"]}
-              rows={[
-                ["computeHMAC(secret, method, path, body, timestamp)", "Compute HMAC-SHA256 signature for a proxy request."],
-              ]}
-            />
-          </SubSection>
-
-          <SubSection id="api-erc8128" title="@buildersgarden/siwa/erc8128">
-            <P>
-              ERC-8128 HTTP Message Signatures for per-request authentication. Agent-side signing and server-side verification.
-            </P>
-            <Table
-              headers={["Function", "Returns", "Description"]}
-              rows={[
-                ["signAuthenticatedRequest(request, receipt, config, chainId)", "Request", "Attach receipt + ERC-8128 signature to outgoing request."],
                 ["verifyAuthenticatedRequest(request, options)", "AuthResult", "Verify ERC-8128 signature + receipt + optional onchain check."],
-                ["createProxySigner(config, chainId)", "EthHttpSigner", "Create an RFC 9421 signer backed by the keyring proxy."],
-                ["attachReceipt(request, receipt)", "Request", "Set X-SIWA-Receipt header on a request."],
                 ["expressToFetchRequest(req)", "Request", "Convert an Express request to a Fetch API Request."],
                 ["nextjsToFetchRequest(req)", "Request", "Normalize a Next.js request for proxy situations."],
               ]}
             />
             <P>
-              <InlineCode>VerifyOptions</InlineCode>: <InlineCode>receiptSecret</InlineCode> (or <InlineCode>RECEIPT_SECRET</InlineCode> / <InlineCode>SIWA_SECRET</InlineCode> env), <InlineCode>rpcUrl</InlineCode>, <InlineCode>verifyOnchain</InlineCode>, <InlineCode>publicClient</InlineCode>.
+              Import from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode>. <InlineCode>VerifyOptions</InlineCode>: <InlineCode>receiptSecret</InlineCode>, <InlineCode>rpcUrl</InlineCode>, <InlineCode>verifyOnchain</InlineCode>, <InlineCode>publicClient</InlineCode>.
             </P>
-          </SubSection>
 
-          <SubSection id="api-receipt" title="@buildersgarden/siwa/receipt">
+            <div id="api-verify-receipts" className="scroll-mt-20 mt-6 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Receipts</h4>
+            </div>
             <P>
-              Stateless HMAC-signed verification receipts. Proves that onchain registration was checked during SIWA sign-in.
+              Stateless HMAC-signed tokens that prove onchain registration was checked during SIWA sign-in.
             </P>
             <Table
               headers={["Export", "Returns", "Description"]}
               rows={[
-                ["createReceipt(payload, options)", "{ receipt, expiresAt }", "Create an HMAC-signed receipt token."],
-                ["verifyReceipt(receipt, secret)", "ReceiptPayload | null", "Verify and decode a receipt. Returns null if invalid or expired."],
+                ["createReceipt(payload, options)", "{ receipt, expiresAt }", "Create an HMAC-signed receipt."],
+                ["verifyReceipt(receipt, secret)", "ReceiptPayload | null", "Verify and decode. Returns null if invalid or expired."],
                 ["DEFAULT_RECEIPT_TTL", "number", "Default TTL: 30 minutes (1800000 ms)."],
               ]}
             />
             <P>
-              Receipt format: <InlineCode>base64url(json).base64url(hmac-sha256)</InlineCode>. Payload includes address, agentId, agentRegistry, chainId, verified (&apos;offline&apos; | &apos;onchain&apos;), iat, exp.
+              Import from <InlineCode>@buildersgarden/siwa/receipt</InlineCode>.
             </P>
           </SubSection>
 
-          <SubSection id="api-next" title="@buildersgarden/siwa/next">
+          {/* ── Server Wrappers ────────────────────────────────────── */}
+          <SubSection id="api-wrappers" title="Server Wrappers">
             <P>
-              Server-side wrappers for Next.js App Router route handlers. Uses only web standard APIs (Request, Response) — no <InlineCode>next</InlineCode> dependency required.
+              High-level middleware that handles ERC-8128 verification, receipt checking, CORS, and error responses — so you don&apos;t have to wire the low-level functions yourself.
             </P>
+
+            <div id="api-wrappers-next" className="scroll-mt-20 mt-6 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Next.js</h4>
+            </div>
             <Table
               headers={["Export", "Description"]}
               rows={[
                 ["withSiwa(handler, options?)", "Wrap a route handler with ERC-8128 auth. Handles body cloning, URL normalization, CORS, and 401 on failure."],
-                ["siwaOptions()", "Return a 204 OPTIONS response with CORS headers. Use as: export { siwaOptions as OPTIONS }"],
-                ["corsJson(data, init?)", "Return a JSON Response with CORS headers. Useful for unprotected routes that still need CORS."],
+                ["siwaOptions()", "Return a 204 OPTIONS response with CORS headers."],
+                ["corsJson(data, init?)", "JSON Response with CORS headers."],
                 ["corsHeaders()", "Raw CORS headers record for custom responses."],
               ]}
             />
-            <P>
-              The <InlineCode>withSiwa</InlineCode> handler receives <InlineCode>(agent: SiwaAgent, req: Request)</InlineCode> and can return a plain object (auto-wrapped in JSON) or a Response.
-            </P>
             <CodeBlock language="typescript">{`import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
 
-// Protected POST endpoint — 3 lines instead of ~20
 export const POST = withSiwa(async (agent, req) => {
   const body = await req.json();
-  return {
-    received: body,
-    agent: { address: agent.address, agentId: agent.agentId },
-  };
+  return { received: body, agent: { address: agent.address, agentId: agent.agentId } };
 });
 
-// Protected GET endpoint
 export const GET = withSiwa(async (agent) => {
   return { message: \`Hello Agent #\${agent.agentId}!\` };
 });
 
-// CORS preflight
 export { siwaOptions as OPTIONS };`}</CodeBlock>
             <P>
               Options: <InlineCode>receiptSecret</InlineCode> (defaults to <InlineCode>RECEIPT_SECRET</InlineCode> or <InlineCode>SIWA_SECRET</InlineCode> env), <InlineCode>rpcUrl</InlineCode>, <InlineCode>verifyOnchain</InlineCode>.
             </P>
-          </SubSection>
 
-          <SubSection id="api-express" title="@buildersgarden/siwa/express">
-            <P>
-              Server-side wrappers for Express applications. Requires <InlineCode>express</InlineCode> as a peer dependency.
-            </P>
+            <div id="api-wrappers-express" className="scroll-mt-20 mt-6 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Express</h4>
+            </div>
             <Table
               headers={["Export", "Description"]}
               rows={[
-                ["siwaMiddleware(options?)", "Auth middleware: verifies ERC-8128 signature + receipt, sets req.agent, returns 401 on failure."],
+                ["siwaMiddleware(options?)", "Auth middleware: verifies ERC-8128 + receipt, sets req.agent, returns 401 on failure."],
                 ["siwaJsonParser()", "express.json() with rawBody capture for Content-Digest verification."],
-                ["siwaCors(options?)", "CORS middleware with SIWA-specific headers. Handles OPTIONS preflight."],
+                ["siwaCors(options?)", "CORS middleware with SIWA-specific headers."],
               ]}
             />
             <CodeBlock language="typescript">{`import express from 'express';
@@ -684,21 +502,67 @@ app.use(siwaCors());
 
 app.get('/api/protected', siwaMiddleware(), (req, res) => {
   res.json({ agent: req.agent });
-});
-
-app.post('/api/action', siwaMiddleware(), (req, res) => {
-  res.json({ received: req.body, agent: req.agent });
 });`}</CodeBlock>
-            <P>
-              The middleware adds <InlineCode>agent</InlineCode> and <InlineCode>rawBody</InlineCode> to the Express Request type via module augmentation.
-            </P>
           </SubSection>
 
-          <div className="mt-8 rounded-lg border border-border bg-surface px-5 py-4">
-            <p className="text-sm text-muted leading-relaxed">
-              <strong className="text-foreground">Low-level primitives</strong> — The wrappers above are the recommended approach for new projects. If you need full control, the underlying functions (<InlineCode>verifyAuthenticatedRequest</InlineCode>, <InlineCode>expressToFetchRequest</InlineCode>, <InlineCode>nextjsToFetchRequest</InlineCode>) are still available from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode>.
-            </p>
-          </div>
+          {/* ── Identity & Registry ────────────────────────────────── */}
+          <SubSection id="api-identity" title="Identity & Registry">
+            <P>
+              Read and write agent identity state, and query onchain profiles and reputation.
+            </P>
+
+            <div id="api-identity-file" className="scroll-mt-20 mt-6 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Identity File</h4>
+            </div>
+            <P>
+              The agent&apos;s IDENTITY.md stores 4 public fields: Address, Agent ID, Agent Registry, Chain ID.
+            </P>
+            <Table
+              headers={["Function", "Description"]}
+              rows={[
+                ["ensureIdentityExists(path, template)", "Initialize IDENTITY.md from template if missing."],
+                ["readIdentity(path)", "Parse IDENTITY.md into a typed AgentIdentity object."],
+                ["writeIdentityField(key, value, path)", "Write a single field to IDENTITY.md."],
+                ["hasWalletRecord(path)", "Check if an address is recorded in IDENTITY.md."],
+                ["isRegistered({ identityPath, client? })", "Check registration (local cache or onchain ownerOf)."],
+              ]}
+            />
+            <P>
+              Import from <InlineCode>@buildersgarden/siwa/identity</InlineCode>.
+            </P>
+
+            <div id="api-identity-registry" className="scroll-mt-20 mt-6 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Onchain Registry</h4>
+            </div>
+            <Table
+              headers={["Function", "Returns", "Description"]}
+              rows={[
+                ["getAgent(agentId, options)", "AgentProfile", "Read agent profile from the Identity Registry (owner, tokenURI, agentWallet, metadata)."],
+                ["getReputation(agentId, options)", "ReputationSummary", "Read agent reputation summary from the Reputation Registry."],
+              ]}
+            />
+            <P>
+              Import from <InlineCode>@buildersgarden/siwa/registry</InlineCode>. Both accept a viem <InlineCode>PublicClient</InlineCode> via <InlineCode>options.client</InlineCode>.
+            </P>
+            <Table
+              headers={["Type", "Values"]}
+              rows={[
+                ["ServiceType", "'web' | 'A2A' | 'MCP' | 'OASF' | 'ENS' | 'DID' | 'email'"],
+                ["TrustModel", "'reputation' | 'crypto-economic' | 'tee-attestation'"],
+                ["ReputationTag", "'starred' | 'reachable' | 'ownerVerified' | 'uptime' | 'successRate' | 'responseTime' | 'blocktimeFreshness' | 'revenues' | 'tradingYield'"],
+              ]}
+            />
+          </SubSection>
+
+          {/* ── Helpers ────────────────────────────────────────────── */}
+          <SubSection id="api-helpers" title="Helpers">
+            <Table
+              headers={["Function", "Module", "Description"]}
+              rows={[
+                ["computeHMAC(secret, method, path, body, timestamp)", "@buildersgarden/siwa/proxy-auth", "Compute HMAC-SHA256 signature for a keyring proxy request."],
+              ]}
+            />
+          </SubSection>
         </Section>
 
         {/* Security Model */}
@@ -748,6 +612,45 @@ signMessage("hello")
             <P>
               The agent&apos;s identity file stores only public state — address, agentId, agentRegistry, chainId. The private key is never written to IDENTITY.md or any other file the agent reads.
             </P>
+          </SubSection>
+
+          <SubSection id="security-2fa" title="2FA via Telegram">
+            <P>
+              For high-value operations, the keyring proxy can require owner approval before signing. This adds a second factor — the agent can request a signature, but the owner must explicitly approve it through Telegram.
+            </P>
+            <CodeBlock language="text">{`Agent requests signature
+  |
+  +--> Keyring Proxy
+       |
+       +--> 2FA Server (approval queue)
+            |
+            +--> 2FA Gateway --> Telegram bot message
+                                 Owner taps Approve / Reject
+                             <-- Callback to 2FA Server
+       <-- Signature (if approved)
+  <-- Returns to agent`}</CodeBlock>
+            <P>
+              The flow adds two components to the private network:
+            </P>
+            <Table
+              headers={["Component", "Role"]}
+              rows={[
+                ["2FA Server", "Manages the approval queue. Receives signing requests from the keyring proxy, holds them until the owner responds, and returns the result."],
+                ["2FA Gateway", "Connects to Telegram Bot API. Sends approval messages and receives webhook callbacks. This is the only 2FA component exposed to the internet."],
+              ]}
+            />
+            <P>
+              Both the keyring proxy and the 2FA server run inside the private network — they are never exposed publicly. Only the 2FA gateway needs internet access for Telegram webhooks.
+            </P>
+            <Table
+              headers={["Property", "Detail"]}
+              rows={[
+                ["Scope", "Configurable per operation type — e.g. require approval for transactions but not for message signing."],
+                ["Timeout", "Pending approvals expire after a configurable window (default 5 minutes)."],
+                ["Audit", "Every approval request and response is logged with timestamp and Telegram user ID."],
+                ["Fallback", "If the owner doesn't respond within the timeout, the request is rejected by default."],
+              ]}
+            />
           </SubSection>
         </Section>
 

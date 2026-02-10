@@ -16,11 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SIWA — Sign In With Agent",
   description:
-    "Trustless identity and authentication for AI agents. An open standard built on ERC-8004.",
+    "Trustless identity and authentication for AI agents. An open standard built on ERC-8004 and ERC-8128.",
   openGraph: {
     title: "SIWA — Sign In With Agent",
     description:
-      "Trustless identity and authentication for AI agents. An open standard built on ERC-8004.",
+      "Trustless identity and authentication for AI agents. An open standard built on ERC-8004 and ERC-8128.",
     type: "website",
     images: [
       {
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SIWA — Sign In With Agent",
     description:
-      "Trustless identity and authentication for AI agents. An open standard built on ERC-8004.",
+      "Trustless identity and authentication for AI agents. An open standard built on ERC-8004 and ERC-8128.",
     images: ["/og.png"],
   },
 };

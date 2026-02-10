@@ -5,7 +5,7 @@ import { CodeBlock } from "@/components/code-block";
 export const metadata: Metadata = {
   title: "Deploy — SIWA",
   description:
-    "Deploy SIWA to Railway — keyring proxy and optional OpenClaw gateway.",
+    "Deploy SIWA to Railway — keyring proxy and OpenClaw gateway in one click.",
 };
 
 function Section({
@@ -100,12 +100,11 @@ export default function DeployPage() {
           Deploy to Railway
         </h1>
         <p className="text-sm text-dim mb-8">
-          Keyring proxy from a Dockerfile, optional OpenClaw gateway alongside
-          it.
+          One-click template to deploy a fully onchain and secure agent — keyring proxy and OpenClaw gateway, pre-wired and ready to go.
         </p>
 
-        {/* Deploy Buttons */}
-        <div className="mb-12 grid gap-4 sm:grid-cols-2">
+        {/* Deploy Button */}
+        <div className="mb-12">
           <a
             href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
             target="_blank"
@@ -121,47 +120,26 @@ export default function DeployPage() {
               />
             </div>
             <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
-              Keyring Proxy Only
-            </h4>
-            <p className="text-xs text-muted">
-              Deploy the signing proxy. Connect your own agent or OpenClaw
-              instance externally.
-            </p>
-          </a>
-          <div className="rounded-lg border border-border bg-surface p-5 opacity-50 cursor-default block">
-            <div className="flex items-center gap-3 mb-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://railway.com/button.svg"
-                alt="Deploy on Railway"
-                className="h-8 grayscale"
-              />
-            </div>
-            <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
               Keyring Proxy + OpenClaw
             </h4>
             <p className="text-xs text-muted">
-              Full stack: signing proxy and AI agent gateway with the SIWA skill
-              pre-installed.
+              Full stack: signing proxy and AI agent gateway with the SIWA skill pre-installed. One click deploys both services connected via private networking.
             </p>
-            <p className="text-xs text-dim mt-2 italic">Coming soon</p>
-          </div>
+          </a>
         </div>
 
         {/* Overview */}
         <Section id="overview" title="Overview">
           <P>
-            The core deployment is a single{" "}
-            <InlineCode>keyring-proxy</InlineCode> service built from{" "}
-            <InlineCode>packages/keyring-proxy/Dockerfile</InlineCode>. Railway
+            The template deploys two services: a{" "}
+            <InlineCode>keyring-proxy</InlineCode> for secure key management and an{" "}
+            <InlineCode>openclaw-gateway</InlineCode> AI agent gateway with the SIWA skill pre-installed. Railway
             builds directly from your Git repository — no Docker Hub needed.
           </P>
           <P>
-            Optionally, you can add an <InlineCode>openclaw-gateway</InlineCode>{" "}
-            service in the same Railway project. OpenClaw is an AI agent gateway
-            that routes chat messages to agents — agents use the keyring proxy
+            OpenClaw routes chat messages to agents. Agents use the keyring proxy
             for all signing operations via{" "}
-            <InlineCode>KEYSTORE_BACKEND=proxy</InlineCode>.
+            <InlineCode>KEYSTORE_BACKEND=proxy</InlineCode> — private keys never enter the agent process.
           </P>
 
           <SubSection id="architecture" title="Architecture">
@@ -175,7 +153,7 @@ export default function DeployPage() {
                 ],
                 [
                   "openclaw-gateway",
-                  "Docker image (optional)",
+                  "Docker image",
                   "AI agent gateway with SIWA skill installed",
                 ],
               ]}
@@ -187,7 +165,7 @@ export default function DeployPage() {
   |     Signing service
   |     (private networking)
   |
-  +---> openclaw-gateway   [optional]
+  +---> openclaw-gateway
         KEYSTORE_BACKEND=proxy
         Delegates signing to keyring-proxy`}</CodeBlock>
             <P>
@@ -245,8 +223,7 @@ export default function DeployPage() {
             </a>
           </div>
           <P>
-            If you prefer to set things up manually, or want to add an
-            openclaw-gateway alongside it, follow the steps below.
+            If you prefer to set things up manually, follow the steps below.
           </P>
 
           <SubSection
@@ -283,7 +260,7 @@ export default function DeployPage() {
 
           <SubSection
             id="configure-openclaw"
-            title="Configure openclaw-gateway (optional)"
+            title="Configure openclaw-gateway"
           >
             <P>
               OpenClaw is an open-source AI agent gateway. Follow the{" "}
@@ -333,7 +310,7 @@ KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
             />
           </SubSection>
 
-          <SubSection id="env-openclaw" title="openclaw-gateway (optional)">
+          <SubSection id="env-openclaw" title="openclaw-gateway">
             <Table
               headers={["Variable", "Required", "Description"]}
               rows={[
