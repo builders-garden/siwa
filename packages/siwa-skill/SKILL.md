@@ -419,92 +419,25 @@ const agentURI = `data:application/json;base64,${encoded}`;
 
 ### Step 4: Register Onchain (signed via proxy)
 
-With the proxy backend, the agent builds the transaction and delegates signing to the proxy:
+The SDK's `registerAgent()` handles the entire onchain flow — building the transaction, signing via the keyring proxy, broadcasting, and parsing the `Registered` event:
 
 ```typescript
-import { signTransaction, getAddress } from "@buildersgarden/siwa/keystore";
+import { registerAgent } from "@buildersgarden/siwa/registry";
 import { writeIdentityField } from "@buildersgarden/siwa/identity";
-import {
-  createPublicClient,
-  http,
-  encodeFunctionData,
-  parseEventLogs,
-} from "viem";
-import { baseSepolia } from "viem/chains";
 
-const publicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
-const address = await getAddress();
-
-const IDENTITY_REGISTRY_ABI = [
-  {
-    name: "register",
-    type: "function",
-    inputs: [{ name: "agentURI", type: "string" }],
-    outputs: [{ name: "agentId", type: "uint256" }],
-  },
-  {
-    name: "Registered",
-    type: "event",
-    inputs: [
-      { name: "agentId", type: "uint256", indexed: true },
-      { name: "agentURI", type: "string" },
-      { name: "owner", type: "address", indexed: true },
-    ],
-  },
-] as const;
-
-// Build the transaction
-const data = encodeFunctionData({
-  abi: IDENTITY_REGISTRY_ABI,
-  functionName: "register",
-  args: [agentURI],
-});
-const nonce = await publicClient.getTransactionCount({ address });
-const { maxFeePerGas, maxPriorityFeePerGas } =
-  await publicClient.estimateFeesPerGas();
-const gasLimit = await publicClient.estimateGas({
-  to: REGISTRY_ADDRESS,
-  data,
-  account: address,
+const result = await registerAgent({
+  agentURI,
+  chainId: 84532,
+  keystoreConfig: { proxyUrl, proxySecret },
 });
 
-const txReq = {
-  to: REGISTRY_ADDRESS,
-  data,
-  nonce,
-  chainId,
-  type: 2,
-  maxFeePerGas,
-  maxPriorityFeePerGas,
-  gasLimit: (gasLimit * 120n) / 100n,
-};
-
-// Sign via proxy — key never enters this process
-const { signedTx } = await signTransaction(txReq);
-const txHash = await publicClient.sendRawTransaction({
-  serializedTransaction: signedTx,
-});
-const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-
-// Parse event for agentId
-const logs = parseEventLogs({
-  abi: IDENTITY_REGISTRY_ABI,
-  logs: receipt.logs,
-  eventName: "Registered",
-});
-for (const log of logs) {
-  const agentId = log.args.agentId.toString();
-  const agentRegistry = `eip155:${chainId}:${REGISTRY_ADDRESS}`;
-
-  // Persist PUBLIC results to IDENTITY.md
-  writeIdentityField("Agent ID", agentId);
-  writeIdentityField("Agent Registry", agentRegistry);
-  writeIdentityField("Chain ID", chainId.toString());
-}
+// Persist PUBLIC results to IDENTITY.md
+writeIdentityField("Agent ID", result.agentId);
+writeIdentityField("Agent Registry", result.agentRegistry);
+writeIdentityField("Chain ID", "84532");
 ```
+
+`registerAgent()` returns `{ agentId, txHash, registryAddress, agentRegistry }`. It resolves the registry address and RPC endpoint automatically from the chain ID (override with `rpcUrl` if needed).
 
 See [references/contract-addresses.md](references/contract-addresses.md) for deployed addresses per chain.
 
@@ -762,7 +695,7 @@ Options: `receiptSecret` (defaults to `RECEIPT_SECRET` or `SIWA_SECRET` env), `r
 - **`@buildersgarden/siwa/erc8128`** — ERC-8128 HTTP Message Signatures (`signAuthenticatedRequest`, `verifyAuthenticatedRequest`, `expressToFetchRequest`, `nextjsToFetchRequest`). Low-level primitives — prefer the framework wrappers below for new projects.
 - **`@buildersgarden/siwa/next`** — Server-side wrappers for Next.js App Router: `withSiwa(handler, options?)` (auth + CORS + body clone in one call), `siwaOptions()` (OPTIONS handler), `corsJson(data, init?)`, `corsHeaders()`. No `next` dependency needed — uses web standard Request/Response.
 - **`@buildersgarden/siwa/express`** — Server-side wrappers for Express: `siwaMiddleware(options?)` (auth middleware, sets `req.agent`), `siwaJsonParser()` (JSON with rawBody capture), `siwaCors(options?)` (CORS + OPTIONS). Requires `express` as peer dependency.
-- **`@buildersgarden/siwa/registry`** — Read agent profiles (`getAgent`) and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
+- **`@buildersgarden/siwa/registry`** — Register agents (`registerAgent`), read agent profiles (`getAgent`), and reputation (`getReputation`) from on-chain registries. Exports ERC-8004 typed values: `ServiceType`, `TrustModel`, `ReputationTag`
 - **`@buildersgarden/siwa/proxy-auth`** — HMAC-SHA256 authentication utilities for the keyring proxy
 
 ## Assets

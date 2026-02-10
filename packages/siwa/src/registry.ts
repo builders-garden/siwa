@@ -11,8 +11,16 @@
 import {
   type PublicClient,
   type Address,
+  type Hex,
   zeroAddress,
+  createPublicClient,
+  http,
+  encodeFunctionData,
+  parseEventLogs,
 } from 'viem';
+
+import { getRegistryAddress, getAgentRegistryString, RPC_ENDPOINTS } from './addresses.js';
+import { getAddress, signTransaction, type KeystoreConfig } from './keystore.js';
 
 // ─── ERC-8004 Value Types ────────────────────────────────────────────
 
@@ -120,6 +128,22 @@ const IDENTITY_REGISTRY_ABI = [
     stateMutability: 'view',
     inputs: [{ name: 'agentId', type: 'uint256' }],
     outputs: [{ name: '', type: 'address' }],
+  },
+  {
+    name: 'register',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'agentURI', type: 'string' }],
+    outputs: [{ name: 'agentId', type: 'uint256' }],
+  },
+  {
+    name: 'Registered',
+    type: 'event',
+    inputs: [
+      { name: 'agentId', type: 'uint256', indexed: true },
+      { name: 'agentURI', type: 'string', indexed: false },
+      { name: 'owner', type: 'address', indexed: true },
+    ],
   },
 ] as const;
 
@@ -256,4 +280,95 @@ export async function getReputation(
   const score = Number(rawValue) / 10 ** decimals;
 
   return { count: Number(count), score, rawValue, decimals };
+}
+
+// ─── Agent Registration ─────────────────────────────────────────────
+
+export interface RegisterAgentOptions {
+  agentURI: string;
+  chainId: number;
+  rpcUrl?: string;
+  keystoreConfig: KeystoreConfig;
+}
+
+export interface RegisterAgentResult {
+  agentId: string;
+  txHash: string;
+  registryAddress: string;
+  agentRegistry: string;
+}
+
+/**
+ * Register an agent on the ERC-8004 Identity Registry in a single call.
+ *
+ * Builds, signs (via keyring proxy), and broadcasts the `register(agentURI)`
+ * transaction, then waits for confirmation and parses the `Registered` event.
+ */
+export async function registerAgent(
+  options: RegisterAgentOptions
+): Promise<RegisterAgentResult> {
+  const { agentURI, chainId, keystoreConfig } = options;
+
+  const registryAddress = getRegistryAddress(chainId);
+  const rpcUrl = options.rpcUrl || RPC_ENDPOINTS[chainId];
+  if (!rpcUrl) {
+    throw new Error(`No RPC URL provided and no default endpoint for chain ${chainId}.`);
+  }
+
+  const publicClient = createPublicClient({ transport: http(rpcUrl) });
+
+  const address = await getAddress(keystoreConfig);
+  if (!address) {
+    throw new Error('Could not resolve wallet address from keyring proxy.');
+  }
+
+  const data = encodeFunctionData({
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'register',
+    args: [agentURI],
+  });
+
+  const nonce = await publicClient.getTransactionCount({ address: address as Address });
+  const feeData = await publicClient.estimateFeesPerGas();
+  const gasEstimate = await publicClient.estimateGas({
+    to: registryAddress as Address,
+    data,
+    account: address as Address,
+  });
+  const gas = (gasEstimate * 120n) / 100n;
+
+  const txReq = {
+    to: registryAddress,
+    data,
+    nonce,
+    chainId,
+    type: 2,
+    maxFeePerGas: feeData.maxFeePerGas,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+    gas,
+  };
+
+  const { signedTx } = await signTransaction(txReq, keystoreConfig);
+  const txHash = await publicClient.sendRawTransaction({
+    serializedTransaction: signedTx as Hex,
+  });
+
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as Hex });
+
+  const logs = parseEventLogs({
+    abi: IDENTITY_REGISTRY_ABI,
+    logs: receipt.logs,
+    eventName: 'Registered',
+  });
+
+  if (logs.length === 0) {
+    throw new Error(
+      `Registration tx ${txHash} succeeded but no Registered event was found.`
+    );
+  }
+
+  const agentId = logs[0].args.agentId.toString();
+  const agentRegistry = getAgentRegistryString(chainId);
+
+  return { agentId, txHash, registryAddress, agentRegistry };
 }
