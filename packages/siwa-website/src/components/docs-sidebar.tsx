@@ -7,7 +7,9 @@ const sections = [
     title: "Getting Started",
     id: "getting-started",
     children: [
+      { title: "Deploy", id: "deploy" },
       { title: "How It Works", id: "how-it-works" },
+      { title: "Network Topology", id: "network-topology" },
       { title: "Try It Locally", id: "quick-start" },
       { title: "Install the SDK", id: "installation" },
       { title: "Sign In (Agent-Side)", id: "sign-in" },

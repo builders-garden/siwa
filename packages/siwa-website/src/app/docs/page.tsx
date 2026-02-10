@@ -133,26 +133,65 @@ export default function DocsPage() {
         {/* Getting Started */}
         <Section id="getting-started" title="Getting Started">
           <P>
-            Think of{" "}
-            <a
-              href="https://eips.ethereum.org/EIPS/eip-4361"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-            >
-              Sign In With Ethereum (SIWE)
-            </a>
-            , but for AI agents instead of humans. SIWE lets a person prove they own a wallet; SIWA lets an agent prove it owns an{" "}
-            <a
-              href="https://eips.ethereum.org/EIPS/eip-8004"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-            >
-              ERC-8004
-            </a>
-            {" "}identity NFT. Same challenge-response pattern, extended with <InlineCode>agentId</InlineCode> and an onchain ownership check.
+            SIWA gives your AI agent an onchain identity — a wallet, a verifiable profile, and secure authentication. The agent can prove who it is to any service, and every request is cryptographically signed. Private keys are kept safe in a separate process, so even if the agent is compromised, the keys stay protected.
           </P>
+
+          <SubSection id="deploy" title="Deploy">
+            <P>
+              Spin up a secure onchain agent in one click. This deploys everything you need — a signing proxy that keeps keys safe and an agent gateway, pre-wired and ready to go.
+            </P>
+            <div className="mb-4">
+              <a
+                href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://railway.com/button.svg"
+                  alt="Deploy on Railway"
+                  className="h-10"
+                  width={180}
+                  height={40}
+                />
+              </a>
+            </div>
+            <P>
+              Once deployed, your agent has a wallet, can register onchain, and authenticate with any SIWA-compatible service. For configuration details, see the{" "}
+              <a
+                href="/docs/deploy"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                deployment guide
+              </a>
+              .
+            </P>
+          </SubSection>
+
+          <div className="mt-6 mb-8 grid gap-3 sm:grid-cols-3">
+            <a
+              href="#how-it-works"
+              className="rounded-lg border border-border bg-surface px-4 py-3 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+            >
+              <h4 className="font-mono text-xs font-semibold text-foreground mb-1">How It Works</h4>
+              <p className="text-xs text-dim">The authentication flow, step by step.</p>
+            </a>
+            <a
+              href="#api"
+              className="rounded-lg border border-border bg-surface px-4 py-3 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+            >
+              <h4 className="font-mono text-xs font-semibold text-foreground mb-1">API Reference</h4>
+              <p className="text-xs text-dim">SDK functions, modules, and types.</p>
+            </a>
+            <a
+              href="#security"
+              className="rounded-lg border border-border bg-surface px-4 py-3 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+            >
+              <h4 className="font-mono text-xs font-semibold text-foreground mb-1">Security Model</h4>
+              <p className="text-xs text-dim">How keys stay safe, even if the agent is compromised.</p>
+            </a>
+          </div>
 
           <SubSection id="how-it-works" title="How It Works">
             <ol className="space-y-3 mb-6 text-sm leading-relaxed text-muted list-none">
@@ -226,6 +265,39 @@ export default function DocsPage() {
                 {" "}section below.
               </p>
             </div>
+          </SubSection>
+
+          <SubSection id="network-topology" title="Network Topology">
+            <P>
+              A deployed SIWA agent runs as a set of containers on a private network. Each component has a single job:
+            </P>
+            <ul className="space-y-2 mb-6 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Keyring Proxy</strong> — holds the agent&apos;s encrypted private key and performs all signing. Never exposed publicly.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">OpenClaw</strong> — the AI agent gateway. Routes messages from users, delegates signing to the keyring proxy, and handles onchain verification and registration.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">2FA Gateway + Server</strong> (optional) — adds Telegram-based owner approval before high-value signing operations. The gateway receives Telegram webhooks; the server manages approval flows. The agent owner gets a Telegram message and taps to approve or reject.</span>
+              </li>
+            </ul>
+
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/siwa-topology.png"
+              alt="SIWA network topology: Users connect to OpenClaw gateway, which delegates signing to the Keyring Proxy over a private network. Optional 2FA flow routes through a 2FA Server and Gateway to Telegram for owner approval."
+              className="w-full rounded-lg border border-border"
+              width={800}
+              height={480}
+            />
+
+            <P>
+              The keyring proxy, OpenClaw, and 2FA server communicate over a private Docker network — none of them need public internet access. Only the 2FA gateway (for Telegram webhooks) and OpenClaw (for user-facing chat) are exposed externally.
+            </P>
           </SubSection>
 
           <SubSection id="quick-start" title="Try It Locally">
