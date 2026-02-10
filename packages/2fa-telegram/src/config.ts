@@ -6,7 +6,7 @@ export const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // Server Configuration
 export const TFA_PORT = parseInt(process.env.TFA_PORT || "3200", 10);
-export const TFA_INTERNAL_SECRET = process.env.TFA_INTERNAL_SECRET;
+export const TFA_SECRET = process.env.TFA_SECRET;
 export const TFA_APPROVAL_TIMEOUT_MS = parseInt(
   process.env.TFA_APPROVAL_TIMEOUT_MS || "60000",
   10
@@ -28,8 +28,8 @@ export function validateConfig(): void {
     errors.push("TELEGRAM_CHAT_ID is required");
   }
 
-  if (!TFA_INTERNAL_SECRET) {
-    errors.push("TFA_INTERNAL_SECRET is required");
+  if (!TFA_SECRET) {
+    errors.push("TFA_SECRET is required");
   }
 
   if (errors.length > 0) {

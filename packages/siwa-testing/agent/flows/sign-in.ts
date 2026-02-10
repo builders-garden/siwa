@@ -12,7 +12,7 @@ export interface SignInResult {
 export async function signInFlow(): Promise<SignInResult | null> {
   const kc = getKeystoreConfig();
 
-  // Read IDENTITY.md
+  // Read SIWA_IDENTITY.md
   if (!(await isRegistered({ identityPath: config.identityPath }))) {
     console.log(chalk.yellow(`\u{26A0}\u{FE0F}  Agent not locally registered. Proceeding with sign-in — the server will check onchain registration.`));
   }

@@ -9,7 +9,7 @@ description: >
   server by proving ownership of an ERC-8004 identity using a signed challenge (SIGN IN / SIWA),
   (4) build or update an ERC-8004 registration file (metadata JSON with endpoints, trust models,
   services), (5) upload agent metadata to IPFS or base64 data URI, (6) look up or verify an
-  agent's onchain registration. The agent persists public identity state in IDENTITY.md. Private
+  agent's onchain registration. The agent persists public identity state in SIWA_IDENTITY.md. Private
   keys are held in a separate keyring proxy server — the agent can request signatures but never
   access the key itself.
   Triggers on: ERC-8004, trustless agents, agent registration, SIWA, Sign In With Agent,
@@ -243,9 +243,9 @@ sig = proxy_request("/sign-message", {"message": "hello"})  # {"signature": "0x.
 | `POST /sign-authorization` | `{ auth: { chainId, address, nonce } }`                         | `{ signedAuthorization }`                      |
 | `GET /health`              | —                                                               | `{ status: "ok", backend }` (no auth required) |
 
-### IDENTITY.md: Public Data Only
+### SIWA_IDENTITY.md: Public Data Only
 
-IDENTITY.md stores the agent's minimal public identity state — **never the private key**:
+SIWA_IDENTITY.md stores the agent's minimal public identity state — **never the private key**:
 
 ```markdown
 # Agent Identity
@@ -257,11 +257,11 @@ IDENTITY.md stores the agent's minimal public identity state — **never the pri
 
 **Lifecycle rules**:
 
-1. **Before any action** — Read IDENTITY.md. If wallet exists, skip creation. If registered, skip re-registration.
-2. **After wallet creation** — Write address to IDENTITY.md. Private key goes to proxy keystore only.
-3. **After registration** — Write agentId, agentRegistry, chainId to IDENTITY.md.
+1. **Before any action** — Read SIWA_IDENTITY.md. If wallet exists, skip creation. If registered, skip re-registration.
+2. **After wallet creation** — Write address to SIWA_IDENTITY.md. Private key goes to proxy keystore only.
+3. **After registration** — Write agentId, agentRegistry, chainId to SIWA_IDENTITY.md.
 
-**Template**: [assets/IDENTITY.template.md](assets/IDENTITY.template.md)
+**Template**: [assets/SIWA_IDENTITY.template.md](assets/SIWA_IDENTITY.template.md)
 
 ---
 
@@ -317,7 +317,7 @@ Set `KEYRING_PROXY_URL` and `KEYRING_PROXY_SECRET` as environment variables for 
 
 ## Workflow: SIGN UP (Agent Registration)
 
-### Step 0: Check IDENTITY.md + Keystore
+### Step 0: Check SIWA_IDENTITY.md + Keystore
 
 ```typescript
 import { hasWallet } from "@buildersgarden/siwa/keystore";
@@ -327,18 +327,18 @@ import {
   isRegistered,
 } from "@buildersgarden/siwa/identity";
 
-ensureIdentityExists("./IDENTITY.md", "./assets/IDENTITY.template.md");
+ensureIdentityExists("./SIWA_IDENTITY.md", "./assets/SIWA_IDENTITY.template.md");
 
-if ((await hasWallet()) && (await isRegistered({ identityPath: "./IDENTITY.md" }))) {
+if ((await hasWallet()) && (await isRegistered({ identityPath: "./SIWA_IDENTITY.md" }))) {
   // Already registered — skip to SIGN IN or update
 }
-if ((await hasWallet()) && hasWalletRecord("./IDENTITY.md")) {
+if ((await hasWallet()) && hasWalletRecord("./SIWA_IDENTITY.md")) {
   // Wallet exists — skip to Step 2
 }
 // Otherwise proceed to Step 1
 ```
 
-### Step 1: Create Wallet (key goes to proxy, address goes to IDENTITY.md)
+### Step 1: Create Wallet (key goes to proxy, address goes to SIWA_IDENTITY.md)
 
 ```typescript
 import { createWallet } from "@buildersgarden/siwa/keystore";
@@ -346,7 +346,7 @@ import { writeIdentityField } from "@buildersgarden/siwa/identity";
 
 const info = await createWallet(); // <- key created in proxy, NEVER returned
 
-// Write ONLY public data to IDENTITY.md
+// Write ONLY public data to SIWA_IDENTITY.md
 writeIdentityField("Address", info.address);
 ```
 
@@ -499,7 +499,7 @@ for (const log of logs) {
   const agentId = log.args.agentId.toString();
   const agentRegistry = `eip155:${chainId}:${REGISTRY_ADDRESS}`;
 
-  // Persist PUBLIC results to IDENTITY.md
+  // Persist PUBLIC results to SIWA_IDENTITY.md
   writeIdentityField("Agent ID", agentId);
   writeIdentityField("Agent Registry", agentRegistry);
   writeIdentityField("Chain ID", chainId.toString());
@@ -524,7 +524,7 @@ import { SDK } from "agent0-sdk";
 npx create-8004-agent
 ```
 
-After `npm run register`, update IDENTITY.md with the output agentId.
+After `npm run register`, update SIWA_IDENTITY.md with the output agentId.
 
 ---
 
@@ -532,13 +532,13 @@ After `npm run register`, update IDENTITY.md with the output agentId.
 
 Full spec: [references/siwa-spec.md](references/siwa-spec.md)
 
-### Step 0: Read Public Identity from IDENTITY.md
+### Step 0: Read Public Identity from SIWA_IDENTITY.md
 
 ```typescript
 import { readIdentity, isRegistered } from "@buildersgarden/siwa/identity";
 
-const identity = readIdentity("./IDENTITY.md");
-if (!(await isRegistered({ identityPath: "./IDENTITY.md" }))) {
+const identity = readIdentity("./SIWA_IDENTITY.md");
+if (!(await isRegistered({ identityPath: "./SIWA_IDENTITY.md" }))) {
   throw new Error("Agent not registered. Run SIGN UP workflow first.");
 }
 
@@ -733,7 +733,7 @@ Options: `receiptSecret` (defaults to `RECEIPT_SECRET` or `SIWA_SECRET` env), `r
 
 ---
 
-## IDENTITY.md Quick Reference
+## SIWA_IDENTITY.md Quick Reference
 
 | Field              | When Written       | Description                               |
 | ------------------ | ------------------ | ----------------------------------------- |
@@ -742,7 +742,7 @@ Options: `receiptSecret` (defaults to `RECEIPT_SECRET` or `SIWA_SECRET` env), `r
 | **Agent Registry** | After registration | CAIP-10 registry address                  |
 | **Chain ID**       | After registration | Chain where agent is registered            |
 
-**What is NOT in IDENTITY.md**: Private keys, keystore passwords, mnemonic phrases, session tokens.
+**What is NOT in SIWA_IDENTITY.md**: Private keys, keystore passwords, mnemonic phrases, session tokens.
 
 ---
 
@@ -756,7 +756,7 @@ Options: `receiptSecret` (defaults to `RECEIPT_SECRET` or `SIWA_SECRET` env), `r
 ## Core Library (`@buildersgarden/siwa` package)
 
 - **`@buildersgarden/siwa/keystore`** — Proxy-only signing abstraction (createWallet, signMessage, signTransaction, getAddress, hasWallet)
-- **`@buildersgarden/siwa/identity`** — IDENTITY.md read/write helpers (public data only)
+- **`@buildersgarden/siwa/identity`** — SIWA_IDENTITY.md read/write helpers (public data only)
 - **`@buildersgarden/siwa`** — SIWA message building, signing (via keystore), and server-side verification (with optional criteria)
 - **`@buildersgarden/siwa/receipt`** — Stateless HMAC receipt creation (`createReceipt`) and verification (`verifyReceipt`)
 - **`@buildersgarden/siwa/erc8128`** — ERC-8128 HTTP Message Signatures (`signAuthenticatedRequest`, `verifyAuthenticatedRequest`, `expressToFetchRequest`, `nextjsToFetchRequest`). Low-level primitives — prefer the framework wrappers below for new projects.
@@ -767,5 +767,5 @@ Options: `receiptSecret` (defaults to `RECEIPT_SECRET` or `SIWA_SECRET` env), `r
 
 ## Assets
 
-- **[assets/IDENTITY.template.md](assets/IDENTITY.template.md)** — Template for the agent's public identity file
+- **[assets/SIWA_IDENTITY.template.md](assets/SIWA_IDENTITY.template.md)** — Template for the agent's public identity file
 - **[assets/registration-template.json](assets/registration-template.json)** — Starter registration file template

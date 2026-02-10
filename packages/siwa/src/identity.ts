@@ -1,10 +1,10 @@
 /**
  * identity.ts
  *
- * Read/write helpers for the agent's IDENTITY.md file.
+ * Read/write helpers for the agent's SIWA_IDENTITY.md file.
  * Minimal 4-field identity: Address, Agent ID, Agent Registry, Chain ID.
  *
- * IDENTITY.md uses the pattern: - **Key**: `value`
+ * SIWA_IDENTITY.md uses the pattern: - **Key**: `value`
  *
  * Registration checks are done onchain via ownerOf() when a PublicClient
  * is provided, otherwise the local file is used as a cache.
@@ -15,7 +15,7 @@
 import * as fs from 'fs';
 import type { PublicClient, Address } from 'viem';
 
-const DEFAULT_IDENTITY_PATH = './IDENTITY.md';
+const DEFAULT_IDENTITY_PATH = './SIWA_IDENTITY.md';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,7 +33,7 @@ export interface AgentIdentity {
 // ---------------------------------------------------------------------------
 
 /**
- * Ensure IDENTITY.md exists. If not, copy from template or create minimal.
+ * Ensure SIWA_IDENTITY.md exists. If not, copy from template or create minimal.
  */
 export function ensureIdentityExists(
   identityPath: string = DEFAULT_IDENTITY_PATH,
@@ -55,7 +55,7 @@ export function ensureIdentityExists(
 }
 
 /**
- * Read the agent identity from IDENTITY.md.
+ * Read the agent identity from SIWA_IDENTITY.md.
  * Returns typed AgentIdentity with parsed values.
  */
 export function readIdentity(identityPath: string = DEFAULT_IDENTITY_PATH): AgentIdentity {
@@ -78,7 +78,7 @@ export function readIdentity(identityPath: string = DEFAULT_IDENTITY_PATH): Agen
 }
 
 /**
- * Write a single field value in IDENTITY.md.
+ * Write a single field value in SIWA_IDENTITY.md.
  */
 export function writeIdentityField(
   key: string,
@@ -97,7 +97,7 @@ export function writeIdentityField(
 }
 
 /**
- * Check if the agent has a wallet address recorded in IDENTITY.md.
+ * Check if the agent has a wallet address recorded in SIWA_IDENTITY.md.
  */
 export function hasWalletRecord(identityPath: string = DEFAULT_IDENTITY_PATH): boolean {
   const identity = readIdentity(identityPath);
@@ -107,7 +107,7 @@ export function hasWalletRecord(identityPath: string = DEFAULT_IDENTITY_PATH): b
 /**
  * Check if the agent is registered.
  *
- * Without a client: returns true if IDENTITY.md has an Agent ID and Agent Registry (local cache).
+ * Without a client: returns true if SIWA_IDENTITY.md has an Agent ID and Agent Registry (local cache).
  * With a client: performs an onchain ownerOf(agentId) check on the registry contract.
  */
 export async function isRegistered(options?: {

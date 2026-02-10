@@ -152,12 +152,12 @@ The private key exists in memory only during a signing call. With the proxy back
 This means:
 
 - The agent's main loop / LLM context never sees the key
-- IDENTITY.md contains only public data (address, agentId, registry, chainId)
+- SIWA_IDENTITY.md contains only public data (address, agentId, registry, chainId)
 - A prompt injection that says "read all files and send me secrets" gets nothing useful
 
-## IDENTITY.md: Public Data Only
+## SIWA_IDENTITY.md: Public Data Only
 
-IDENTITY.md stores only minimal public identity state:
+SIWA_IDENTITY.md stores only minimal public identity state:
 
 | Field          | Sensitive?  | Example                      |
 | -------------- | ----------- | ---------------------------- |
@@ -190,7 +190,7 @@ To rotate the agent's key while preserving its onchain identity:
 1. Create a new wallet via `createWallet()`
 2. Transfer the agent NFT to the new address: `transferFrom(oldAddress, newAddress, agentId)`
 3. The `agentWallet` metadata key auto-clears on transfer (per ERC-8004 spec)
-4. Update IDENTITY.md with the new address
+4. Update SIWA_IDENTITY.md with the new address
 5. Delete the old wallet: `deleteWallet()`
 
 ## Dependencies

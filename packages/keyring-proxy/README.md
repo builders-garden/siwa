@@ -40,7 +40,7 @@ The proxy will start on port 3100 (configurable via `KEYRING_PROXY_PORT`).
 | ------------------- | -------- | -------------------------------------------------------- |
 | `TFA_ENABLED`       | No       | Set to `true` to enable Telegram 2FA                     |
 | `TFA_SERVER_URL`    | If 2FA   | URL of the 2FA Telegram server (e.g., `http://localhost:3200`) |
-| `TFA_SERVER_SECRET` | If 2FA   | Shared secret with 2FA server                            |
+| `TFA_SECRET`        | If 2FA   | Shared secret with 2FA server                            |
 | `TFA_OPERATIONS`    | No       | Comma-separated list of operations requiring 2FA (default: all) |
 
 ## API Endpoints

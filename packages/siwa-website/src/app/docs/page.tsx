@@ -557,15 +557,15 @@ const rep = await getReputation(42, {
 
           <SubSection id="api-identity" title="@buildersgarden/siwa/identity">
             <P>
-              Helpers for reading and writing the agent&apos;s public identity state in IDENTITY.md (4 fields: Address, Agent ID, Agent Registry, Chain ID).
+              Helpers for reading and writing the agent&apos;s public identity state in SIWA_IDENTITY.md (4 fields: Address, Agent ID, Agent Registry, Chain ID).
             </P>
             <Table
               headers={["Function", "Description"]}
               rows={[
-                ["ensureIdentityExists(path, template)", "Initialize IDENTITY.md from template if missing."],
-                ["readIdentity(path)", "Parse IDENTITY.md into a typed AgentIdentity object."],
-                ["writeIdentityField(key, value, path)", "Write a single field to IDENTITY.md."],
-                ["hasWalletRecord(path)", "Check if an address is recorded in IDENTITY.md."],
+                ["ensureIdentityExists(path, template)", "Initialize SIWA_IDENTITY.md from template if missing."],
+                ["readIdentity(path)", "Parse SIWA_IDENTITY.md into a typed AgentIdentity object."],
+                ["writeIdentityField(key, value, path)", "Write a single field to SIWA_IDENTITY.md."],
+                ["hasWalletRecord(path)", "Check if an address is recorded in SIWA_IDENTITY.md."],
                 ["isRegistered({ identityPath, client? })", "Check registration (local cache or onchain ownerOf)."],
               ]}
             />
@@ -703,9 +703,9 @@ signMessage("hello")
             />
           </SubSection>
 
-          <SubSection id="security-identity" title="IDENTITY.md: Public Data Only">
+          <SubSection id="security-identity" title="SIWA_IDENTITY.md: Public Data Only">
             <P>
-              The agent&apos;s identity file stores only public state — address, agentId, agentRegistry, chainId. The private key is never written to IDENTITY.md or any other file the agent reads.
+              The agent&apos;s identity file stores only public state — address, agentId, agentRegistry, chainId. The private key is never written to SIWA_IDENTITY.md or any other file the agent reads.
             </P>
           </SubSection>
         </Section>

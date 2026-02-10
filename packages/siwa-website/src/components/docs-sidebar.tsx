@@ -33,7 +33,7 @@ const sections = [
     children: [
       { title: "Keyring Proxy", id: "security-proxy" },
       { title: "Threat Model", id: "security-threats" },
-      { title: "IDENTITY.md", id: "security-identity" },
+      { title: "SIWA_IDENTITY.md", id: "security-identity" },
     ],
   },
   {

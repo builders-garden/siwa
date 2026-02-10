@@ -12,7 +12,7 @@ import { randomUUID } from "crypto";
 
 export const TFA_ENABLED = process.env.TFA_ENABLED === "true";
 export const TFA_SERVER_URL = process.env.TFA_SERVER_URL;
-export const TFA_SERVER_SECRET = process.env.TFA_SERVER_SECRET;
+export const TFA_SECRET = process.env.TFA_SECRET;
 export const TFA_OPERATIONS = (
   process.env.TFA_OPERATIONS || "sign-message,sign-transaction,sign-authorization"
 )
@@ -57,8 +57,8 @@ export function validateTFAConfig(): void {
     errors.push("TFA_SERVER_URL is required when TFA_ENABLED=true");
   }
 
-  if (!TFA_SERVER_SECRET) {
-    errors.push("TFA_SERVER_SECRET is required when TFA_ENABLED=true");
+  if (!TFA_SECRET) {
+    errors.push("TFA_SECRET is required when TFA_ENABLED=true");
   }
 
   if (errors.length > 0) {
@@ -113,7 +113,7 @@ export async function requestTFAApproval(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-TFA-Secret": TFA_SERVER_SECRET!,
+        "X-TFA-Secret": TFA_SECRET!,
       },
       body: JSON.stringify(tfaRequest),
       signal: AbortSignal.timeout(TFA_REQUEST_TIMEOUT_MS),

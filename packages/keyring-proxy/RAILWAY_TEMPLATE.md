@@ -82,7 +82,7 @@ If you want to enable Telegram-based two-factor authentication for signing opera
 | ------------------- | -------- | ------------------------------------------------------------------ |
 | `TFA_ENABLED`       | No       | Set to `true` to enable Telegram 2FA                               |
 | `TFA_SERVER_URL`    | If 2FA   | Internal URL of the 2FA Telegram server                            |
-| `TFA_SERVER_SECRET` | If 2FA   | Shared secret with the 2FA server                                  |
+| `TFA_SECRET`        | If 2FA   | Shared secret with the 2FA server                                  |
 | `TFA_OPERATIONS`    | No       | Comma-separated list of operations requiring 2FA (default: all)    |
 
 #### Additional Services Required for 2FA

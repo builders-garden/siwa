@@ -34,10 +34,10 @@ export function addressUrl(chainId: number, address: string): string {
 export const config = {
   serverUrl: process.env.SERVER_URL || "http://localhost:3000",
   serverDomain: process.env.SERVER_DOMAIN || "localhost:3000",
-  identityPath: process.env.IDENTITY_PATH || path.resolve(projectRoot, "IDENTITY.md"),
+  identityPath: process.env.IDENTITY_PATH || path.resolve(projectRoot, "SIWA_IDENTITY.md"),
   keyringProxyUrl: process.env.KEYRING_PROXY_URL || "",
   keyringProxySecret: process.env.KEYRING_PROXY_SECRET || "",
-  templatePath: path.resolve(skillRoot, "assets", "IDENTITY.template.md"),
+  templatePath: path.resolve(skillRoot, "assets", "SIWA_IDENTITY.template.md"),
   registrationFile:
     process.env.REGISTRATION_FILE ||
     path.resolve(skillRoot, "assets", "registration-template.json"),
