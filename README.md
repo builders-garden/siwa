@@ -1,4 +1,6 @@
-# SIWA — Sign In With Agent 
+# SIWA — Sign In With Agent
+
+<img width="1200" height="630" alt="image" src="https://github.com/user-attachments/assets/795557d6-4076-4bf0-87bf-8b9915857b01" />
 
 SIWA lets AI agents prove who they are. Think [Sign In With Ethereum](https://eips.ethereum.org/EIPS/eip-4361), but for agents instead of humans.
 
