@@ -35,6 +35,66 @@ The keyring proxy requires these environment variables:
 
 When `AGENT_PRIVATE_KEY` is set, the keystore backend auto-detects to `env` — no password or encrypted file needed.
 
+### Security Model
+
+The keyring proxy implements defense-in-depth security:
+
+- **Private Key Isolation** — The private key never leaves the keyring-proxy process. The agent only receives signed outputs, never the key itself. This protects against prompt injection and key exfiltration attacks.
+- **Encrypted Storage** — When using the `encrypted-file` backend, keys are stored using AES-128-CTR encryption with scrypt key derivation (N=16384). Keys are decrypted in memory only when signing.
+- **HMAC Authentication** — All signing requests require HMAC-SHA256 authentication with timestamp-based replay protection (5-minute window). Invalid or expired requests are rejected.
+- **Audit Logging** — Every operation is logged with timestamp, source IP, and success/failure status for forensic analysis.
+
+#### Network Deployment Recommendations
+
+For production deployments, all SIWA services should run within the same **private/internal network**:
+
+```
+                 Public                          Internal Network
+              ─────────────      ┌────────────────────────────────────────────────┐
+                                 │                                                │
+┌─────────┐   ┌──────────┐      │  ┌─────────────────┐      ┌──────────────────┐ │
+│  Users  │──▶│  Agent   │─────────▶│  Keyring Proxy  │─────▶│  2FA Telegram    │ │
+└─────────┘   │ (Public) │ HMAC │  │   (Port 3100)   │      │   (Port 3200)    │ │
+              └──────────┘      │  └─────────────────┘      └──────────────────┘ │
+                                │                                     ▲          │
+                                │                                     │          │
+                                │                           ┌─────────┴────────┐ │
+                                │                           │   2FA Gateway    │ │
+                                │                           │   (Port 3201)    │ │
+                                │                           └─────────┬────────┘ │
+                                └─────────────────────────────────────┼──────────┘
+              ┌───────────────┐                                       │
+              │   Telegram    │◀──────────────────────────────────────┘
+              │     API       │                              Webhooks
+              └───────────────┘
+```
+
+- The **Agent** is public-facing (users interact with it)
+- The **keyring-proxy** and **2fa-telegram** should never be publicly exposed
+- The **2fa-gateway** needs public access only to receive Telegram webhook callbacks
+- Use Railway's private networking to ensure internal services communicate securely
+
+### Optional 2FA Configuration
+
+If you want to enable Telegram-based two-factor authentication for signing operations, you need to deploy two additional services and configure the following environment variables:
+
+| Variable            | Required | Description                                                        |
+| ------------------- | -------- | ------------------------------------------------------------------ |
+| `TFA_ENABLED`       | No       | Set to `true` to enable Telegram 2FA                               |
+| `TFA_SERVER_URL`    | If 2FA   | Internal URL of the 2FA Telegram server                            |
+| `TFA_SERVER_SECRET` | If 2FA   | Shared secret with the 2FA server                                  |
+| `TFA_OPERATIONS`    | No       | Comma-separated list of operations requiring 2FA (default: all)    |
+
+#### Additional Services Required for 2FA
+
+Telegram 2FA requires deploying two additional services from the SIWA monorepo:
+
+1. **2fa-telegram** — Internal server that communicates with the Telegram API to send approval requests and receive responses. Configure it with your Telegram bot token and chat ID. This service should **never be publicly exposed**.
+
+2. **2fa-gateway** — Public-facing gateway that receives Telegram webhook callbacks. This is the **only** component that should be exposed to the internet. It features rate limiting (60 requests/minute per IP) and minimal attack surface.
+
+Both services are optional and only needed if you want users to manually approve signing operations via Telegram. Without 2FA, signing requests are processed immediately upon valid HMAC authentication.
+
 The proxy exposes these HMAC-authenticated endpoints:
 
 ```
