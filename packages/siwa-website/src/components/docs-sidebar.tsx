@@ -23,6 +23,8 @@ const sections = [
       { title: "@buildersgarden/siwa/registry", id: "api-registry" },
       { title: "@buildersgarden/siwa/identity", id: "api-identity" },
       { title: "@buildersgarden/siwa/proxy-auth", id: "api-proxy-auth" },
+      { title: "@buildersgarden/siwa/next", id: "api-next" },
+      { title: "@buildersgarden/siwa/express", id: "api-express" },
     ],
   },
   {

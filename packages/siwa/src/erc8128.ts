@@ -32,17 +32,32 @@ export interface VerifyOptions {
   publicClient?: PublicClient;
 }
 
+/** Verified agent identity returned from a successful auth check. */
+export interface SiwaAgent {
+  address: string;
+  agentId: number;
+  agentRegistry: string;
+  chainId: number;
+}
+
 export type AuthResult =
-  | {
-      valid: true;
-      agent: {
-        address: string;
-        agentId: number;
-        agentRegistry: string;
-        chainId: number;
-      };
-    }
+  | { valid: true; agent: SiwaAgent }
   | { valid: false; error: string };
+
+/**
+ * Resolve the receipt secret from an explicit value or environment variables.
+ *
+ * Checks (in order): `explicit` → `RECEIPT_SECRET` env → `SIWA_SECRET` env → throws.
+ */
+export function resolveReceiptSecret(explicit?: string): string {
+  const secret = explicit || process.env.RECEIPT_SECRET || process.env.SIWA_SECRET;
+  if (!secret) {
+    throw new Error(
+      'Missing receipt secret: pass receiptSecret option, or set RECEIPT_SECRET / SIWA_SECRET env var',
+    );
+  }
+  return secret;
+}
 
 /** Header name for the verification receipt */
 export const RECEIPT_HEADER = 'X-SIWA-Receipt';

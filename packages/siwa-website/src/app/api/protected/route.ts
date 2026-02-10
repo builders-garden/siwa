@@ -1,27 +1,12 @@
-import { NextRequest } from "next/server";
-import { verifyAuthenticatedRequest, nextjsToFetchRequest } from "@buildersgarden/siwa/erc8128";
-import { corsJson, corsOptions } from "@/lib/cors";
+import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
 
-const RECEIPT_SECRET =
-  process.env.RECEIPT_SECRET || process.env.SIWA_SECRET || "siwa-demo-secret-change-in-production";
-
-export async function GET(req: NextRequest) {
-  const result = await verifyAuthenticatedRequest(nextjsToFetchRequest(req), {
-    receiptSecret: RECEIPT_SECRET,
-  });
-
-  if (!result.valid) {
-    return corsJson({ error: result.error }, { status: 401 });
-  }
-
-  return corsJson({
-    message: `Hello Agent #${result.agent.agentId}!`,
-    address: result.agent.address,
-    agentId: result.agent.agentId,
+export const GET = withSiwa(async (agent) => {
+  return {
+    message: `Hello Agent #${agent.agentId}!`,
+    address: agent.address,
+    agentId: agent.agentId,
     timestamp: new Date().toISOString(),
-  });
-}
+  };
+});
 
-export async function OPTIONS() {
-  return corsOptions();
-}
+export { siwaOptions as OPTIONS };

@@ -3,7 +3,7 @@ import express from 'express';
 import { createPublicClient, http } from 'viem';
 import { recordSession, getSessions, getSessionCount, createReceiptForAgent } from './session-store.js';
 import { verifySIWA, buildSIWAResponse, createSIWANonce, SIWAErrorCode } from '@buildersgarden/siwa';
-import { verifyAuthenticatedRequest, expressToFetchRequest } from '@buildersgarden/siwa/erc8128';
+import { siwaMiddleware, siwaJsonParser, siwaCors } from '@buildersgarden/siwa/express';
 import { renderDashboard } from './dashboard.js';
 
 const app = express();
@@ -22,19 +22,9 @@ if (!RPC_URL) {
 
 const client = createPublicClient({ transport: http(RPC_URL) });
 
-// Middleware — raw body capture for Content-Digest verification (ERC-8128)
-app.use(express.json({
-  verify: (req: any, _res, buf) => {
-    req.rawBody = buf.toString();
-  },
-}));
-app.use((_req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, X-SIWA-Receipt, Signature, Signature-Input, Content-Digest');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  next();
-});
-app.options('*', (_req, res) => res.sendStatus(204));
+// Middleware — SIWA SDK wrappers handle JSON parsing (with rawBody), CORS, and OPTIONS
+app.use(siwaJsonParser());
+app.use(siwaCors());
 
 // ─── Routes ───────────────────────────────────────────────────────────
 
@@ -147,40 +137,17 @@ app.get('/siwa/sessions', (_req, res) => {
   res.json(sessions);
 });
 
-// Auth middleware — ERC-8128 HTTP Message Signatures + Receipt
-async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> {
-  const hasSignature = req.headers['signature'] && req.headers['x-siwa-receipt'];
-
-  if (!hasSignature) {
-    res.status(401).json({ error: 'Unauthorized — provide ERC-8128 Signature + X-SIWA-Receipt headers' });
-    return;
-  }
-
-  try {
-    const fetchReq = expressToFetchRequest(req as any);
-    const result = await verifyAuthenticatedRequest(fetchReq, {
-      receiptSecret: RECEIPT_SECRET,
-      rpcUrl: ERC8128_RPC_URL,
-      verifyOnchain: ERC8128_VERIFY_ONCHAIN,
-      publicClient: ERC8128_VERIFY_ONCHAIN ? client : undefined,
-    });
-
-    if (!result.valid) {
-      res.status(401).json({ error: result.error });
-      return;
-    }
-
-    (req as any).agent = result.agent;
-    return next();
-  } catch (err: any) {
-    res.status(401).json({ error: `ERC-8128 auth failed: ${err.message}` });
-    return;
-  }
-}
+// Auth middleware — SIWA SDK wrapper for ERC-8128 + Receipt verification
+const requireAuth = siwaMiddleware({
+  receiptSecret: RECEIPT_SECRET,
+  rpcUrl: ERC8128_RPC_URL,
+  verifyOnchain: ERC8128_VERIFY_ONCHAIN,
+  publicClient: ERC8128_VERIFY_ONCHAIN ? client : undefined,
+});
 
 // Protected endpoint
 app.get('/api/protected', requireAuth, (req, res) => {
-  const agent = (req as any).agent;
+  const agent = req.agent!;
   res.json({
     message: `Hello Agent #${agent.agentId}!`,
     address: agent.address,
@@ -191,7 +158,7 @@ app.get('/api/protected', requireAuth, (req, res) => {
 
 // Agent action endpoint
 app.post('/api/agent-action', requireAuth, (req, res) => {
-  const agent = (req as any).agent;
+  const agent = req.agent!;
   res.json({
     received: req.body,
     processedBy: 'siwa-test-server',
