@@ -2,28 +2,31 @@ import { GetStartedBox } from "@/components/get-started-box";
 
 const SIGN_IN_CODE = `import { signSIWAMessage } from '@buildersgarden/siwa';
 
-const { message, signature } = await signSIWAMessage(
+// address is resolved from the keystore
+const { message, signature, address } = await signSIWAMessage(
   {
     domain: 'api.example.com',
     uri: 'https://api.example.com',
-    address,
     agentId,
     agentRegistry,
     chainId,
     nonce,
     issuedAt: new Date().toISOString(),
   },
-  keystoreConfig  // proxy URL + HMAC secret
+  keystoreConfig
 );`;
 
 const VERIFY_CODE = `import { verifySIWA } from '@buildersgarden/siwa';
+import { createPublicClient, http } from 'viem';
+
+const client = createPublicClient({ transport: http() });
 
 const result = await verifySIWA(
   message,
   signature,
-  'api.example.com',          // expected domain
+  'api.example.com',
   (nonce) => nonceStore.check(nonce),
-  provider                    // ethers provider
+  client
 );
 
 // result.valid, result.address, result.agentId`;
