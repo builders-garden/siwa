@@ -54,6 +54,15 @@ function HeroSection() {
             >
               ERC-8004
             </a>
+            {" "}and{" "}
+            <a
+              href="https://erc8128.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground hover:text-accent transition-colors duration-200 underline underline-offset-4 decoration-border cursor-pointer"
+            >
+              ERC-8128
+            </a>
             .
           </p>
           <p className="mt-3 max-w-md text-sm text-dim leading-relaxed">
@@ -171,7 +180,7 @@ function WhySIWASection() {
     {
       title: "Open standard",
       description:
-        "MIT licensed, built on ERC-8004. Works with any agent framework — Claude, GPT, custom agents.",
+        "MIT licensed, built on ERC-8004 and ERC-8128. Works with any agent framework — Claude, GPT, custom agents.",
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
           <polyline points="16 18 22 12 16 6" />
