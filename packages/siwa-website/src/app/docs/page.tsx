@@ -198,10 +198,10 @@ export default function DocsPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/siwa-flow.png"
-              alt="SIWA authentication flow: Agent requests nonce from Service, signs SIWA message, Service verifies signature and checks onchain ownership, returns verification receipt"
+              alt="SIWA authentication flow: Agent requests nonce, signs SIWA message, Service verifies signature and checks onchain ownership, returns HMAC-signed verification receipt, then subsequent API requests use ERC-8128 HTTP signatures"
               className="w-full rounded-lg border border-border"
               width={800}
-              height={530}
+              height={730}
             />
 
             <div className="mt-6 rounded-lg border border-border bg-surface px-5 py-4">
@@ -314,10 +314,9 @@ const { nonce, issuedAt, expirationTime } = await fetch(
   }
 ).then(r => r.json());
 
-// 2. Sign the SIWA message
-const { message, signature } = await signSIWAMessage({
+// 2. Sign the SIWA message (address auto-resolved from keystore)
+const { message, signature, address } = await signSIWAMessage({
   domain: 'example.com',
-  address,
   uri: 'https://example.com/api/siwa',
   agentId,
   agentRegistry,
@@ -325,7 +324,7 @@ const { message, signature } = await signSIWAMessage({
   nonce,
   issuedAt,
   expirationTime,
-});
+}, keystoreConfig);
 
 // 3. Send to server → get a verification receipt back
 const { receipt } = await fetch('https://example.com/api/siwa/verify', {
@@ -358,24 +357,28 @@ const res = await fetch(signedReq);`}</CodeBlock>
               On your server, validate the signature and issue a session:
             </P>
             <CodeBlock language="typescript">{`import { verifySIWA } from '@buildersgarden/siwa';
+import { createReceipt } from '@buildersgarden/siwa/receipt';
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
 
+const client = createPublicClient({ chain: base, transport: http() });
 const { message, signature } = req.body;
 
-const result = verifySIWA(message, signature, {
-  domain: 'example.com',
-  nonce: storedNonce,
-});
-// → { address, agentId, agentRegistry, chainId }
+// Verify signature + onchain ownership in one call
+const result = await verifySIWA(
+  message,
+  signature,
+  'example.com',
+  (nonce) => nonceStore.consume(nonce),
+  client,
+);
+// → { valid, address, agentId, agentRegistry, chainId, verified }
 
-// Verify onchain ownership
-const owner = await identityRegistry.ownerOf(result.agentId);
-if (owner.toLowerCase() !== result.address.toLowerCase()) {
-  throw new Error('Signer does not own this agent NFT');
+if (!result.valid) {
+  throw new Error(result.error);
 }
 
 // Issue a verification receipt (HMAC-signed, stateless)
-import { createReceipt } from '@buildersgarden/siwa/receipt';
-
 const { receipt, expiresAt } = createReceipt(
   { address: result.address, agentId: result.agentId, agentRegistry: result.agentRegistry, chainId: result.chainId, verified: 'onchain' },
   { secret: RECEIPT_SECRET },
@@ -439,7 +442,8 @@ const { receipt, expiresAt } = createReceipt(
               headers={["Function", "Returns", "Description"]}
               rows={[
                 ["createWallet()", "{ address, backend }", "Create a new wallet. Key stored in backend, never returned."],
-                ["signMessage(msg)", "{ signature, address }", "Sign a message. Key loaded, used, discarded."],
+                ["signMessage(msg)", "{ signature, address }", "Sign a message (EIP-191). Key loaded, used, discarded."],
+                ["signRawMessage(rawHex)", "{ signature, address }", "Sign raw bytes without EIP-191 prefix. Used for ERC-8128 HTTP signatures."],
                 ["signTransaction(tx)", "{ signedTx, address }", "Sign a transaction. Same pattern."],
                 ["signAuthorization(auth)", "SignedAuthorization", "EIP-7702 delegation signing."],
                 ["getAddress()", "string", "Get the wallet's public address."],
@@ -447,7 +451,7 @@ const { receipt, expiresAt } = createReceipt(
               ]}
             />
             <P>
-              With the <InlineCode>proxy</InlineCode> backend, all signing is delegated over HMAC-authenticated HTTP. <InlineCode>getSigner()</InlineCode> is not available with proxy.
+              All signing is delegated to the keyring proxy over HMAC-authenticated HTTP. The agent process never touches the private key.
             </P>
           </SubSection>
 
@@ -459,12 +463,12 @@ const { receipt, expiresAt } = createReceipt(
               headers={["Function", "Returns", "Description"]}
               rows={[
                 ["buildSIWAMessage(fields)", "string", "Build a formatted SIWA message string."],
-                ["signSIWAMessage(fields)", "{ message, signature }", "Build and sign a SIWA message."],
-                ["verifySIWA(msg, sig, domain, nonceValid, provider, criteria?)", "SIWAVerificationResult", "Verify a SIWA signature. Optional criteria param validates agent profile/reputation."],
+                ["signSIWAMessage(fields, keystoreConfig?)", "{ message, signature, address }", "Build and sign a SIWA message. Address auto-resolved from keystore."],
+                ["verifySIWA(msg, sig, domain, nonceValid, client, criteria?)", "SIWAVerificationResult", "Verify a SIWA signature. client is a viem PublicClient for onchain ownership check."],
               ]}
             />
             <P>
-              <InlineCode>verifySIWA</InlineCode> accepts an optional <InlineCode>SIWAVerifyCriteria</InlineCode> object as the 6th argument to validate agent profile and reputation after the ownership check. When criteria are provided, the result includes the full <InlineCode>agent</InlineCode> profile.
+              <InlineCode>verifySIWA</InlineCode> accepts a viem <InlineCode>PublicClient</InlineCode> as the 5th argument for onchain ownership verification, and an optional <InlineCode>SIWAVerifyCriteria</InlineCode> object as the 6th argument to validate agent profile and reputation. When criteria are provided, the result includes the full <InlineCode>agent</InlineCode> profile.
             </P>
             <Table
               headers={["Criteria Field", "Type", "Description"]}
@@ -485,7 +489,7 @@ const result = await verifySIWA(
   signature,
   'api.example.com',
   (nonce) => nonceStore.consume(nonce),
-  provider,
+  client,
   {
     mustBeActive: true,
     requiredServices: ['MCP'],
@@ -520,7 +524,7 @@ if (result.valid) {
 
 const agent = await getAgent(42, {
   registryAddress: '0x8004A169...a432',
-  provider,
+  client,
 });
 // agent.owner        — NFT owner address
 // agent.agentWallet  — linked wallet (null if unset)
@@ -528,7 +532,7 @@ const agent = await getAgent(42, {
 
 const rep = await getReputation(42, {
   reputationRegistryAddress: '0x8004BAa1...9b63',
-  provider,
+  client,
   tag1: 'starred',     // filter by reputation tag
 });
 // rep.score  — normalized score
@@ -581,6 +585,43 @@ const rep = await getReputation(42, {
                 ["computeHMAC(secret, method, path, body, timestamp)", "Compute HMAC-SHA256 signature for a proxy request."],
               ]}
             />
+          </SubSection>
+
+          <SubSection id="api-erc8128" title="@buildersgarden/siwa/erc8128">
+            <P>
+              ERC-8128 HTTP Message Signatures for per-request authentication. Agent-side signing and server-side verification.
+            </P>
+            <Table
+              headers={["Function", "Returns", "Description"]}
+              rows={[
+                ["signAuthenticatedRequest(request, receipt, config, chainId)", "Request", "Attach receipt + ERC-8128 signature to outgoing request."],
+                ["verifyAuthenticatedRequest(request, options)", "AuthResult", "Verify ERC-8128 signature + receipt + optional onchain check."],
+                ["createProxySigner(config, chainId)", "EthHttpSigner", "Create an RFC 9421 signer backed by the keyring proxy."],
+                ["attachReceipt(request, receipt)", "Request", "Set X-SIWA-Receipt header on a request."],
+                ["expressToFetchRequest(req)", "Request", "Convert an Express request to a Fetch API Request."],
+                ["nextjsToFetchRequest(req)", "Request", "Normalize a Next.js request for proxy situations."],
+              ]}
+            />
+            <P>
+              <InlineCode>VerifyOptions</InlineCode>: <InlineCode>receiptSecret</InlineCode> (or <InlineCode>RECEIPT_SECRET</InlineCode> / <InlineCode>SIWA_SECRET</InlineCode> env), <InlineCode>rpcUrl</InlineCode>, <InlineCode>verifyOnchain</InlineCode>, <InlineCode>publicClient</InlineCode>.
+            </P>
+          </SubSection>
+
+          <SubSection id="api-receipt" title="@buildersgarden/siwa/receipt">
+            <P>
+              Stateless HMAC-signed verification receipts. Proves that onchain registration was checked during SIWA sign-in.
+            </P>
+            <Table
+              headers={["Export", "Returns", "Description"]}
+              rows={[
+                ["createReceipt(payload, options)", "{ receipt, expiresAt }", "Create an HMAC-signed receipt token."],
+                ["verifyReceipt(receipt, secret)", "ReceiptPayload | null", "Verify and decode a receipt. Returns null if invalid or expired."],
+                ["DEFAULT_RECEIPT_TTL", "number", "Default TTL: 30 minutes (1800000 ms)."],
+              ]}
+            />
+            <P>
+              Receipt format: <InlineCode>base64url(json).base64url(hmac-sha256)</InlineCode>. Payload includes address, agentId, agentRegistry, chainId, verified (&apos;offline&apos; | &apos;onchain&apos;), iat, exp.
+            </P>
           </SubSection>
 
           <SubSection id="api-next" title="@buildersgarden/siwa/next">
