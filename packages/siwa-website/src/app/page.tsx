@@ -2,25 +2,31 @@ import { GetStartedBox } from "@/components/get-started-box";
 
 const SIGN_IN_CODE = `import { signSIWAMessage } from '@buildersgarden/siwa';
 
-const { message, signature } = await signSIWAMessage({
-  domain: 'api.example.com',
-  address,
-  agentId,
-  agentRegistry,
-  chainId,
-  nonce,
-  issuedAt,
-});`;
+const { message, signature } = await signSIWAMessage(
+  {
+    domain: 'api.example.com',
+    uri: 'https://api.example.com',
+    address,
+    agentId,
+    agentRegistry,
+    chainId,
+    nonce,
+    issuedAt: new Date().toISOString(),
+  },
+  keystoreConfig  // proxy URL + HMAC secret
+);`;
 
 const VERIFY_CODE = `import { verifySIWA } from '@buildersgarden/siwa';
 
-const result = verifySIWA(message, signature, {
-  domain: 'api.example.com',
-  nonce: storedNonce,
-});
+const result = await verifySIWA(
+  message,
+  signature,
+  'api.example.com',          // expected domain
+  (nonce) => nonceStore.check(nonce),
+  provider                    // ethers provider
+);
 
-// result.address, result.agentId, result.chainId
-const owner = await registry.ownerOf(result.agentId);`;
+// result.valid, result.address, result.agentId`;
 
 function HeroSection() {
   return (
@@ -84,19 +90,40 @@ function HeroSection() {
   );
 }
 
-function ProblemSection() {
+function ValueSection() {
   return (
     <section className="border-t border-border px-6 py-20">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="font-mono text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          AI agents can&apos;t prove who they are
-        </h2>
-        <p className="mt-6 text-muted leading-relaxed">
-          When an AI agent calls an API, the server has no way to know which
-          agent is making the request. There&apos;s no standard for agent identity,
-          no way to verify it onchain, and no protocol to authenticate without
-          sharing secrets. SIWA fixes that.
-        </p>
+      <div className="mx-auto max-w-5xl grid gap-4 md:grid-cols-3">
+        <div className="rounded-lg border border-border bg-surface p-8">
+          <div className="font-mono text-xs text-dim uppercase tracking-wider mb-4">For Agents</div>
+          <h2 className="font-mono text-xl font-bold tracking-tight text-foreground">
+            Prove who you are
+          </h2>
+          <p className="mt-3 text-sm text-muted leading-relaxed">
+            Read a skill file, get an onchain identity, and authenticate
+            with any service — autonomously, without exposing your keys.
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-8">
+          <div className="font-mono text-xs text-dim uppercase tracking-wider mb-4">For Agent Builders</div>
+          <h2 className="font-mono text-xl font-bold tracking-tight text-foreground">
+            Give your agent an identity
+          </h2>
+          <p className="mt-3 text-sm text-muted leading-relaxed">
+            Register your agent onchain, store its keys safely, and let it
+            authenticate with any service — one open standard.
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-surface p-8">
+          <div className="font-mono text-xs text-dim uppercase tracking-wider mb-4">For Platform Builders</div>
+          <h2 className="font-mono text-xl font-bold tracking-tight text-foreground">
+            Gate your platform for agents
+          </h2>
+          <p className="mt-3 text-sm text-muted leading-relaxed">
+            Know which agent is calling your API. Verify its identity
+            on every request — no API keys, no shared secrets.
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -105,9 +132,9 @@ function ProblemSection() {
 function WhySIWASection() {
   const features = [
     {
-      title: "Your keys stay safe",
+      title: "Keys never touch the agent",
       description:
-        "The agent never sees its own private key. All signing is delegated to a keyring proxy — even full agent compromise can't extract the key.",
+        "Private keys are stored in a separate secure service. The agent can request signatures but never access the key — even if the agent is compromised.",
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -319,9 +346,15 @@ function QuickstartSection() {
 function OpenStandardsSection() {
   const links = [
     {
-      title: "ERC-8004 Spec",
-      description: "The Ethereum standard for agent identity",
+      title: "ERC-8004",
+      description: "Agent identity standard — onchain NFT registry",
       href: "https://eips.ethereum.org/EIPS/eip-8004",
+      external: true,
+    },
+    {
+      title: "ERC-8128",
+      description: "HTTP message signatures for agent authentication",
+      href: "https://erc8128.org/",
       external: true,
     },
     {
@@ -346,11 +379,11 @@ function OpenStandardsSection() {
             Built On Open Standards
           </h2>
           <p className="text-sm text-muted max-w-lg mx-auto">
-            SIWA is MIT licensed and built on ERC-8004. No vendor lock-in, no proprietary protocols.
+            SIWA is MIT licensed, built on ERC-8004 and ERC-8128. No vendor lock-in, no proprietary protocols.
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {links.map((link) => (
             <a
               key={link.title}
@@ -389,7 +422,7 @@ export default function Home() {
         </p>
       </div>
       <HeroSection />
-      <ProblemSection />
+      <ValueSection />
       <WhySIWASection />
       <HowItWorksSection />
       <QuickstartSection />
