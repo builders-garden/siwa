@@ -48,7 +48,8 @@ pnpm dev
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `TFA_INTERNAL_URL` | Yes | - | URL of 2fa-telegram server |
-| `TELEGRAM_BOT_TOKEN` | No | - | For future webhook signature verification |
+| `TELEGRAM_BOT_TOKEN` | No | - | Bot token. If set, webhook is auto-registered on startup |
+| `WEBHOOK_URL` | No | Auto | Public webhook URL. Auto-detected on Railway |
 | `TFA_GATEWAY_PORT` | No | 3201 | Gateway port |
 
 ## API Endpoints
@@ -62,19 +63,17 @@ All other routes return 404.
 
 ## Webhook Setup
 
-After starting the gateway and exposing it publicly (via ngrok, cloudflared, or a public domain):
+### Automatic (Railway)
 
-```bash
-# Set the webhook
-curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<PUBLIC_URL>/webhook"
+On Railway, the webhook is **automatically registered** on startup when:
+1. `TELEGRAM_BOT_TOKEN` is set
+2. The service has a public domain (Railway sets `RAILWAY_PUBLIC_DOMAIN` automatically)
 
-# Verify it's set
-curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
-```
+No manual webhook setup required.
 
-### Local Development
+### Manual / Local Development
 
-For local testing, use ngrok or cloudflared:
+For local testing, use ngrok or cloudflared to expose the gateway:
 
 ```bash
 # Using ngrok
@@ -84,7 +83,17 @@ ngrok http 3201
 cloudflared tunnel --url http://localhost:3201
 ```
 
-Then set the webhook to the generated public URL.
+Then either:
+- Set `WEBHOOK_URL` env var to the public URL (auto-registers on startup), or
+- Manually call the Telegram API:
+
+```bash
+# Set the webhook
+curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<PUBLIC_URL>/webhook"
+
+# Verify it's set
+curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
+```
 
 ## Rate Limiting
 

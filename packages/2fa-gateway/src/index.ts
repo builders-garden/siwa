@@ -1,8 +1,53 @@
 import express, { type Request, type Response } from "express";
-import { validateConfig, TFA_GATEWAY_PORT, TFA_INTERNAL_URL } from "./config.js";
+import {
+  validateConfig,
+  TFA_GATEWAY_PORT,
+  TFA_INTERNAL_URL,
+  TELEGRAM_BOT_TOKEN,
+  WEBHOOK_URL,
+} from "./config.js";
 
 // Validate configuration
 validateConfig();
+
+/**
+ * Automatically register the Telegram webhook on startup.
+ * Only runs if TELEGRAM_BOT_TOKEN is set and a public URL is available.
+ */
+async function setupTelegramWebhook(): Promise<void> {
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.log("[GATEWAY] TELEGRAM_BOT_TOKEN not set, skipping webhook setup");
+    return;
+  }
+
+  if (!WEBHOOK_URL) {
+    console.log("[GATEWAY] No public URL detected (set WEBHOOK_URL or deploy with public domain on Railway)");
+    return;
+  }
+
+  console.log(`[GATEWAY] Setting Telegram webhook to ${WEBHOOK_URL}`);
+
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: WEBHOOK_URL }),
+      }
+    );
+
+    const data = await response.json() as { ok: boolean; description?: string };
+
+    if (data.ok) {
+      console.log("[GATEWAY] Telegram webhook registered successfully");
+    } else {
+      console.error("[GATEWAY] Failed to set webhook:", data.description);
+    }
+  } catch (err) {
+    console.error("[GATEWAY] Error setting webhook:", (err as Error).message);
+  }
+}
 
 const app = express();
 
@@ -92,10 +137,13 @@ app.use((_req: Request, res: Response) => {
 });
 
 // Start server
-app.listen(TFA_GATEWAY_PORT, () => {
+app.listen(TFA_GATEWAY_PORT, async () => {
   console.log(`[GATEWAY] 2FA Gateway listening on port ${TFA_GATEWAY_PORT}`);
   console.log(`[GATEWAY] Forwarding webhooks to ${TFA_INTERNAL_URL}`);
   console.log(`[GATEWAY] Endpoints:`);
   console.log(`  POST /webhook - Telegram webhook (public)`);
   console.log(`  GET  /health  - Health check`);
+
+  // Auto-register webhook with Telegram
+  await setupTelegramWebhook();
 });
