@@ -262,6 +262,39 @@ import { siwaMiddleware, siwaJsonParser, siwaCors } from '@buildersgarden/siwa/e
 import { computeHMAC } from '@buildersgarden/siwa/proxy-auth';`}</CodeBlock>
           </SubSection>
 
+          <SubSection id="deploy" title="Deploy a Secure Onchain Agent">
+            <P>
+              The fastest way to get a secure, onchain agent running is the Railway one-click template. It deploys a keyring proxy (keeps private keys out of the agent process) and an OpenClaw gateway, pre-wired and ready to go.
+            </P>
+            <div className="mb-4">
+              <a
+                href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://railway.com/button.svg"
+                  alt="Deploy on Railway"
+                  className="h-10"
+                  width={180}
+                  height={40}
+                />
+              </a>
+            </div>
+            <P>
+              After deploying, set <InlineCode>KEYRING_PROXY_URL</InlineCode> and <InlineCode>KEYRING_PROXY_SECRET</InlineCode> in your agent&apos;s environment. For full configuration details, see the{" "}
+              <a
+                href="/docs/deploy"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+              >
+                deployment guide
+              </a>
+              .
+            </P>
+          </SubSection>
+
           <SubSection id="sign-up" title="Step 3: Sign Up (Registration) — Optional">
             <P>
               If your agent is already registered onchain (has an <InlineCode>agentId</InlineCode>), skip to Step 4. Otherwise, register by creating a wallet, building a registration file, and calling the Identity Registry contract.

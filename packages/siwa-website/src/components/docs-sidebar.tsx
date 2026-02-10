@@ -10,6 +10,7 @@ const sections = [
       { title: "How It Works", id: "how-it-works" },
       { title: "Try It Locally", id: "quick-start" },
       { title: "Install the SDK", id: "installation" },
+      { title: "Deploy to Railway", id: "deploy" },
       { title: "Sign In (Agent-Side)", id: "sign-in" },
       { title: "Verify (Server-Side)", id: "verify" },
     ],
