@@ -4,37 +4,16 @@ import {
   createPublicClient,
   http,
   formatEther,
-  encodeFunctionData,
-  parseEventLogs,
   type Address,
-  type Hex,
 } from 'viem';
-import { hasWallet, getAddress, signTransaction } from '@buildersgarden/siwa/keystore';
+import { hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
 import {
   isRegistered, readIdentity, writeIdentityField,
 } from '@buildersgarden/siwa/identity';
+import { registerAgent } from '@buildersgarden/siwa/registry';
 import {
   config, getKeystoreConfig, isLiveMode, REGISTRY_ADDRESSES, RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, txUrl, addressUrl,
 } from '../config.js';
-
-const IDENTITY_REGISTRY_ABI = [
-  {
-    name: 'register',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'agentURI', type: 'string' }],
-    outputs: [{ name: 'agentId', type: 'uint256' }],
-  },
-  {
-    name: 'Registered',
-    type: 'event',
-    inputs: [
-      { name: 'agentId', type: 'uint256', indexed: true },
-      { name: 'agentURI', type: 'string', indexed: false },
-      { name: 'owner', type: 'address', indexed: true },
-    ],
-  },
-] as const;
 
 async function uploadToIPFS(data: object, pinataJwt: string): Promise<string> {
   const res = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
@@ -105,7 +84,6 @@ async function registerLive(): Promise<void> {
     process.exit(1);
   }
 
-  // Create public client
   const publicClient = createPublicClient({
     transport: http(rpcUrl),
   });
@@ -149,7 +127,6 @@ async function registerLive(): Promise<void> {
     registrationData = JSON.parse(fs.readFileSync(config.registrationFile, 'utf-8'));
     console.log(chalk.dim(`   Registration file: ${config.registrationFile}`));
   } else {
-    // Use inline defaults if no registration file
     registrationData = {
       type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
       name: 'Test Agent',
@@ -175,78 +152,27 @@ async function registerLive(): Promise<void> {
     console.log(chalk.dim(`   Encoded as base64 data URI`));
   }
 
-  // Register onchain
+  // Register onchain via SDK
   console.log(chalk.cyan(`\u{1F310} Registering on chain ${chainId}...`));
   console.log(chalk.dim(`   Registry:  ${registryAddress}`));
   console.log(chalk.dim(`   From:      ${address}`));
   console.log(chalk.dim(`   AgentURI:  ${agentURI.slice(0, 80)}...`));
 
-  // Build + sign tx via proxy, then broadcast raw
-  const data = encodeFunctionData({
-    abi: IDENTITY_REGISTRY_ABI,
-    functionName: 'register',
-    args: [agentURI],
-  });
-
-  const nonce = await publicClient.getTransactionCount({ address: address as Address });
-  const feeData = await publicClient.estimateFeesPerGas();
-
-  const gasEstimate = await publicClient.estimateGas({
-    to: registryAddress as Address,
-    data,
-    account: address as Address,
-  });
-  const gas = gasEstimate * 120n / 100n; // 20% buffer
-
-  const txReq = {
-    to: registryAddress,
-    data,
-    nonce,
+  const result = await registerAgent({
+    agentURI,
     chainId,
-    type: 2,
-    maxFeePerGas: feeData.maxFeePerGas,
-    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-    gas,
-  };
-
-  console.log(chalk.dim(`   Nonce:     ${nonce}`));
-  console.log(chalk.dim(`   Gas:       ${txReq.gas}`));
-  console.log(chalk.dim(`   MaxFee:    ${feeData.maxFeePerGas} wei`));
-
-  const { signedTx } = await signTransaction(txReq, kc);
-  const txHash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx as Hex });
-  console.log(chalk.dim(`   Tx hash: ${txHash}`));
-  console.log(chalk.cyan(`   ${txUrl(chainId, txHash)}`));
-  console.log(chalk.dim(`   Waiting for confirmation...`));
-
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as Hex });
-  console.log(chalk.dim(`   Confirmed in block ${receipt.blockNumber}`));
-
-  // Parse event
-  const logs = parseEventLogs({
-    abi: IDENTITY_REGISTRY_ABI,
-    logs: receipt.logs,
-    eventName: 'Registered',
+    rpcUrl,
+    keystoreConfig: kc,
   });
 
-  if (logs.length > 0) {
-    const log = logs[0];
-    const agentId = log.args.agentId.toString();
-    const agentRegistry = `eip155:${chainId}:${registryAddress}`;
+  writeIdentityField('Agent ID', result.agentId, config.identityPath);
+  writeIdentityField('Agent Registry', result.agentRegistry, config.identityPath);
+  writeIdentityField('Chain ID', chainId.toString(), config.identityPath);
 
-    writeIdentityField('Agent ID', agentId, config.identityPath);
-    writeIdentityField('Agent Registry', agentRegistry, config.identityPath);
-    writeIdentityField('Chain ID', chainId.toString(), config.identityPath);
-
-    console.log(chalk.green.bold(`\u{2705} Onchain registration complete`));
-    console.log(chalk.dim(`   Agent ID:       ${agentId}`));
-    console.log(chalk.dim(`   Agent Registry: ${agentRegistry}`));
-    console.log(chalk.dim(`   Chain ID:       ${chainId}`));
-    console.log(chalk.cyan(`   Tx:             ${txUrl(chainId, txHash)}`));
-    console.log(chalk.cyan(`   8004scan:       https://www.8004scan.io/`));
-    return;
-  }
-
-  console.log(chalk.yellow(`\u{26A0}\u{FE0F}  Registration tx succeeded but could not parse Registered event.`));
-  console.log(chalk.cyan(`   Tx: ${txUrl(chainId, txHash)}`));
+  console.log(chalk.green.bold(`\u{2705} Onchain registration complete`));
+  console.log(chalk.dim(`   Agent ID:       ${result.agentId}`));
+  console.log(chalk.dim(`   Agent Registry: ${result.agentRegistry}`));
+  console.log(chalk.dim(`   Chain ID:       ${chainId}`));
+  console.log(chalk.cyan(`   Tx:             ${txUrl(chainId, result.txHash)}`));
+  console.log(chalk.cyan(`   8004scan:       https://www.8004scan.io/`));
 }
