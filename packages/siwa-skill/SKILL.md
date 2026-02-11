@@ -1,14 +1,13 @@
 ---
-name: siwa-keyring
+name: siwa
 version: 0.0.1
 description: >
   Use this skill when an agent needs to: (1) create or manage an Ethereum wallet,
-  (2) sign messages or transactions securely, (3) execute any onchain operation
-  (transfers, contract calls, DeFi interactions), (4) register on ERC-8004
-  and authenticate via SIWA.
+  (2) sign messages or transactions securely (transfers, contract calls, DeFi interactions), 
+  (3) register on ERC-8004 and (4) authenticate via SIWA.
 ---
 
-# SIWA Keyring Skill
+# SIWA Skill
 
 This skill provides **secure Ethereum wallet operations** for AI agents. The private key is stored in a separate keyring proxy server — it never enters the agent's process, protecting against prompt injection and key exfiltration.
 
@@ -106,93 +105,55 @@ Faucet: https://www.alchemy.com/faucets/base-sepolia
 Let me know once funded and I'll proceed with registration.
 ```
 
-### 5. Register on ERC-8004
+### 5. Create Agent Metadata
 
-Every agent must register on the ERC-8004 Identity Registry to get an `agentId`:
+**Option A — IPFS (Pinata, recommended):**
+
+```typescript
+const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.PINATA_JWT}`,
+  },
+  body: JSON.stringify({ pinataContent: registrationFile }),
+});
+const { IpfsHash } = await res.json();
+const agentURI = `ipfs://${IpfsHash}`;
+```
+
+**Option B — Base64 data URI:**
+
+```typescript
+const encoded = Buffer.from(JSON.stringify(registrationFile)).toString(
+  "base64"
+);
+const agentURI = `data:application/json;base64,${encoded}`;
+```
+
+### Step 6: Register Onchain (signed via proxy)
+
+The SDK's `registerAgent()` handles the entire onchain flow — building the transaction, signing via the keyring proxy, broadcasting, and parsing the `Registered` event:
 
 ```typescript
 import { registerAgent } from "@buildersgarden/siwa/registry";
 import { writeIdentityField } from "@buildersgarden/siwa/identity";
-import { createPublicClient, http, encodeFunctionData, parseEventLogs } from "viem";
-import { baseSepolia } from "viem/chains";
 
-const REGISTRY_ADDRESS = "0x800..."; //Read it from contract-address.md
-
-const REGISTRY_ABI = [
-  {
-    name: "register",
-    type: "function",
-    inputs: [{ name: "agentURI", type: "string" }],
-    outputs: [{ name: "agentId", type: "uint256" }],
-  },
-  {
-    name: "Registered",
-    type: "event",
-    inputs: [
-      { name: "agentId", type: "uint256", indexed: true },
-      { name: "agentURI", type: "string" },
-      { name: "owner", type: "address", indexed: true },
-    ],
-  },
-] as const;
-
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
+const result = await registerAgent({
+  agentURI,
+  chainId: 84532, //According to the chain chosen by the user
+  keystoreConfig: { proxyUrl, proxySecret },
 });
 
-const address = await getAddress();
-
-// Agent metadata
-const metadata = {
-  type: "AI Agent",
-  name: "My Agent",
-  description: "An autonomous AI agent",
-  services: [],
-  active: true,
-};
-
-// Encode as data URI
-const agentURI = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
-
-// Build transaction
-const data = encodeFunctionData({
-  abi: REGISTRY_ABI,
-  functionName: "register",
-  args: [agentURI],
-});
-
-const nonce = await client.getTransactionCount({ address });
-const { maxFeePerGas, maxPriorityFeePerGas } = await client.estimateFeesPerGas();
-const gas = await client.estimateGas({ account: address, to: REGISTRY_ADDRESS, data });
-
-const tx = {
-  to: REGISTRY_ADDRESS,
-  data,
-  nonce,
-  chainId: baseSepolia.id,
-  type: 2,
-  maxFeePerGas,
-  maxPriorityFeePerGas,
-  gas: (gas * 120n) / 100n,
-};
-
-// Sign and broadcast
-const { signedTx } = await signTransaction(tx);
-const txHash = await client.sendRawTransaction({ serializedTransaction: signedTx });
-const receipt = await client.waitForTransactionReceipt({ hash: txHash });
-
-// Get agentId from event
-const logs = parseEventLogs({ abi: REGISTRY_ABI, logs: receipt.logs, eventName: "Registered" });
-const agentId = logs[0].args.agentId.toString();
-
-// Save to identity file
-writeIdentityField("Agent ID", agentId, "./SIWA_IDENTITY.md");
-writeIdentityField("Agent Registry", `eip155:${baseSepolia.id}:${REGISTRY_ADDRESS}`, "./SIWA_IDENTITY.md");
-writeIdentityField("Chain ID", baseSepolia.id.toString(), "./SIWA_IDENTITY.md");
-
-console.log(`Registered as Agent #${agentId}`);
+// Persist PUBLIC results to SIWA_IDENTITY.md
+writeIdentityField("Agent ID", result.agentId);
+writeIdentityField("Agent Registry", result.agentRegistry);
+writeIdentityField("Chain ID", "84532");
 ```
+
+`registerAgent()` returns `{ agentId, txHash, registryAddress, agentRegistry }`. It resolves the registry address and RPC endpoint automatically from the chain ID (override with `rpcUrl` if needed).
+
+See [references/contract-addresses.md](references/contract-addresses.md) for deployed addresses per chain.
 
 After registration, your `SIWA_IDENTITY.md` will contain:
 ```markdown
