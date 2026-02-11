@@ -4,50 +4,44 @@ import { useEffect, useState } from "react";
 
 const sections = [
   {
-    title: "Overview",
-    id: "overview",
-    children: [
-      { title: "Architecture", id: "architecture" },
-    ],
-  },
-  {
     title: "Prerequisites",
     id: "prerequisites",
-    children: [],
-  },
-  {
-    title: "Create Project",
-    id: "create-project",
     children: [
-      { title: "keyring-proxy (manual)", id: "configure-keyring-proxy" },
-      { title: "openclaw (manual)", id: "configure-openclaw" },
+      { title: "Railway Account", id: "prereq-railway" },
+      { title: "2FA Bot Setup", id: "prereq-2fa" },
     ],
   },
   {
-    title: "Environment Variables",
-    id: "env-vars",
+    title: "One-Click Deploy",
+    id: "one-click",
     children: [
-      { title: "keyring-proxy vars", id: "env-keyring-proxy" },
-      { title: "openclaw vars", id: "env-openclaw" },
+      { title: "Configuration", id: "one-click-config" },
     ],
   },
   {
-    title: "Existing Wallet",
-    id: "existing-wallet",
-    children: [],
+    title: "Manual Deploy",
+    id: "manual",
+    children: [
+      { title: "Repository", id: "manual-repo" },
+      { title: "Build & Deploy", id: "manual-docker" },
+      { title: "Environment Variables", id: "manual-env" },
+    ],
+  },
+  {
+    title: "Advanced Options",
+    id: "advanced",
+    children: [
+      { title: "Existing Wallet", id: "existing-wallet" },
+      { title: "Existing Agent", id: "existing-agent" },
+    ],
   },
   {
     title: "Verify Deployment",
     id: "verify",
     children: [
       { title: "Health Checks", id: "health-checks" },
-      { title: "Test with curl", id: "test-curl" },
+      { title: "Test 2FA Flow", id: "test-2fa" },
     ],
-  },
-  {
-    title: "Connect Your Agent",
-    id: "connect-agent",
-    children: [],
   },
 ];
 

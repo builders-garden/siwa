@@ -6,8 +6,12 @@ const sections = [
   {
     title: "Getting Started",
     id: "getting-started",
+    children: [],
+  },
+  {
+    title: "Architecture",
+    id: "architecture",
     children: [
-      { title: "Deploy", id: "deploy" },
       { title: "How It Works", id: "how-it-works" },
       { title: "Network Topology", id: "network-topology" },
     ],
