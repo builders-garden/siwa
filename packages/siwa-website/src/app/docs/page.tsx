@@ -756,6 +756,12 @@ Issued At: {issuedAt}
                 </thead>
                 <tbody>
                   <tr className="border-b border-border/50">
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Ethereum</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">1</td>
+                    <td className="py-2 pr-4"><CopyableAddress address="0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" /></td>
+                    <td className="py-2 pr-4"><CopyableAddress address="0x8004BAa17C55a88189AE136b182e5fdA19dE9b63" /></td>
+                  </tr>
+                  <tr className="border-b border-border/50">
                     <td className="py-2 pr-4 text-muted font-mono text-xs">Base</td>
                     <td className="py-2 pr-4 text-muted font-mono text-xs">8453</td>
                     <td className="py-2 pr-4"><CopyableAddress address="0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" /></td>
@@ -778,43 +784,24 @@ Issued At: {issuedAt}
                 </thead>
                 <tbody>
                   <tr className="border-b border-border/50">
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">Ethereum Sepolia</td>
+                    <td className="py-2 pr-4 text-muted font-mono text-xs">11155111</td>
+                    <td className="py-2 pr-4"><CopyableAddress address="0x8004A818BFB912233c491871b3d84c89A494BD9e" /></td>
+                  </tr>
+                  <tr className="border-b border-border/50">
                     <td className="py-2 pr-4 text-muted font-mono text-xs">Base Sepolia</td>
                     <td className="py-2 pr-4 text-muted font-mono text-xs">84532</td>
                     <td className="py-2 pr-4"><CopyableAddress address="0x8004A818BFB912233c491871b3d84c89A494BD9e" /></td>
                   </tr>
                   <tr className="border-b border-border/50">
-                    <td className="py-2 pr-4 text-muted font-mono text-xs">ETH Sepolia</td>
-                    <td className="py-2 pr-4 text-muted font-mono text-xs">11155111</td>
-                    <td className="py-2 pr-4"><CopyableAddress address="0x8004a6090Cd10A7288092483047B097295Fb8847" /></td>
-                  </tr>
-                  <tr className="border-b border-border/50">
                     <td className="py-2 pr-4 text-muted font-mono text-xs">Linea Sepolia</td>
                     <td className="py-2 pr-4 text-muted font-mono text-xs">59141</td>
-                    <td className="py-2 pr-4"><CopyableAddress address="0x8004aa7C931bCE1233973a0C6A667f73F66282e7" /></td>
+                    <td className="py-2 pr-4"><CopyableAddress address="0x8004A818BFB912233c491871b3d84c89A494BD9e" /></td>
                   </tr>
                   <tr className="border-b border-border/50">
                     <td className="py-2 pr-4 text-muted font-mono text-xs">Polygon Amoy</td>
                     <td className="py-2 pr-4 text-muted font-mono text-xs">80002</td>
-                    <td className="py-2 pr-4"><CopyableAddress address="0x8004ad19E14B9e0654f73353e8a0B600D46C2898" /></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </SubSection>
-
-          <SubSection id="contracts-solana" title="Solana">
-            <div className="overflow-x-auto mb-4">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="py-2 pr-4 text-left font-mono text-xs font-medium text-dim">Network</th>
-                    <th className="py-2 pr-4 text-left font-mono text-xs font-medium text-dim">Program ID</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-border/50">
-                    <td className="py-2 pr-4 text-muted font-mono text-xs">Devnet</td>
-                    <td className="py-2 pr-4"><CopyableAddress address="HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp" /></td>
+                    <td className="py-2 pr-4"><CopyableAddress address="0x8004A818BFB912233c491871b3d84c89A494BD9e" /></td>
                   </tr>
                 </tbody>
               </table>
@@ -834,8 +821,8 @@ Examples:
               headers={["Chain", "RPC URL"]}
               rows={[
                 ["Base", "https://mainnet.base.org"],
+                ["Ethereum Sepolia", "https://rpc.sepolia.org"],
                 ["Base Sepolia", "https://sepolia.base.org"],
-                ["ETH Sepolia", "https://rpc.sepolia.org"],
                 ["Linea Sepolia", "https://rpc.sepolia.linea.build"],
                 ["Polygon Amoy", "https://rpc-amoy.polygon.technology"],
               ]}
