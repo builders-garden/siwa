@@ -431,7 +431,7 @@ const result = await registerAgent({
   keystoreConfig: { proxyUrl, proxySecret },
 });
 
-// Persist PUBLIC results to IDENTITY.md
+// Persist PUBLIC results to SIWA_IDENTITY.md
 writeIdentityField("Agent ID", result.agentId);
 writeIdentityField("Agent Registry", result.agentRegistry);
 writeIdentityField("Chain ID", "84532");

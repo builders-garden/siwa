@@ -515,15 +515,15 @@ app.get('/api/protected', siwaMiddleware(), (req, res) => {
               <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Identity File</h4>
             </div>
             <P>
-              The agent&apos;s IDENTITY.md stores 4 public fields: Address, Agent ID, Agent Registry, Chain ID.
+              The agent&apos;s SIWA_IDENTITY.md stores 4 public fields: Address, Agent ID, Agent Registry, Chain ID.
             </P>
             <Table
               headers={["Function", "Description"]}
               rows={[
-                ["ensureIdentityExists(path, template)", "Initialize IDENTITY.md from template if missing."],
-                ["readIdentity(path)", "Parse IDENTITY.md into a typed AgentIdentity object."],
-                ["writeIdentityField(key, value, path)", "Write a single field to IDENTITY.md."],
-                ["hasWalletRecord(path)", "Check if an address is recorded in IDENTITY.md."],
+                ["ensureIdentityExists(path, template)", "Initialize SIWA_IDENTITY.md from template if missing."],
+                ["readIdentity(path)", "Parse SIWA_IDENTITY.md into a typed AgentIdentity object."],
+                ["writeIdentityField(key, value, path)", "Write a single field to SIWA_IDENTITY.md."],
+                ["hasWalletRecord(path)", "Check if an address is recorded in SIWA_IDENTITY.md."],
                 ["isRegistered({ identityPath, client? })", "Check registration (local cache or onchain ownerOf)."],
               ]}
             />
