@@ -66,7 +66,7 @@ export default function RootLayout({
               >
                 Builders Garden
               </a>{" "}
-              & the{" "}
+              &{" "}
               <a
                 href="https://ai.ethereum.foundation/"
                 target="_blank"
