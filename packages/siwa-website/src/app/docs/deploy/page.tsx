@@ -413,6 +413,25 @@ AGENT_PRIVATE_KEY=0x<your-private-key>`}</CodeBlock>
               </li>
             </ul>
             <P>
+              <strong className="text-foreground">Install the SIWA skill:</strong>
+            </P>
+            <P>
+              Before your agent can use SIWA capabilities, it needs to install the SIWA skill. You can do this in two ways:
+            </P>
+            <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
+              <li><strong className="text-foreground">Via ClawHub:</strong> Run <InlineCode>npx clawhub@latest install siwa</InlineCode> in your agent project</li>
+              <li><strong className="text-foreground">Manual install:</strong> Have your agent read the skill definition from{" "}
+                <a
+                  href="https://siwa.builders.garden/skill.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
+                >
+                  https://siwa.builders.garden/skill.md
+                </a>
+              </li>
+            </ul>
+            <P>
               To connect your external agent, set these environment variables:
             </P>
             <CodeBlock language="bash">{`KEYRING_PROXY_URL=https://your-keyring-proxy.example.com
