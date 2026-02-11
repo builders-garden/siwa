@@ -133,6 +133,12 @@ const agentURI = `data:application/json;base64,${encoded}`;
 
 ### Step 6: Register Onchain (signed via proxy)
 
+**IMPORTANT — Before registering, you MUST:**
+
+1. **Ask the user for agent metadata** — Prompt the user to provide the metadata that will be associated with their onchain identity (name, description, services, capabilities, etc.). Do not assume or auto-generate this information.
+
+2. **Ask for explicit confirmation** — Before submitting the registration transaction, show the user a summary of what will be registered (address, metadata URI, chain, estimated gas) and ask for their explicit confirmation to proceed. Registration is an onchain action that costs gas and cannot be undone.
+
 The SDK's `registerAgent()` handles the entire onchain flow — building the transaction, signing via the keyring proxy, broadcasting, and parsing the `Registered` event:
 
 ```typescript
