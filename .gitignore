@@ -9,7 +9,7 @@ node_modules/
 .pnpm-store/*
 
 # Agent state (generated per-agent)
-IDENTITY.md
+SIWA_IDENTITY.md
 
 # Keystore data (runtime)
 packages/keyring-proxy/data/

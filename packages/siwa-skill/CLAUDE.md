@@ -27,7 +27,7 @@ Before using any capabilities, you MUST install the SIWA SDK in your environment
 npm install @buildersgarden/siwa
 ```
 
-This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (IDENTITY.md helpers), `@buildersgarden/siwa/registry` (onchain lookups), `@buildersgarden/siwa/receipt` (receipt helpers), `@buildersgarden/siwa/erc8128` (ERC-8128 signing/verification), `@buildersgarden/siwa/next` (Next.js server-side wrappers: `withSiwa`, `siwaOptions`, `corsJson`), and `@buildersgarden/siwa/express` (Express wrappers: `siwaMiddleware`, `siwaJsonParser`, `siwaCors`). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
+This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (SIWA_IDENTITY.md helpers), `@buildersgarden/siwa/registry` (onchain lookups), `@buildersgarden/siwa/receipt` (receipt helpers), `@buildersgarden/siwa/erc8128` (ERC-8128 signing/verification), `@buildersgarden/siwa/next` (Next.js server-side wrappers: `withSiwa`, `siwaOptions`, `corsJson`), and `@buildersgarden/siwa/express` (Express wrappers: `siwaMiddleware`, `siwaJsonParser`, `siwaCors`). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
 
 ## Your Capabilities
 
@@ -101,7 +101,7 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent t
 
 ### 9. Reset State
 
-Clears IDENTITY.md to start fresh.
+Clears SIWA_IDENTITY.md to start fresh.
 
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
@@ -111,7 +111,7 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
 
 - **Private keys are NEVER accessible to you.** All signing is delegated to the keyring proxy over HMAC-authenticated HTTP. This is by design — even if you are compromised, the key cannot be extracted.
 - **NEVER call the keyring proxy HTTP endpoints directly.** Always use the SDK functions (`createWallet()`, `signMessage()`, etc. from `@buildersgarden/siwa/keystore`) or the CLI commands listed above. The proxy uses a specific HMAC-SHA256 authentication protocol that the SDK handles internally — hand-crafting HTTP requests to the proxy will fail. If you cannot install the SDK, see the "Fallback: Manual HMAC authentication" section in SKILL.md for the exact protocol specification.
-- **IDENTITY.md** in `siwa/packages/siwa-testing/` contains your minimal identity state (address, agentId, registry, chainId). Read it to know your current state.
+- **SIWA_IDENTITY.md** in `siwa/packages/siwa-testing/` contains your minimal identity state (address, agentId, registry, chainId). Read it to know your current state.
 - If a command fails with "Cannot find module", run `cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm install` first.
 
 ## Architecture

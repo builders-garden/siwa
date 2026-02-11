@@ -22,12 +22,12 @@ function printUsage(): void {
   console.log('Usage: tsx agent/cli.ts <command>');
   console.log('');
   console.log('Commands:');
-  console.log('  create-wallet  Create wallet via keyring proxy, write address to IDENTITY.md');
-  console.log('  register       Mock-register the agent (write mock data to IDENTITY.md)');
+  console.log('  create-wallet  Create wallet via keyring proxy, write address to SIWA_IDENTITY.md');
+  console.log('  register       Mock-register the agent (write mock data to SIWA_IDENTITY.md)');
   console.log('  sign-in        Full SIWA flow against the local server');
   console.log('  call-api       Make an authenticated call using ERC-8128 signed requests');
   console.log('  full-flow      Run all steps sequentially');
-  console.log('  status         Print current IDENTITY.md state + keystore status');
+  console.log('  status         Print current SIWA_IDENTITY.md state + keystore status');
   console.log('  test-proxy     Run keyring proxy tests (requires running proxy server)');
   console.log('  test-erc8128   Run ERC-8128 integration tests (requires proxy + server)');
   console.log('');

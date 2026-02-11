@@ -13,7 +13,7 @@ A Claude Code skill for registering AI agents on the [ERC-8004 (Trustless Agents
 ```
 src/               Core SDK modules
   keystore.ts        Proxy-only keystore (signing delegated over HMAC-authenticated HTTP)
-  identity.ts        IDENTITY.md read/write helpers
+  identity.ts        SIWA_IDENTITY.md read/write helpers
   siwa.ts            SIWA message building, signing, verification
   proxy-auth.ts      HMAC-SHA256 authentication utilities
   registry.ts        Onchain agent profile & reputation lookups
@@ -26,7 +26,7 @@ references/        Protocol documentation
   security-model.md  Threat model and keystore architecture
 
 assets/            Templates
-  IDENTITY.template.md
+  SIWA_IDENTITY.template.md
 
 ```
 

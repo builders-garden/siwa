@@ -18,7 +18,7 @@
 # Environment Variables Required:
 #   TELEGRAM_BOT_TOKEN     - Bot token from @BotFather
 #   TELEGRAM_CHAT_ID       - Your Telegram chat ID
-#   TFA_SERVER_SECRET      - Shared secret between keyring-proxy and 2fa-telegram
+#   TFA_SECRET             - Shared secret between keyring-proxy and 2fa-telegram
 #
 # The gateway (2fa-gateway) must be publicly accessible for Telegram webhooks.
 # Keyring-proxy and 2fa-telegram remain internal.
@@ -35,7 +35,7 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-      - TFA_INTERNAL_SECRET=${TFA_SERVER_SECRET}
+      - TFA_SECRET=${TFA_SECRET}
       - TFA_PORT=3200
       - TFA_APPROVAL_TIMEOUT_MS=${TFA_APPROVAL_TIMEOUT_MS:-60000}
       - TFA_AUDIT_LOG_PATH=/data/audit.jsonl
@@ -94,7 +94,7 @@ services:
     environment:
       - TFA_ENABLED=true
       - TFA_SERVER_URL=http://2fa-telegram:3200
-      - TFA_SERVER_SECRET=${TFA_SERVER_SECRET}
+      - TFA_SECRET=${TFA_SECRET}
       - TFA_OPERATIONS=${TFA_OPERATIONS:-sign-message,sign-transaction,sign-authorization}
     depends_on:
       2fa-telegram:

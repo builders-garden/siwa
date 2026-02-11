@@ -55,7 +55,7 @@ export async function registerFlow(): Promise<void> {
 }
 
 async function registerMock(): Promise<void> {
-  // Write mock registration data to IDENTITY.md
+  // Write mock registration data to SIWA_IDENTITY.md
   writeIdentityField('Agent ID', String(config.mockAgentId), config.identityPath);
   writeIdentityField('Agent Registry', config.mockAgentRegistry, config.identityPath);
   writeIdentityField('Chain ID', String(config.mockChainId), config.identityPath);

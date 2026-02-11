@@ -1,7 +1,7 @@
 /**
  * stress-test.ts
  *
- * Exercises every part of the proxy-only keystore + IDENTITY.md refactor:
+ * Exercises every part of the proxy-only keystore + SIWA_IDENTITY.md refactor:
  *
  * 1. Proxy API: createWallet, hasWallet, getAddress, signMessage, signTransaction, signAuthorization
  * 2. Identity file: ensureIdentityExists, readIdentity, writeIdentityField, hasWalletRecord, isRegistered
@@ -31,7 +31,7 @@ import { computeHmac } from '@buildersgarden/siwa/proxy-auth';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const identityPath = path.resolve(projectRoot, 'IDENTITY.stress-test.md');
-const templatePath = path.resolve(projectRoot, '..', 'siwa-skill', 'assets', 'IDENTITY.template.md');
+const templatePath = path.resolve(projectRoot, '..', 'siwa-skill', 'assets', 'SIWA_IDENTITY.template.md');
 
 const kc: KeystoreConfig = {
   proxyUrl: process.env.KEYRING_PROXY_URL || 'http://localhost:3100',

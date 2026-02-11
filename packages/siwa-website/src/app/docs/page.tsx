@@ -608,9 +608,9 @@ signMessage("hello")
             />
           </SubSection>
 
-          <SubSection id="security-identity" title="IDENTITY.md: Public Data Only">
+          <SubSection id="security-identity" title="SIWA_IDENTITY.md: Public Data Only">
             <P>
-              The agent&apos;s identity file stores only public state — address, agentId, agentRegistry, chainId. The private key is never written to IDENTITY.md or any other file the agent reads.
+              The agent&apos;s identity file stores only public state — address, agentId, agentRegistry, chainId. The private key is never written to SIWA_IDENTITY.md or any other file the agent reads.
             </P>
           </SubSection>
 

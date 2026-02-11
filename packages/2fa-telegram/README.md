@@ -63,7 +63,7 @@ pnpm dev
 |----------|----------|---------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Yes | - | Bot token from @BotFather |
 | `TELEGRAM_CHAT_ID` | Yes | - | Your Telegram user ID |
-| `TFA_INTERNAL_SECRET` | Yes | - | Shared secret with keyring-proxy |
+| `TFA_SECRET` | Yes | - | Shared secret with keyring-proxy |
 | `TFA_PORT` | No | 3200 | Server port |
 | `TFA_APPROVAL_TIMEOUT_MS` | No | 60000 | Timeout in milliseconds |
 | `TFA_AUDIT_LOG_PATH` | No | ./audit.jsonl | Path to audit log file |
@@ -127,7 +127,7 @@ Logs are written in JSON-lines format to the configured path:
 ## Security Notes
 
 - This server should **never be exposed publicly** — only the gateway should be public
-- The `TFA_INTERNAL_SECRET` must match the `TFA_SERVER_SECRET` in keyring-proxy
+- The `TFA_SECRET` must match across both services (keyring-proxy and 2fa-telegram)
 - All communication from keyring-proxy is authenticated via the shared secret
 
 ## License

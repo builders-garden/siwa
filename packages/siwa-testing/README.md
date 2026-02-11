@@ -22,9 +22,9 @@ pnpm run dev
 
 The `full-flow` command runs a 4-step agent lifecycle:
 
-1. **Create Wallet** — Creates a wallet via the keyring proxy. Only the public address is written to `IDENTITY.md`.
+1. **Create Wallet** — Creates a wallet via the keyring proxy. Only the public address is written to `SIWA_IDENTITY.md`.
 
-2. **Mock Registration** — Simulates onchain registration by writing mock agent identity data (Agent ID, Registry address, Chain ID) to `IDENTITY.md`. No actual transaction is made.
+2. **Mock Registration** — Simulates onchain registration by writing mock agent identity data (Agent ID, Registry address, Chain ID) to `SIWA_IDENTITY.md`. No actual transaction is made.
 
 3. **SIWA Sign-In** — The full authentication round-trip:
 
@@ -44,12 +44,12 @@ Open [http://localhost:3000](http://localhost:3000) to see the SIWA test dashboa
 | Command                   | Description                                      |
 | ------------------------- | ------------------------------------------------ |
 | `pnpm run server`         | Start the SIWA relying-party server on port 3000 |
-| `pnpm run agent:create`   | Create a wallet and write address to IDENTITY.md  |
+| `pnpm run agent:create`   | Create a wallet and write address to SIWA_IDENTITY.md  |
 | `pnpm run agent:register` | Mock-register the agent                          |
 | `pnpm run agent:signin`   | Run the full SIWA sign-in flow                   |
 | `pnpm run agent:flow`     | Run all 4 steps sequentially                     |
 | `pnpm run agent:status`   | Print current agent state                        |
-| `pnpm run reset`          | Clean up IDENTITY.md                             |
+| `pnpm run reset`          | Clean up SIWA_IDENTITY.md                             |
 | `pnpm run dev`            | Start server + run full flow concurrently        |
 
 ## Reset
@@ -60,7 +60,7 @@ To start fresh, run:
 pnpm run reset
 ```
 
-This removes `IDENTITY.md`, allowing you to re-run the full flow from scratch.
+This removes `SIWA_IDENTITY.md`, allowing you to re-run the full flow from scratch.
 
 ## RPC Configuration
 

@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { TFA_INTERNAL_SECRET } from "./config.js";
+import { TFA_SECRET } from "./config.js";
 import { audit } from "./audit-logger.js";
 import { sendMessage, createApprovalKeyboard } from "./telegram.js";
 import { formatApprovalMessage } from "./message-formatter.js";
@@ -9,7 +9,7 @@ import type { ApprovalRequest, TransactionPayload } from "./types.js";
 // Verify internal secret header
 function verifyInternalAuth(req: Request): boolean {
   const secret = req.headers["x-tfa-secret"] as string;
-  return secret === TFA_INTERNAL_SECRET;
+  return secret === TFA_SECRET;
 }
 
 // Validate request body
