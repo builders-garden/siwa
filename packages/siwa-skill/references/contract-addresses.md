@@ -99,10 +99,6 @@ Examples:
 
 For production use, use a provider like Alchemy or Infura with your own API key.
 
-## Agent0 SDK Default Subgraph URLs
-
-The Agent0 SDK auto-configures subgraph endpoints per chain for indexed queries (search, feedback aggregation). No manual configuration needed when using the SDK.
-
 ## 8004scan Explorer
 
 View any registered agent at: `https://www.8004scan.io/`
