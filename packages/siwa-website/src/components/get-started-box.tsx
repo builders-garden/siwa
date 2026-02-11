@@ -73,11 +73,11 @@ export function GetStartedBox() {
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">2.</span>
-                Create a wallet &amp; register onchain
+                Implement SIWA authentication in your server
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">3.</span>
-                Authenticate with any SIWA server
+                Let Agents authenticate with your server
               </li>
             </ol>
 
@@ -115,14 +115,18 @@ export function GetStartedBox() {
             <ol className="mt-5 space-y-2.5 text-sm text-muted">
               <li className="flex gap-3">
                 <span className="font-mono text-accent">1.</span>
-                Read the skill file above
+                Your human must deploy the SIWA services
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">2.</span>
-                Create your wallet &amp; register onchain
+                Read the skill file above
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">3.</span>
+                Create your wallet &amp; register onchain
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono text-accent">4.</span>
                 Authenticate with any SIWA server
               </li>
             </ol>

@@ -174,7 +174,7 @@ export default function DeployPage() {
         {/* One-Click Deployment */}
         <Section id="one-click" title="One-Click Deployment">
           <P>
-            The fastest way to get started. This deploys all services pre-configured and connected:
+            The fastest way to get started. This template deploys a <strong className="text-foreground">new OpenClaw agent</strong> along with all SIWA services, pre-configured and connected:
           </P>
           <Table
             headers={["Service", "Description"]}
@@ -202,12 +202,34 @@ export default function DeployPage() {
                 />
               </div>
               <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
-                Deploy Full Stack
+                Deploy Full Stack (New Agent)
               </h4>
               <p className="text-xs text-muted">
                 OpenClaw + Keyring Proxy + 2FA services. All connected via private networking.
               </p>
             </a>
+          </div>
+
+          <div className="rounded-lg bg-surface border border-border px-4 py-3 mb-6">
+            <p className="text-sm text-muted">
+              <strong className="text-foreground">Already have an agent?</strong> If you have an existing agent (OpenClaw or any other framework), use the{" "}
+              <a
+                href="https://railway.com/deploy/siwa-keyring-keyring-proxy-telegram-2fa-?referralCode=ZUrs1W&utm_medium=integration&utm_source=template&utm_campaign=generic"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
+              >
+                Keyring Proxy + 2FA template
+              </a>{" "}
+              instead. This deploys only the Keyring Proxy and 2FA services without OpenClaw, allowing you to connect your existing agent. See{" "}
+              <a
+                href="#existing-agent"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
+              >
+                Using an Existing Agent
+              </a>{" "}
+              for setup instructions and security considerations.
+            </p>
           </div>
 
           <SubSection id="one-click-config" title="Configuration">
@@ -331,14 +353,39 @@ AGENT_PRIVATE_KEY=0x<your-private-key>`}</CodeBlock>
           </SubSection>
 
           <SubSection id="existing-agent" title="Using an Existing Agent">
+            <P>
+              If you have an existing AI agent (OpenClaw or any other framework), you can deploy only the Keyring Proxy and 2FA services. This template exposes the Keyring Proxy <strong className="text-foreground">publicly via HTTPS</strong> so your agent outside the Railway internal network can interact with it.
+            </P>
+
+            <div className="mb-6">
+              <a
+                href="https://railway.com/deploy/siwa-keyring-keyring-proxy-telegram-2fa-?referralCode=ZUrs1W&utm_medium=integration&utm_source=template&utm_campaign=generic"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://railway.com/button.svg"
+                    alt="Deploy on Railway"
+                    className="h-8"
+                  />
+                </div>
+                <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
+                  Deploy Keyring Proxy + 2FA Only
+                </h4>
+                <p className="text-xs text-muted">
+                  Keyring Proxy and 2FA services only. Connect your existing agent via HTTPS.
+                </p>
+              </a>
+            </div>
+
             <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/30 px-4 py-3 mb-4">
               <p className="text-sm font-mono text-yellow-400">
-                Not recommended for production use.
+                Requires additional security measures for production use.
               </p>
             </div>
-            <P>
-              If you have an existing AI agent (not deployed via the one-click template), you can connect it to the keyring proxy. However, this requires <strong className="text-foreground">publicly exposing</strong> the keyring proxy so your external agent can reach it.
-            </P>
             <P>
               <strong className="text-foreground">Security implications:</strong>
             </P>
@@ -348,10 +395,25 @@ AGENT_PRIVATE_KEY=0x<your-private-key>`}</CodeBlock>
               <li>All signing requests will still require 2FA approval (if enabled)</li>
             </ul>
             <P>
-              <strong className="text-foreground">Mitigation:</strong> Always enable 2FA when exposing the keyring proxy. Even if the HMAC secret is compromised, attackers cannot complete transactions without your Telegram approval.
+              <strong className="text-foreground">Recommended security measures:</strong>
             </P>
+            <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
+              <li><strong className="text-foreground">Enable 2FA:</strong> Always enable 2FA for human-in-the-loop transaction approval. Even if the HMAC secret is compromised, attackers cannot complete transactions without your Telegram approval.</li>
+              <li><strong className="text-foreground">Use Tailscale:</strong> We recommend using{" "}
+                <a
+                  href="https://tailscale.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
+                >
+                  Tailscale
+                </a>{" "}
+                or a similar solution to enforce that only your agent machine can connect to the keyring proxy, preventing unauthorized access even if credentials are exposed. <strong className="text-foreground">
+                Note:</strong> Tailscale support is not currently available in the keyring proxy code, but it will be added very soon.
+              </li>
+            </ul>
             <P>
-              To connect an external agent, set these environment variables on your agent:
+              To connect your external agent, set these environment variables:
             </P>
             <CodeBlock language="bash">{`KEYRING_PROXY_URL=https://your-keyring-proxy.example.com
 KEYRING_PROXY_SECRET=<your-hmac-secret>`}</CodeBlock>

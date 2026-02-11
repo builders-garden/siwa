@@ -383,12 +383,6 @@ function QuickstartSection() {
               <path d="m12 5 7 7-7 7" />
             </svg>
           </a>
-          <a
-            href="/docs#local-testing"
-            className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-muted hover:text-foreground hover:border-dim transition-colors duration-200 cursor-pointer"
-          >
-            Try it locally
-          </a>
         </div>
       </div>
     </section>
