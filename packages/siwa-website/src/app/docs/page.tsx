@@ -105,7 +105,8 @@ export default function DocsPage() {
       <article className="min-w-0 flex-1 pl-0 md:pl-12">
         <div className="mb-6 rounded-lg bg-yellow-500/10 border border-yellow-500/30 px-5 py-3">
           <p className="text-sm font-mono text-yellow-400">
-            This project is a work in progress. APIs and documentation may change.
+            This project is a work in progress. Use at your own risk — we welcome{" "}
+            <a href="https://github.com/builders-garden/siwa" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-yellow-300 transition-colors duration-200">feedback and contributions</a>.
           </p>
         </div>
 

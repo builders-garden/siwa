@@ -430,7 +430,8 @@ export default function Home() {
     <div className="min-h-screen">
       <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-6 py-3 text-center">
         <p className="text-sm font-mono text-yellow-400">
-          This project is a work in progress. APIs and documentation may change.
+          This project is a work in progress. Use at your own risk — we welcome{" "}
+          <a href="https://github.com/builders-garden/siwa" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-yellow-300 transition-colors duration-200">feedback and contributions</a>.
         </p>
       </div>
       <HeroSection />
