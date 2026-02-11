@@ -80,6 +80,15 @@ export default function RootLayout({
               </a>{" "}
               <span className="text-border mx-2">/</span>{" "}
               <a
+                href="https://erc8128.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-muted transition-colors duration-200 cursor-pointer"
+              >
+                ERC-8128
+              </a>{" "}
+              <span className="text-border mx-2">/</span>{" "}
+              <a
                 href="https://github.com/builders-garden/siwa/blob/main/LICENSE"
                 target="_blank"
                 rel="noopener noreferrer"
