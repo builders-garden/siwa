@@ -157,7 +157,7 @@ export default function DeployPage() {
             </Step>
             <Step number={2} title="Get your Chat ID">
               <P>
-                Open your new bot in Telegram and send <InlineCode>/start</InlineCode>. The bot will reply with your <strong className="text-foreground">Chat ID</strong>.
+                Send a message in Telegram to <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200">@userinfobot</a> and send <InlineCode> any message</InlineCode>. The bot will reply with your <strong className="text-foreground">Chat ID</strong>.
               </P>
               <P>
                 Save this Chat ID — it tells the 2FA service where to send approval requests.
@@ -218,7 +218,7 @@ export default function DeployPage() {
               headers={["Variable", "Description"]}
               rows={[
                 ["TELEGRAM_BOT_TOKEN", "The bot token from @BotFather"],
-                ["TELEGRAM_CHAT_ID", "Your chat ID (from /start command)"],
+                ["TELEGRAM_CHAT_ID", "Your chat ID (from sending any message to @userinfobot)"],
               ]}
             />
             <P>
@@ -298,7 +298,7 @@ docker build -t 2fa-gateway -f packages/2fa-gateway/Dockerfile .`}</CodeBlock>
               headers={["Variable", "Required", "Description"]}
               rows={[
                 ["TELEGRAM_BOT_TOKEN", "Yes", "Bot token from @BotFather"],
-                ["TELEGRAM_CHAT_ID", "Yes", "Chat ID for approval messages"],
+                ["TELEGRAM_CHAT_ID", "Yes", "Chat ID for approval messages (from sending any message to @userinfobot)"],
                 ["TFA_SECRET", "Yes", "Shared secret with keyring proxy"],
                 ["TFA_PORT", "Yes", "Server port (default: 3200)"],
                 ["TFA_AUDIT_LOG_PATH", "No", "Path to audit log file (default: ./audit.jsonl)"],

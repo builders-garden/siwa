@@ -6,7 +6,7 @@
 # Usage:
 #   # 1. Set up your Telegram bot:
 #   #    - Create a bot via @BotFather and get the token
-#   #    - Get your chat ID by sending a message to @userinfobot
+#   #    - Get your chat ID by sending /start to @userinfobot
 #   #    - Set the webhook: https://api.telegram.org/bot<TOKEN>/setWebhook?url=<GATEWAY_PUBLIC_URL>/webhook
 #
 #   # 2. Copy .env.2fa.example to .env and fill in secrets
@@ -17,7 +17,7 @@
 #
 # Environment Variables Required:
 #   TELEGRAM_BOT_TOKEN     - Bot token from @BotFather
-#   TELEGRAM_CHAT_ID       - Your Telegram chat ID
+#   TELEGRAM_CHAT_ID       - Your Telegram chat ID (get it by sending /start to @userinfobot)
 #   TFA_SECRET             - Shared secret between keyring-proxy and 2fa-telegram
 #
 # The gateway (2fa-gateway) must be publicly accessible for Telegram webhooks.

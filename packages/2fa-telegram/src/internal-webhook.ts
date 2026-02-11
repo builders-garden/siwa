@@ -39,18 +39,6 @@ export async function handleInternalWebhook(
     callbackId: update.callback_query?.id,
   });
 
-  // Handle /start command - show chat ID to user
-  if (update.message?.text?.startsWith("/start")) {
-    const chatId = update.message.chat.id;
-    await sendMessage({
-      chatId,
-      text: `Your Telegram Chat ID is:\n\n<code>${chatId}</code>\n\nCopy this value to your TELEGRAM_CHAT_ID environment variable.`,
-      parseMode: "HTML",
-    });
-    res.json({ ok: true, message: "Chat ID sent" });
-    return;
-  }
-
   // We only handle callback queries (button presses)
   if (!update.callback_query) {
     res.json({ ok: true, message: "No callback query" });

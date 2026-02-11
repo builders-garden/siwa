@@ -235,10 +235,10 @@ export default function DocsPage() {
               />
             </div>
 
-            {/* Subsection 2: Use the Agentic Wallet */}
+            {/* Subsection 2: Use the SIWA Agentic Wallet */}
             <div>
               <h3 className="font-mono text-sm font-semibold text-foreground mb-6">
-                Use the Agentic Wallet
+                Use the SIWA Agentic Wallet
               </h3>
               <P>
                 Once the agent has a wallet, it can sign messages and transactions through the keyring proxy. The private key never leaves the proxy — the agent only receives signatures.
