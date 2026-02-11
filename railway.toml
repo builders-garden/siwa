@@ -1,6 +1,0 @@
-# Project-level Railway config
-# Per-service configs are in packages/*/railway.toml
-
-# Note: Generated secrets are only created when the service is first provisioned.
-# If services already exist, delete and re-create them, or manually set the
-# variables in the Railway dashboard.
