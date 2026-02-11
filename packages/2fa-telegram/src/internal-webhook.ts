@@ -7,6 +7,7 @@ import {
 import {
   editMessage,
   answerCallbackQuery,
+  sendMessage,
 } from "./telegram.js";
 import {
   formatApprovedMessage,
@@ -37,6 +38,18 @@ export async function handleInternalWebhook(
     event: "webhook_received",
     callbackId: update.callback_query?.id,
   });
+
+  // Handle /start command - show chat ID to user
+  if (update.message?.text?.startsWith("/start")) {
+    const chatId = update.message.chat.id;
+    await sendMessage({
+      chatId,
+      text: `Your Telegram Chat ID is:\n\n<code>${chatId}</code>\n\nCopy this value to your TELEGRAM_CHAT_ID environment variable.`,
+      parseMode: "HTML",
+    });
+    res.json({ ok: true, message: "Chat ID sent" });
+    return;
+  }
 
   // We only handle callback queries (button presses)
   if (!update.callback_query) {

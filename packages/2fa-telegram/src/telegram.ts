@@ -8,6 +8,7 @@ interface SendMessageOptions {
   text: string;
   parseMode?: "HTML" | "Markdown" | "MarkdownV2";
   replyMarkup?: TelegramInlineKeyboard;
+  chatId?: string | number;
 }
 
 interface SendMessageResponse {
@@ -31,7 +32,7 @@ export async function sendMessage(
 ): Promise<number | null> {
   try {
     const body: Record<string, unknown> = {
-      chat_id: TELEGRAM_CHAT_ID,
+      chat_id: options.chatId ?? TELEGRAM_CHAT_ID,
       text: options.text,
     };
 
