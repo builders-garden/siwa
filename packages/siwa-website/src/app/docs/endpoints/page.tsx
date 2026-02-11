@@ -239,15 +239,26 @@ export default function EndpointsPage() {
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
             <CodeBlock language="json">{`{
   "nonce": "a1b2c3d4e5f6g7h8",
+  "nonceToken": "eyJub25jZSI6ImExYjJj...",
   "issuedAt": "2026-02-05T12:00:00.000Z",
   "expirationTime": "2026-02-05T12:05:00.000Z",
   "domain": "siwa.builders.garden",
   "uri": "https://siwa.builders.garden/api/siwa/verify",
   "chainId": 84532
 }`}</CodeBlock>
+            <P>
+              The <InlineCode>nonceToken</InlineCode> is an HMAC-signed token that binds the nonce to the server. You must pass it back in the verify request.
+            </P>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 400</h4>
             <CodeBlock language="json">{`{ "error": "Missing address" }`}</CodeBlock>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 403</h4>
+            <CodeBlock language="json">{`{
+  "status": "not_registered",
+  "code": "NOT_REGISTERED",
+  "error": "Agent is not registered onchain"
+}`}</CodeBlock>
           </SubSection>
 
           <SubSection id="post-siwa-verify" title="Verify Signature">
@@ -262,6 +273,7 @@ export default function EndpointsPage() {
               rows={[
                 ["message", "string", "Yes", "Full SIWA message (plaintext)"],
                 ["signature", "string", "Yes", "EIP-191 signature (hex, 0x-prefixed)"],
+                ["nonceToken", "string", "Yes", "HMAC nonce token from the /nonce response"],
               ]}
             />
 
@@ -282,16 +294,35 @@ export default function EndpointsPage() {
             </P>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 400</h4>
-            <CodeBlock language="json">{`{ "success": false, "error": "Missing message or signature" }`}</CodeBlock>
+            <CodeBlock language="json">{`{
+  "status": "rejected",
+  "code": "VERIFICATION_FAILED",
+  "error": "Missing message or signature"
+}`}</CodeBlock>
+            <CodeBlock language="json">{`{
+  "status": "rejected",
+  "code": "INVALID_NONCE",
+  "error": "Missing nonceToken"
+}`}</CodeBlock>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 401</h4>
-            <CodeBlock language="json">{`{ "success": false, "error": "Signature mismatch" }`}</CodeBlock>
+            <CodeBlock language="json">{`{
+  "status": "rejected",
+  "code": "VERIFICATION_FAILED",
+  "error": "Signature mismatch"
+}`}</CodeBlock>
             <P>
-              Other possible errors: <InlineCode>Invalid nonce</InlineCode>,{" "}
-              <InlineCode>Message expired</InlineCode>,{" "}
-              <InlineCode>Domain mismatch</InlineCode>,{" "}
-              <InlineCode>Signer does not own agent NFT</InlineCode> (onchain mode).
+              Other possible errors: <InlineCode>INVALID_NONCE</InlineCode>,{" "}
+              <InlineCode>MESSAGE_EXPIRED</InlineCode>,{" "}
+              <InlineCode>DOMAIN_MISMATCH</InlineCode>.
             </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 403</h4>
+            <CodeBlock language="json">{`{
+  "status": "not_registered",
+  "code": "NOT_REGISTERED",
+  "error": "Signer does not own agent NFT"
+}`}</CodeBlock>
           </SubSection>
         </Section>
 
@@ -377,7 +408,7 @@ Content-Digest: sha-256=:<base64-hash>:  (for POST requests)`}</CodeBlock>
   }'`}</CodeBlock>
 
             <P>
-              <strong className="text-foreground">Step 2</strong> — Build and sign the SIWA message using the nonce from step 1. Use the SDK or any EIP-191 signer:
+              <strong className="text-foreground">Step 2</strong> — Build and sign the SIWA message using the nonce from step 1. Save the <InlineCode>nonceToken</InlineCode> for step 3. Use the SDK or any EIP-191 signer:
             </P>
             <CodeBlock language="typescript">{`import { signSIWAMessage } from '@buildersgarden/siwa';
 
@@ -395,13 +426,14 @@ const { message, signature } = await signSIWAMessage({
 });`}</CodeBlock>
 
             <P>
-              <strong className="text-foreground">Step 3</strong> — Submit message + signature for verification:
+              <strong className="text-foreground">Step 3</strong> — Submit message + signature + nonceToken for verification:
             </P>
             <CodeBlock language="bash">{`curl -s -X POST https://siwa.builders.garden/api/siwa/verify \\
   -H "Content-Type: application/json" \\
   -d '{
     "message": "<siwa-message-from-step-2>",
-    "signature": "<signature-from-step-2>"
+    "signature": "<signature-from-step-2>",
+    "nonceToken": "<nonceToken-from-step-1>"
   }'`}</CodeBlock>
 
             <P>
