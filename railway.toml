@@ -1,0 +1,3 @@
+[variables]
+KEYRING_PROXY_SECRET = { generator = "secret", length = 64 }
+TFA_SECRET = { generator = "secret", length = 64 }
