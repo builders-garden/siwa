@@ -218,7 +218,7 @@ function WhySIWASection() {
 }
 
 function HowItWorksSection() {
-  const steps = [
+  const signInSteps = [
     {
       number: "1",
       title: "Agent gets an identity",
@@ -246,39 +246,57 @@ function HowItWorksSection() {
           How It Works
         </h2>
 
-        <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-center">
-          {steps.map((step, i) => (
-            <div key={step.number} className="contents">
-              <div className="rounded-lg border border-border bg-surface p-5">
-                <div className="font-mono text-2xl font-bold text-accent mb-2">
-                  {step.number}
+        {/* Subsection 1: Sign-in with Agent verification */}
+        <div className="mb-16">
+          <h3 className="font-mono text-sm font-semibold text-foreground mb-8">
+            Sign-in with Agent verification
+          </h3>
+          <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-center">
+            {signInSteps.map((step, i) => (
+              <div key={step.number} className="contents">
+                <div className="rounded-lg border border-border bg-surface p-5">
+                  <div className="font-mono text-2xl font-bold text-accent mb-2">
+                    {step.number}
+                  </div>
+                  <h4 className="font-mono text-sm font-semibold text-foreground">
+                    {step.title}
+                  </h4>
+                  <p className="mt-1.5 text-xs text-muted leading-relaxed">
+                    {step.description}
+                  </p>
                 </div>
-                <h3 className="font-mono text-sm font-semibold text-foreground">
-                  {step.title}
-                </h3>
-                <p className="mt-1.5 text-xs text-muted leading-relaxed">
-                  {step.description}
-                </p>
-              </div>
 
-              {i < steps.length - 1 && (
-                <>
-                  <div className="hidden md:flex items-center justify-center text-border">
-                    <svg width="40" height="24" viewBox="0 0 40 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M0 12h32" />
-                      <path d="M28 6l6 6-6 6" />
-                    </svg>
-                  </div>
-                  <div className="flex md:hidden items-center justify-center text-border py-1">
-                    <svg width="24" height="32" viewBox="0 0 24 32" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M12 0v24" />
-                      <path d="M6 20l6 6 6-6" />
-                    </svg>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+                {i < signInSteps.length - 1 && (
+                  <>
+                    <div className="hidden md:flex items-center justify-center text-border">
+                      <svg width="40" height="24" viewBox="0 0 40 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M0 12h32" />
+                        <path d="M28 6l6 6-6 6" />
+                      </svg>
+                    </div>
+                    <div className="flex md:hidden items-center justify-center text-border py-1">
+                      <svg width="24" height="32" viewBox="0 0 24 32" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M12 0v24" />
+                        <path d="M6 20l6 6 6-6" />
+                      </svg>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Subsection 2: Use the Agentic Wallet */}
+        <div>
+          <h3 className="font-mono text-sm font-semibold text-foreground mb-8">
+            Use the Agentic Wallet
+          </h3>
+          <div className="rounded-lg border border-border bg-surface p-8">
+            <p className="text-sm text-muted leading-relaxed">
+              Content coming soon...
+            </p>
+          </div>
         </div>
       </div>
     </section>

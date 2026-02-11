@@ -5,7 +5,7 @@ import { CodeBlock } from "@/components/code-block";
 export const metadata: Metadata = {
   title: "Deploy — SIWA",
   description:
-    "Deploy SIWA to Railway — keyring proxy and OpenClaw gateway in one click.",
+    "Deploy SIWA to Railway — keyring proxy, OpenClaw gateway, and 2FA services in one click.",
 };
 
 function Section({
@@ -90,6 +90,20 @@ function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
   );
 }
 
+function Step({ number, title, children }: { number: number; title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-4 mb-6">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center">
+        <span className="font-mono text-sm font-semibold text-accent">{number}</span>
+      </div>
+      <div className="flex-1 pt-1">
+        <h4 className="font-mono text-sm font-semibold text-foreground mb-2">{title}</h4>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function DeployPage() {
   return (
     <div className="mx-auto flex max-w-6xl px-6 py-12">
@@ -97,329 +111,260 @@ export default function DeployPage() {
 
       <article className="min-w-0 flex-1 pl-0 md:pl-12">
         <h1 className="font-mono text-2xl font-bold text-foreground mb-2">
-          Deploy to Railway
+          Deploy SIWA
         </h1>
         <p className="text-sm text-dim mb-8">
-          One-click template to deploy a fully onchain and secure agent — keyring proxy and OpenClaw gateway, pre-wired and ready to go.
+          Two deployment paths: one-click for quick setup, or manual for full control.
         </p>
-
-        {/* Deploy Button */}
-        <div className="mb-12">
-          <a
-            href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://railway.com/button.svg"
-                alt="Deploy on Railway"
-                className="h-8"
-              />
-            </div>
-            <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
-              Keyring Proxy + OpenClaw
-            </h4>
-            <p className="text-xs text-muted">
-              Full stack: signing proxy and AI agent gateway with the SIWA skill pre-installed. One click deploys both services connected via private networking.
-            </p>
-          </a>
-        </div>
-
-        {/* Overview */}
-        <Section id="overview" title="Overview">
-          <P>
-            The template deploys two services: a{" "}
-            <InlineCode>keyring-proxy</InlineCode> for secure key management and an{" "}
-            <InlineCode>openclaw-gateway</InlineCode> AI agent gateway with the SIWA skill pre-installed. Railway
-            builds directly from your Git repository — no Docker Hub needed.
-          </P>
-          <P>
-            OpenClaw routes chat messages to agents. Agents use the keyring proxy
-            for all signing operations via{" "}
-            <InlineCode>KEYSTORE_BACKEND=proxy</InlineCode> — private keys never enter the agent process.
-          </P>
-
-          <SubSection id="architecture" title="Architecture">
-            <Table
-              headers={["Service", "Image", "Purpose"]}
-              rows={[
-                [
-                  "keyring-proxy",
-                  "packages/keyring-proxy/Dockerfile",
-                  "Holds encrypted keys, HMAC-auth signing API",
-                ],
-                [
-                  "openclaw-gateway",
-                  "Docker image",
-                  "AI agent gateway with SIWA skill installed",
-                ],
-              ]}
-            />
-            <CodeBlock language="text">{`Agent / OpenClaw
-  |
-  +---> keyring-proxy
-  |     KEYSTORE_BACKEND=encrypted-file
-  |     Signing service
-  |     (private networking)
-  |
-  +---> openclaw-gateway
-        KEYSTORE_BACKEND=proxy
-        Delegates signing to keyring-proxy`}</CodeBlock>
-            <P>
-              Railway auto-provisions private DNS between services in the same
-              project. The openclaw-gateway reaches the keyring-proxy at its
-              internal URL — no public exposure needed.
-            </P>
-          </SubSection>
-        </Section>
 
         {/* Prerequisites */}
         <Section id="prerequisites" title="Prerequisites">
-          <P>Before you begin, make sure you have:</P>
-          <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
-            <li>
-              A{" "}
+          <SubSection id="prereq-railway" title="Railway Account">
+            <P>
+              You need a{" "}
               <a
                 href="https://railway.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
               >
                 Railway
               </a>{" "}
-              account
-            </li>
-            <li>The SIWA repo forked or cloned to your GitHub account</li>
-            <li>A password for the encrypted-file keystore</li>
-            <li>A shared HMAC secret for proxy authentication</li>
-          </ul>
-          <P>Generate a random HMAC secret:</P>
-          <CodeBlock language="bash">{`openssl rand -hex 32`}</CodeBlock>
+              account. That&apos;s it for the one-click deployment.
+            </P>
+          </SubSection>
+
+          <SubSection id="prereq-2fa" title="2FA Bot Setup (Optional if want to use 2FA)">
+            <P>
+              Before deploying, create a Telegram bot to receive transaction approval requests. This is required for secure operation.
+            </P>
+            <Step number={1} title="Create the bot">
+              <P>
+                Open{" "}
+                <a
+                  href="https://t.me/BotFather"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
+                >
+                  @BotFather
+                </a>{" "}
+                on Telegram and send <InlineCode>/newbot</InlineCode>. Follow the prompts to name your bot.
+              </P>
+              <P>
+                BotFather will give you a <strong className="text-foreground">Bot Token</strong> — save it, you&apos;ll need it during deployment.
+              </P>
+            </Step>
+            <Step number={2} title="Get your Chat ID">
+              <P>
+                Open your new bot in Telegram and send <InlineCode>/start</InlineCode>. The bot will reply with your <strong className="text-foreground">Chat ID</strong>.
+              </P>
+              <P>
+                Save this Chat ID — it tells the 2FA service where to send approval requests.
+              </P>
+            </Step>
+            <div className="rounded-lg bg-surface border border-border px-4 py-3 mb-4">
+              <p className="text-xs text-dim">
+                More 2FA channels coming soon: Slack, Discord, Gmail, wallet-based approvals.
+              </p>
+            </div>
+          </SubSection>
         </Section>
 
-        {/* Create Project */}
-        <Section id="create-project" title="Create Railway Project">
+        {/* One-Click Deployment */}
+        <Section id="one-click" title="One-Click Deployment">
           <P>
-            The fastest way to create your project is with the deploy button —
-            it sets up the keyring-proxy service with the correct Dockerfile and
-            configuration automatically:
+            The fastest way to get started. This deploys all services pre-configured and connected:
           </P>
-          <div className="mb-4">
+          <Table
+            headers={["Service", "Description"]}
+            rows={[
+              ["OpenClaw", "AI agent gateway with SIWA and Security skills built-in"],
+              ["Keyring Proxy", "Secure signing service — holds encrypted keys, never exposed publicly"],
+              ["2FA Gateway", "Receives Telegram webhooks for approval requests"],
+              ["2FA Server", "Manages the approval queue between keyring and Telegram"],
+            ]}
+          />
+
+          <div className="mb-6">
             <a
               href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block"
+              className="group rounded-lg border border-border bg-surface p-5 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://railway.com/button.svg"
-                alt="Deploy on Railway"
-                className="h-10"
-              />
+              <div className="flex items-center gap-3 mb-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://railway.com/button.svg"
+                  alt="Deploy on Railway"
+                  className="h-8"
+                />
+              </div>
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-1">
+                Deploy Full Stack
+              </h4>
+              <p className="text-xs text-muted">
+                OpenClaw + Keyring Proxy + 2FA services. All connected via private networking.
+              </p>
             </a>
           </div>
-          <P>
-            If you prefer to set things up manually, follow the steps below.
-          </P>
 
-          <SubSection
-            id="configure-keyring-proxy"
-            title="Configure keyring-proxy (manual)"
-          >
+          <SubSection id="one-click-config" title="Configuration">
             <P>
-              <strong className="text-foreground">1.</strong> Add a new service
-              from your SIWA repo. Railway will detect the{" "}
-              <InlineCode>railway.json</InlineCode> and use{" "}
-              <InlineCode>packages/keyring-proxy/Dockerfile</InlineCode>.
+              During deployment, Railway will prompt you for environment variables:
             </P>
-            <P>
-              <strong className="text-foreground">2.</strong> Name the service{" "}
-              <InlineCode>keyring-proxy</InlineCode>.
-            </P>
-            <P>
-              <strong className="text-foreground">3.</strong> No start command
-              override needed — the Dockerfile&apos;s default{" "}
-              <InlineCode>CMD</InlineCode> runs{" "}
-              <InlineCode>pnpm run start</InlineCode>.
-            </P>
-            <P>
-              <strong className="text-foreground">4.</strong> If the
-              openclaw-gateway (or your agent) runs in the{" "}
-              <strong className="text-foreground">same Railway project</strong>,
-              keep this service private — it&apos;s reachable via internal
-              networking. If your agent or OpenClaw instance runs{" "}
-              <strong className="text-foreground">outside Railway</strong>,
-              assign a public domain so it can reach the proxy over the
-              internet.
-            </P>
-          </SubSection>
-
-          <SubSection
-            id="configure-openclaw"
-            title="Configure openclaw-gateway"
-          >
-            <P>
-              OpenClaw is an open-source AI agent gateway. Follow the{" "}
-              <a
-                href="https://docs.openclaw.ai/install/railway"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-              >
-                OpenClaw Railway installation guide
-              </a>{" "}
-              to deploy it. Once running, connect it to the keyring-proxy by
-              setting these environment variables on the OpenClaw service:
-            </P>
-            <CodeBlock language="bash">{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
-KEYRING_PROXY_SECRET=<same secret as keyring-proxy>`}</CodeBlock>
-          </SubSection>
-        </Section>
-
-        {/* Environment Variables */}
-        <Section id="env-vars" title="Environment Variables">
-          <SubSection id="env-keyring-proxy" title="keyring-proxy">
             <Table
-              headers={["Variable", "Required", "Description"]}
+              headers={["Variable", "Description"]}
               rows={[
-                [
-                  "KEYRING_PROXY_SECRET",
-                  "Yes",
-                  "Shared HMAC secret. Must match openclaw-gateway (if deployed).",
-                ],
-                [
-                  "KEYSTORE_BACKEND",
-                  "No",
-                  "Defaults to encrypted-file. Set to 'env' to use AGENT_PRIVATE_KEY.",
-                ],
-                [
-                  "KEYSTORE_PASSWORD",
-                  "Conditional",
-                  "Required when KEYSTORE_BACKEND=encrypted-file.",
-                ],
-                [
-                  "AGENT_PRIVATE_KEY",
-                  "Conditional",
-                  "Required when KEYSTORE_BACKEND=env. Hex-encoded private key (0x...).",
-                ],
-              ]}
-            />
-          </SubSection>
-
-          <SubSection id="env-openclaw" title="openclaw-gateway">
-            <Table
-              headers={["Variable", "Required", "Description"]}
-              rows={[
-                [
-                  "KEYRING_PROXY_URL",
-                  "Yes",
-                  "Public URL of the keyring proxy (e.g. https://your-keyring-proxy.up.railway.app).",
-                ],
-                [
-                  "KEYRING_PROXY_SECRET",
-                  "Yes",
-                  "Shared HMAC secret. Must match keyring-proxy.",
-                ],
+                ["TELEGRAM_BOT_TOKEN", "The bot token from @BotFather"],
+                ["TELEGRAM_CHAT_ID", "Your chat ID (from /start command)"],
               ]}
             />
             <P>
-              Use Railway&apos;s shared variables to keep{" "}
-              <InlineCode>KEYRING_PROXY_SECRET</InlineCode> in sync between
-              both services.
+              Once deployed, open OpenClaw and chat with your agent. The SIWA skill is pre-installed — ask it to create a wallet and register onchain.
             </P>
           </SubSection>
         </Section>
 
-        {/* Use an Existing Wallet */}
-        <Section id="existing-wallet" title="Use an Existing Wallet">
+        {/* Manual Deployment */}
+        <Section id="manual" title="Manual Deployment">
           <P>
-            By default the keyring proxy generates and manages its own encrypted
-            keystore. If you already have a wallet you want to use, you can pass
-            the private key directly via environment variable instead.
+            For full control over what services to deploy and where. Use this if you want to:
           </P>
-          <P>Set these two variables on your keyring-proxy service:</P>
-          <CodeBlock language="bash">{`KEYSTORE_BACKEND=env
+          <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
+            <li>Deploy only specific services</li>
+            <li>Use your own infrastructure (AWS, GCP, self-hosted)</li>
+            <li>Customize the Docker images</li>
+            <li>Integrate with an existing agent</li>
+          </ul>
+
+          <SubSection id="manual-repo" title="Repository">
+            <P>
+              Clone or fork the SIWA repository:
+            </P>
+            <CodeBlock language="bash">{`git clone https://github.com/builders-garden/siwa.git
+cd siwa`}</CodeBlock>
+            <P>
+              Each service has its own Dockerfile in <InlineCode>packages/</InlineCode>:
+            </P>
+            <Table
+              headers={["Service", "Path", "Purpose"]}
+              rows={[
+                ["keyring-proxy", "packages/keyring-proxy/", "Secure key storage and signing"],
+                ["2fa-telegram", "packages/2fa-telegram/", "Approval queue server"],
+                ["2fa-gateway", "packages/2fa-gateway/", "Telegram webhook handler"],
+              ]}
+            />
+          </SubSection>
+
+          <SubSection id="manual-docker" title="Build & Deploy">
+            <P>
+              Build the Docker images:
+            </P>
+            <CodeBlock language="bash">{`# Keyring Proxy
+docker build -t keyring-proxy -f packages/keyring-proxy/Dockerfile .
+
+# 2FA Server
+docker build -t 2fa-telegram -f packages/2fa-telegram/Dockerfile .
+
+# 2FA Gateway
+docker build -t 2fa-gateway -f packages/2fa-gateway/Dockerfile .`}</CodeBlock>
+            <P>
+              Deploy to your infrastructure of choice. Make sure services can communicate:
+            </P>
+            <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
+              <li><strong className="text-foreground">Keyring Proxy</strong> should only be accessible from your agent (private network)</li>
+              <li><strong className="text-foreground">2FA Gateway</strong> needs a public URL for Telegram webhooks</li>
+              <li><strong className="text-foreground">2FA Server</strong> should only be accessible from keyring proxy and 2FA gateway</li>
+            </ul>
+          </SubSection>
+
+          <SubSection id="manual-env" title="Environment Variables">
+            <P><strong className="text-foreground">keyring-proxy:</strong></P>
+            <Table
+              headers={["Variable", "Required", "Description"]}
+              rows={[
+                ["KEYRING_PROXY_SECRET", "Yes", "HMAC secret for authenticating requests"],
+                ["KEYSTORE_PASSWORD", "Yes", "Password for encrypted keystore"],
+                ["TFA_SERVER_URL", "No", "URL of 2FA server (enables transaction approval)"],
+                ["TFA_SECRET", "No", "Shared secret with 2FA server"],
+                ["TFA_OPERATIONS", "No", "Comma-separated list of operations requiring 2FA (sign-message,sign-transaction,sign-authorization)"],
+                ["TFA_ENABLED", "No", "Set to true to enable 2FA"],
+              ]}
+            />
+            <P><strong className="text-foreground">2fa-telegram:</strong></P>
+            <Table
+              headers={["Variable", "Required", "Description"]}
+              rows={[
+                ["TELEGRAM_BOT_TOKEN", "Yes", "Bot token from @BotFather"],
+                ["TELEGRAM_CHAT_ID", "Yes", "Chat ID for approval messages"],
+                ["TFA_SECRET", "Yes", "Shared secret with keyring proxy"],
+                ["TFA_PORT", "Yes", "Server port (default: 3200)"],
+                ["TFA_AUDIT_LOG_PATH", "No", "Path to audit log file (default: ./audit.jsonl)"],
+                ["TFA_APPROVAL_TIMEOUT_MS", "No", "Timeout in milliseconds (default: 60000)"],
+              ]}
+            />
+            <P><strong className="text-foreground">2fa-gateway:</strong></P>
+            <Table
+              headers={["Variable", "Required", "Description"]}
+              rows={[
+                ["TELEGRAM_BOT_TOKEN", "Yes", "Same bot token as 2fa-telegram"],
+                ["TFA_INTERNAL_URL", "Yes", "Internal URL of 2fa-telegram server"],
+                ["TFA_GATEWAY_PORT", "Yes", "Gateway port (default: 3201)"],
+              ]}
+            />
+          </SubSection>
+        </Section>
+
+        {/* Advanced Options */}
+        <Section id="advanced" title="Advanced Options">
+          <SubSection id="existing-wallet" title="Using an Existing Wallet">
+            <P>
+              By default, the keyring proxy creates a new encrypted wallet. If you have an existing wallet you want to use, pass the private key via environment variable:
+            </P>
+            <CodeBlock language="bash">{`KEYSTORE_BACKEND=env
 AGENT_PRIVATE_KEY=0x<your-private-key>`}</CodeBlock>
-          <P>
-            When <InlineCode>AGENT_PRIVATE_KEY</InlineCode> is set, the proxy
-            automatically uses the <InlineCode>env</InlineCode> backend — you
-            can omit <InlineCode>KEYSTORE_BACKEND</InlineCode> entirely. No{" "}
-            <InlineCode>KEYSTORE_PASSWORD</InlineCode> is needed in this mode.
-          </P>
-          <P>
-            This is useful when you want to plug in an existing wallet (e.g. one
-            that already holds funds or is registered onchain) without going
-            through the encrypted-file keystore flow.
-          </P>
-          <P>
-            <strong className="text-foreground">Security note:</strong> the
-            private key is held in memory at runtime. Make sure Railway&apos;s
-            variable storage meets your security requirements. For higher
-            security, prefer <InlineCode>encrypted-file</InlineCode> with a
-            strong <InlineCode>KEYSTORE_PASSWORD</InlineCode>.
-          </P>
-        </Section>
-
-        {/* Verify Deployment */}
-        <Section id="verify" title="Verify Deployment">
-          <SubSection id="health-checks" title="Health Checks">
             <P>
-              The keyring-proxy exposes a <InlineCode>/health</InlineCode>{" "}
-              endpoint. Railway uses this for automatic health checks
-              (configured in <InlineCode>railway.json</InlineCode>).
-            </P>
-            <CodeBlock language="bash">{`curl https://your-keyring-proxy.up.railway.app/health
-
-# Expected: { "status": "ok", ... }`}</CodeBlock>
-          </SubSection>
-
-          <SubSection id="test-curl" title="Test with curl">
-            <P>
-              If you gave the keyring-proxy a public domain for debugging, you
-              can test signing:
-            </P>
-            <CodeBlock language="bash">{`# Check health
-curl https://your-keyring-proxy.up.railway.app/health
-
-# Check address (requires valid HMAC headers)
-# In production, only the openclaw-gateway or your agent
-# should call the proxy — never expose it publicly.`}</CodeBlock>
-            <P>
-              In production, remove any public domain from the keyring-proxy. It
-              should only be reachable via Railway&apos;s internal network.
+              This is useful when migrating an existing agent or using a wallet that already holds funds. Note that the private key is held in memory at runtime — for higher security, prefer the <InlineCode>encrypted-file</InlineCode> backend with a strong password.
             </P>
           </SubSection>
-        </Section>
 
-        {/* Connect Your Agent */}
-        <Section id="connect-agent" title="Connect Your Agent">
-          <P>
-            Point your agent at the deployed keyring-proxy by setting these
-            environment variables:
-          </P>
-          <CodeBlock language="bash">{`KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
-KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
-          <P>
-            Use the public domain Railway assigns to your keyring-proxy service.
-            The HMAC secret ensures only authorized clients can request
-            signatures.
-          </P>
-          <P>
-            For the full authentication flow, see the{" "}
-            <a
-              href="/docs#sign-in"
-              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
-            >
-              Sign In documentation
-            </a>
-            .
-          </P>
-        </Section>
+          <SubSection id="existing-agent" title="Using an Existing Agent">
+            <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/30 px-4 py-3 mb-4">
+              <p className="text-sm font-mono text-yellow-400">
+                Not recommended for production use.
+              </p>
+            </div>
+            <P>
+              If you have an existing AI agent (not deployed via the one-click template), you can connect it to the keyring proxy. However, this requires <strong className="text-foreground">publicly exposing</strong> the keyring proxy so your external agent can reach it.
+            </P>
+            <P>
+              <strong className="text-foreground">Security implications:</strong>
+            </P>
+            <ul className="list-disc list-inside text-sm text-muted mb-4 space-y-1">
+              <li>The keyring proxy becomes accessible over the internet</li>
+              <li>If <InlineCode>KEYRING_PROXY_SECRET</InlineCode> is leaked, anyone can request signatures</li>
+              <li>All signing requests will still require 2FA approval (if enabled)</li>
+            </ul>
+            <P>
+              <strong className="text-foreground">Mitigation:</strong> Always enable 2FA when exposing the keyring proxy. Even if the HMAC secret is compromised, attackers cannot complete transactions without your Telegram approval.
+            </P>
+            <P>
+              To connect an external agent, set these environment variables on your agent:
+            </P>
+            <CodeBlock language="bash">{`KEYRING_PROXY_URL=https://your-keyring-proxy.example.com
+KEYRING_PROXY_SECRET=<your-hmac-secret>`}</CodeBlock>
+            <P>
+              The agent can then use the SIWA SDK to sign messages and transactions:
+            </P>
+            <CodeBlock language="typescript">{`import { signMessage, signTransaction } from "@buildersgarden/siwa/keystore";
 
+// Signs via the remote keyring proxy
+const { signature } = await signMessage("Hello");
+const { signedTx } = await signTransaction({ to: "0x...", value: 1000n });`}</CodeBlock>
+          </SubSection>
+        </Section>
         {/* Cross-references */}
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <a
@@ -430,8 +375,7 @@ KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
               Documentation
             </h4>
             <p className="text-xs text-muted">
-              SDK reference, protocol spec, security model, and contract
-              addresses.
+              SDK reference, protocol spec, security model, and contract addresses.
             </p>
           </a>
           <a
@@ -442,8 +386,7 @@ KEYRING_PROXY_SECRET=<your-shared-secret>`}</CodeBlock>
               API Endpoints
             </h4>
             <p className="text-xs text-muted">
-              Live HTTP endpoints you can call right now to try the full SIWA
-              auth flow.
+              Live HTTP endpoints you can call right now to try the full SIWA auth flow.
             </p>
           </a>
         </div>
