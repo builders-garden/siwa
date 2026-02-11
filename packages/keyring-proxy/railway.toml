@@ -1,0 +1,13 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+
+[variables]
+KEYRING_PROXY_SECRET = { generator = "secret", length = 64 }
+
+# Reference 2FA service (if deployed)
+TFA_SERVER_URL = "http://2fa-telegram.railway.internal:3200"
+TFA_SECRET = "${{ 2fa-telegram.TFA_SECRET }}"
