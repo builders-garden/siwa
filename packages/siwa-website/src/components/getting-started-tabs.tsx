@@ -43,7 +43,7 @@ export function GettingStartedTabs() {
               : "text-muted border-transparent hover:text-foreground"
           }`}
         >
-          Deploy an Agent
+          For Agents
         </button>
         <button
           onClick={() => setActiveTab("platform")}
@@ -53,7 +53,7 @@ export function GettingStartedTabs() {
               : "text-muted border-transparent hover:text-foreground"
           }`}
         >
-          For Platforms
+          For Developers
         </button>
       </div>
 
