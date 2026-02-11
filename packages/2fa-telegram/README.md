@@ -31,7 +31,7 @@ Internal server that handles Telegram-based two-factor authentication for SIWA s
 # Copy environment file
 cp .env.example .env
 
-# Edit .env with your Telegram bot token and chat ID
+# Edit .env with your Telegram bot token and chat ID (get it sending /start to @userinfobot)
 # See "Telegram Bot Setup" below
 
 # Install dependencies

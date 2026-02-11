@@ -1,4 +1,5 @@
 import { GetStartedBox } from "@/components/get-started-box";
+import { CodeBlock } from "@/components/code-block";
 
 const SIGN_IN_CODE = `import { signSIWAMessage } from '@buildersgarden/siwa';
 
@@ -30,6 +31,18 @@ const result = await verifySIWA(
 );
 
 // result.valid, result.address, result.agentId`;
+
+const WALLET_CODE = `import { signMessage, signTransaction } from "@buildersgarden/siwa/keystore";
+
+// Sign a message (EIP-191)
+const { signature, address } = await signMessage("Hello from my agent!");
+
+// Sign and broadcast a transaction
+const { signedTx } = await signTransaction({
+  to: "0xRecipient...",
+  value: parseEther("0.01"),
+  chainId: base.id,
+});`;
 
 function HeroSection() {
   return (
@@ -290,12 +303,21 @@ function HowItWorksSection() {
         {/* Subsection 2: Use the Agentic Wallet */}
         <div>
           <h3 className="font-mono text-sm font-semibold text-foreground mb-8">
-            Use the Agentic Wallet
+            Use the SIWA Agentic Wallet
           </h3>
           <div className="rounded-lg border border-border bg-surface p-8">
-            <p className="text-sm text-muted leading-relaxed">
-              Content coming soon...
+            <p className="text-sm text-muted leading-relaxed mb-6">
+              Once the agent has a wallet, it can sign messages and transactions through the keyring proxy. The private key never leaves the proxy — the agent only receives signatures. If 2FA is enabled, transaction signing will require owner approval via Telegram before the proxy returns the signature.
             </p>
+            <div className="rounded-lg border border-border bg-background overflow-hidden">
+              <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+                <span className="font-mono text-xs text-dim">wallet.ts</span>
+                <span className="ml-auto font-mono text-[10px] text-accent uppercase tracking-wider">Agent</span>
+              </div>
+              <div className="[&>pre]:rounded-none [&>pre]:border-0">
+                <CodeBlock language="typescript">{WALLET_CODE}</CodeBlock>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -332,9 +354,9 @@ function QuickstartSection() {
               <span className="font-mono text-xs text-dim">agent.ts</span>
               <span className="ml-auto font-mono text-[10px] text-accent uppercase tracking-wider">Agent</span>
             </div>
-            <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-muted">
-              <code>{SIGN_IN_CODE}</code>
-            </pre>
+            <div className="[&>pre]:rounded-none [&>pre]:border-0">
+              <CodeBlock language="typescript">{SIGN_IN_CODE}</CodeBlock>
+            </div>
           </div>
 
           {/* Server side */}
@@ -343,9 +365,9 @@ function QuickstartSection() {
               <span className="font-mono text-xs text-dim">server.ts</span>
               <span className="ml-auto font-mono text-[10px] text-accent uppercase tracking-wider">Server</span>
             </div>
-            <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-muted">
-              <code>{VERIFY_CODE}</code>
-            </pre>
+            <div className="[&>pre]:rounded-none [&>pre]:border-0">
+              <CodeBlock language="typescript">{VERIFY_CODE}</CodeBlock>
+            </div>
           </div>
         </div>
 

@@ -74,7 +74,7 @@ export function GettingStartedTabs() {
               >
                 @BotFather
               </a>
-              . Send <InlineCode>/newbot</InlineCode>, follow the prompts, and save the bot token. Then open your bot and send <InlineCode>/start</InlineCode> to get your chat ID.
+              . Send <InlineCode>/newbot</InlineCode>, follow the prompts, and save the bot token. Then, in Telegram, send any message to <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200">@userinfobot</a> to get your chat ID.
             </P>
             <p className="text-xs text-dim">
               More channels coming soon: Slack, Discord, Gmail, wallet approvals.
