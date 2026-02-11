@@ -43,7 +43,7 @@ export function GettingStartedTabs() {
               : "text-muted border-transparent hover:text-foreground"
           }`}
         >
-          For Agents
+          Build Agents
         </button>
         <button
           onClick={() => setActiveTab("platform")}
@@ -53,7 +53,7 @@ export function GettingStartedTabs() {
               : "text-muted border-transparent hover:text-foreground"
           }`}
         >
-          For Developers
+          Build Apps
         </button>
       </div>
 
@@ -119,7 +119,14 @@ export function GettingStartedTabs() {
               >
                 deployment guide
               </a>{" "}
-              for details.
+              for details, or if you already have an Agent,{" "}
+              <a
+                href="/docs/deploy#existing-agent"
+                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
+              >
+                learn how to use SIWA
+              </a>
+              .
             </P>
           </Step>
 

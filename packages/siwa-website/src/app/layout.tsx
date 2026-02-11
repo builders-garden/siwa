@@ -65,6 +65,15 @@ export default function RootLayout({
                 className="text-foreground hover:text-accent transition-colors duration-200 cursor-pointer"
               >
                 Builders Garden
+              </a>{" "}
+              & the{" "}
+              <a
+                href="https://ai.ethereum.foundation/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground hover:text-accent transition-colors duration-200 cursor-pointer"
+              >
+                dAI team
               </a>
             </div>
             <div>
