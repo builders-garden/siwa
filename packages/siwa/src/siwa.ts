@@ -62,6 +62,7 @@ export interface SIWAVerificationResult {
   agentRegistry: string;
   chainId: number;
   verified: 'offline' | 'onchain';
+  signerType?: 'eoa' | 'sca';
   code?: SIWAErrorCode;
   error?: string;
   agent?: AgentProfile;
@@ -74,6 +75,7 @@ export interface SIWAVerifyCriteria {
   requiredServices?: (ServiceType | (string & {}))[];
   mustBeActive?: boolean;
   requiredTrust?: (TrustModel | (string & {}))[];
+  requiredSignerType?: 'eoa' | 'sca';
   custom?: (agent: AgentProfile) => boolean | Promise<boolean>;
 }
 
@@ -86,6 +88,7 @@ export interface SIWAResponse {
   agentRegistry?: string;
   chainId?: number;
   verified?: 'offline' | 'onchain';
+  signerType?: 'eoa' | 'sca';
   code?: SIWAErrorCode;
   error?: string;
   action?: SIWAAction;
@@ -112,6 +115,7 @@ export function buildSIWAResponse(result: SIWAVerificationResult): SIWAResponse 
     agentRegistry: result.agentRegistry || undefined,
     chainId: result.chainId || undefined,
     verified: result.verified,
+    ...(result.signerType ? { signerType: result.signerType } : {}),
   };
 
   const skillRef = {
@@ -542,6 +546,10 @@ export async function verifySIWA(
 
     const recovered = fields.address;
 
+    // 2b. Detect signer type (EOA vs smart contract account)
+    const signerCode = await client.getCode({ address: fields.address as Address });
+    const signerType: 'eoa' | 'sca' = (signerCode && signerCode !== '0x') ? 'sca' : 'eoa';
+
     // 3. Address match is implicit in verifyMessage (it checks against the address)
 
     // 4. Domain binding
@@ -609,9 +617,15 @@ export async function verifySIWA(
       agentRegistry: fields.agentRegistry,
       chainId: fields.chainId,
       verified: 'onchain',
+      signerType,
     };
 
     if (!criteria) return baseResult;
+
+    // Signer type policy (checked before fetching metadata for early exit)
+    if (criteria.requiredSignerType && signerType !== criteria.requiredSignerType) {
+      return { ...baseResult, valid: false, code: SIWAErrorCode.CUSTOM_CHECK_FAILED, error: `Signer type '${signerType}' does not meet required '${criteria.requiredSignerType}'` };
+    }
 
     const agent = await getAgent(fields.agentId, {
       registryAddress: registryAddress,

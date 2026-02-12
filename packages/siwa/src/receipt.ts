@@ -27,6 +27,7 @@ export interface ReceiptPayload {
   agentRegistry: string;
   chainId: number;
   verified: 'offline' | 'onchain';
+  signerType?: 'eoa' | 'sca';
   iat: number; // issued at (ms since epoch)
   exp: number; // expires at (ms since epoch)
 }

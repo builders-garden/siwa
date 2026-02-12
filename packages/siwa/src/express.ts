@@ -54,6 +54,8 @@ export interface SiwaMiddlewareOptions {
   verifyOnchain?: boolean;
   /** Public client for ERC-1271 or onchain checks. */
   publicClient?: VerifyOptions['publicClient'];
+  /** Require a specific signer type ('eoa' or 'sca'). */
+  requiredSignerType?: 'eoa' | 'sca';
 }
 
 export interface SiwaCorsOptions {
@@ -140,6 +142,7 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
         rpcUrl: options?.rpcUrl,
         verifyOnchain: options?.verifyOnchain,
         publicClient: options?.publicClient,
+        requiredSignerType: options?.requiredSignerType,
       });
 
       if (!result.valid) {

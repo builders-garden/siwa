@@ -50,6 +50,10 @@
     "./express": {
       "types": "./dist/express.d.ts",
       "default": "./dist/express.js"
+    },
+    "./tba": {
+      "types": "./dist/tba.d.ts",
+      "default": "./dist/tba.js"
     }
   },
   "main": "./dist/index.js",

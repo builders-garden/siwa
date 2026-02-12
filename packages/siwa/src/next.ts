@@ -38,6 +38,8 @@ export interface WithSiwaOptions {
   rpcUrl?: string;
   /** Enable onchain ownerOf check. */
   verifyOnchain?: boolean;
+  /** Require a specific signer type ('eoa' or 'sca'). */
+  requiredSignerType?: 'eoa' | 'sca';
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +101,7 @@ export function withSiwa(handler: SiwaHandler, options?: WithSiwaOptions) {
       receiptSecret: secret,
       rpcUrl: options?.rpcUrl,
       verifyOnchain: options?.verifyOnchain,
+      requiredSignerType: options?.requiredSignerType,
     };
 
     const result = await verifyAuthenticatedRequest(

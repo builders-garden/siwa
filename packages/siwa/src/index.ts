@@ -7,3 +7,4 @@ export * from './registry.js';
 export * from './addresses.js';
 export * from './receipt.js';
 export * from './erc8128.js';
+export * from './tba.js';
