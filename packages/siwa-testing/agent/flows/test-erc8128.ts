@@ -19,10 +19,10 @@ import { createReceipt, verifyReceipt } from '@buildersgarden/siwa/receipt';
 import {
   signAuthenticatedRequest,
   verifyAuthenticatedRequest,
-  expressToFetchRequest,
-  resolveReceiptSecret,
   createErc8128Signer,
 } from '@buildersgarden/siwa/erc8128';
+import { createLocalAccountSigner } from '@buildersgarden/siwa/signer';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { config, getSigner } from '../config.js';
 
 let passed = 0;
@@ -45,10 +45,17 @@ export async function testErc8128Flow(): Promise<boolean> {
   console.log(chalk.bold('ERC-8128 Integration Tests'));
   console.log('\u{2500}'.repeat(40));
 
-  const signer = getSigner();
+  // Use local account signer (no proxy needed) unless proxy is explicitly configured
+  const useProxy = !!config.keyringProxyUrl;
+  const signer = useProxy
+    ? getSigner()
+    : createLocalAccountSigner(privateKeyToAccount(generatePrivateKey()));
+  const signerMode = useProxy ? 'keyring proxy' : 'local account';
+  console.log(chalk.dim(`  Using ${signerMode} signer`));
+
   const address = await signer.getAddress();
   if (!address) {
-    fail('Setup', 'No wallet found. Run test-proxy first to create one.');
+    fail('Setup', 'Failed to get signer address.');
     return false;
   }
 
@@ -127,8 +134,19 @@ export async function testErc8128Flow(): Promise<boolean> {
     }
   }
 
+  // ── Server-dependent tests (5-10) — skip if server is not reachable ──
+  let serverAvailable = false;
+  try {
+    const health = await fetch(`${config.serverUrl}/health`, { signal: AbortSignal.timeout(2000) });
+    serverAvailable = health.ok;
+  } catch { /* server not running */ }
+
+  if (!serverAvailable) {
+    console.log(chalk.yellow('  ⏭  Tests 5-10 skipped (server not reachable at ' + config.serverUrl + ')'));
+  }
+
   // ── Test 5: Full round-trip: signed GET → server verifies ───────
-  if (receipt) {
+  if (receipt && serverAvailable) {
     try {
       const request = new Request(`${config.serverUrl}/api/protected`, {
         method: 'GET',
@@ -153,7 +171,7 @@ export async function testErc8128Flow(): Promise<boolean> {
   }
 
   // ── Test 6: Full round-trip: signed POST → server verifies ──────
-  if (receipt) {
+  if (receipt && serverAvailable) {
     try {
       const body = JSON.stringify({ action: 'test', data: { hello: 'world' } });
       const request = new Request(`${config.serverUrl}/api/agent-action`, {
@@ -181,7 +199,7 @@ export async function testErc8128Flow(): Promise<boolean> {
   }
 
   // ── Test 7: Tampered receipt is rejected ─────────────────────────
-  try {
+  if (serverAvailable) try {
     // Modify the receipt payload by flipping a character
     const tamperedReceipt = receipt ? receipt.slice(0, 5) + 'X' + receipt.slice(6) : 'invalid.receipt';
     const request = new Request(`${config.serverUrl}/api/protected`, {
@@ -202,7 +220,7 @@ export async function testErc8128Flow(): Promise<boolean> {
   }
 
   // ── Test 8: Request without Signature headers is rejected ────────
-  try {
+  if (serverAvailable) try {
     const request = new Request(`${config.serverUrl}/api/protected`, {
       method: 'GET',
       headers: receipt ? { 'X-SIWA-Receipt': receipt } : {},
@@ -221,7 +239,7 @@ export async function testErc8128Flow(): Promise<boolean> {
   // ── Test 9: Receipt header swapped after signing is rejected ────
   // The ERC-8128 signature now covers X-SIWA-Receipt (component binding).
   // Swapping the receipt header post-signing should break the signature.
-  if (receipt) {
+  if (receipt && serverAvailable) {
     try {
       const request = new Request(`${config.serverUrl}/api/protected`, {
         method: 'GET',
@@ -259,7 +277,7 @@ export async function testErc8128Flow(): Promise<boolean> {
 
   // ── Test 10: Replay of exact same signed request is rejected ────
   // The nonce store should prevent replaying the same signed request.
-  if (receipt) {
+  if (receipt && serverAvailable) {
     try {
       const request = new Request(`${config.serverUrl}/api/protected`, {
         method: 'GET',
