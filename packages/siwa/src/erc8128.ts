@@ -30,6 +30,7 @@ export interface VerifyOptions {
   rpcUrl?: string;
   verifyOnchain?: boolean;
   publicClient?: PublicClient;
+  nonceStore?: NonceStore;
 }
 
 /** Verified agent identity returned from a successful auth check. */
@@ -133,8 +134,10 @@ export async function signAuthenticatedRequest(
   // 2. Create proxy-backed signer
   const signer = await createProxySigner(config, chainId);
 
-  // 3. Sign with ERC-8128 (includes Content-Digest for bodies)
-  return signRequest(withReceipt, signer);
+  // 3. Sign with ERC-8128 (includes Content-Digest for bodies and receipt header)
+  return signRequest(withReceipt, signer, {
+    components: [RECEIPT_HEADER],
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +221,11 @@ export async function verifyAuthenticatedRequest(
         signature: args.signature,
       });
     },
-    nonceStore,
+    options.nonceStore ?? nonceStore,
+    {
+      additionalRequestBoundComponents: [RECEIPT_HEADER], 
+      classBoundPolicies: [RECEIPT_HEADER]
+    }
   );
 
   if (!verifyResult.ok) {
