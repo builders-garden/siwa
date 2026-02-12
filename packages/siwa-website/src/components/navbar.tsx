@@ -53,7 +53,6 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-6">
           <NavLink href="/docs">Docs</NavLink>
           <NavLink href="/docs/endpoints">Endpoints</NavLink>
-          <NavLink href="/docs/deploy">Deploy</NavLink>
           <NavLink href="https://github.com/builders-garden/siwa" external>
             GitHub
           </NavLink>
@@ -89,9 +88,6 @@ export function Navbar() {
           </NavLink>
           <NavLink href="/docs/endpoints" onClick={() => setOpen(false)}>
             Endpoints
-          </NavLink>
-          <NavLink href="/docs/deploy" onClick={() => setOpen(false)}>
-            Deploy
           </NavLink>
           <NavLink
             href="https://github.com/builders-garden/siwa"

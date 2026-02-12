@@ -285,6 +285,7 @@ export default function EndpointsPage() {
   "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
   "agentId": 42,
   "agentRegistry": "eip155:84532:0x8004A818...",
+  "signerType": "eoa",
   "verified": "onchain"
 }`}</CodeBlock>
             <P>
@@ -442,7 +443,7 @@ const { message, signature } = await signSIWAMessage({
             <CodeBlock language="typescript">{`import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
 
 const req = new Request('https://siwa.builders.garden/api/protected', { method: 'GET' });
-const signedReq = await signAuthenticatedRequest(req, receipt, keystoreConfig, chainId);
+const signedReq = await signAuthenticatedRequest(req, receipt, signer, 84532);
 const res = await fetch(signedReq);`}</CodeBlock>
           </SubSection>
         </Section>

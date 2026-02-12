@@ -243,20 +243,14 @@ export default function DocsPage() {
         </Section>
 
         {/* Wallet Options */}
-        <Section id="wallets" title="Wallet Options">
+        <Section id="signing" title="Signing (Agent-Side)">
           <P>
-            SIWA is <strong className="text-foreground">wallet-agnostic</strong>. The SDK provides a unified <InlineCode>Signer</InlineCode> interface that works with any wallet provider. You choose how to manage keys — SIWA handles the authentication.
+            Everything an agent needs to authenticate: choose a signer, sign SIWA messages for initial sign-in, then sign subsequent API requests with ERC-8128. <br></br> SIWA supports both <strong className="text-foreground">EOA</strong> (Externally Owned Account) and <strong className="text-foreground">SCA</strong> (Smart Contract Account) signers — agents backed by smart wallets like Safe, Base Accounts, or ERC-6551 Token Bound Accounts work alongside traditional EOA-based agents.
           </P>
 
-          <div className="rounded-lg bg-surface border border-border px-4 py-3 mb-6">
-            <p className="text-sm text-muted">
-              <strong className="text-foreground">The Signer interface:</strong> All signing operations use a simple interface with <InlineCode>getAddress()</InlineCode> and <InlineCode>signMessage()</InlineCode>. Create a signer from any wallet type and pass it to SIWA functions.
-            </p>
-          </div>
-
-          <SubSection id="wallet-privy" title="Embedded Wallets (Privy, Dynamic, Magic)">
+          <SubSection id="wallet-privy" title="Agentic Wallets (Privy, Coinbase, Circle)">
             <P>
-              For embedded wallet providers that give you a WalletClient or EIP-1193 provider:
+              For agentic wallet providers that give you a WalletClient or EIP-1193 provider:
             </P>
             <CodeBlock language="typescript">{`import { createWalletClientSigner } from "@buildersgarden/siwa/signer";
 import { createWalletClient, custom } from "viem";
@@ -272,21 +266,6 @@ const signer = createWalletClientSigner(walletClient);
 
 // Now use with SIWA
 const { message, signature } = await signSIWAMessage(fields, signer);`}</CodeBlock>
-          </SubSection>
-
-          <SubSection id="wallet-browser" title="Browser Wallets (MetaMask, Coinbase, WalletConnect)">
-            <P>
-              For browser-injected wallets:
-            </P>
-            <CodeBlock language="typescript">{`import { createWalletClientSigner } from "@buildersgarden/siwa/signer";
-import { createWalletClient, custom } from "viem";
-import { base } from "viem/chains";
-
-const walletClient = createWalletClient({
-  chain: base,
-  transport: custom(window.ethereum),
-});
-const signer = createWalletClientSigner(walletClient);`}</CodeBlock>
           </SubSection>
 
           <SubSection id="wallet-privatekey" title="Private Key (Backend Scripts)">
@@ -339,45 +318,35 @@ const signer = createKeyringProxySigner({
             </P>
           </SubSection>
 
-          <SubSection id="signer-interface" title="Signer Interface">
-            <CodeBlock language="typescript">{`interface Signer {
-  getAddress(): Promise<Address>;
-  signMessage(message: string): Promise<Hex>;
-  signRawMessage?(rawHex: Hex): Promise<Hex>;  // For ERC-8128
-}
-
-interface TransactionSigner extends Signer {
-  signTransaction(tx: TransactionRequest): Promise<Hex>;
-}`}</CodeBlock>
-          </SubSection>
-        </Section>
-
-        {/* API Reference */}
-        <Section id="api" title="API Reference">
-          <P>
-            Install the SDK: <InlineCode>npm install @buildersgarden/siwa viem</InlineCode>
-          </P>
-
-          {/* Signer */}
-          <SubSection id="api-signer" title="Signer">
+          <SubSection id="smart-accounts" title="Smart Accounts">
             <P>
-              Create signers from any wallet provider.
+              Smart contract wallets (Safe, ZeroDev/Kernel, Coinbase Smart Wallet) work with the same <InlineCode>createWalletClientSigner</InlineCode> — their SDKs expose a standard WalletClient or EIP-1193 provider. The SDK detects the signer type automatically during verification via ERC-1271.
             </P>
-            <Table
-              headers={["Function", "Returns", "Description"]}
-              rows={[
-                ["createLocalAccountSigner(account)", "TransactionSigner", "Create signer from viem LocalAccount (private key)."],
-                ["createWalletClientSigner(client, account?)", "Signer", "Create signer from viem WalletClient (Privy, MetaMask, etc.)."],
-                ["createKeyringProxySigner(config)", "TransactionSigner", "Create signer from keyring proxy service."],
-              ]}
-            />
-            <P>
-              Import from <InlineCode>@buildersgarden/siwa/signer</InlineCode>.
-            </P>
+            <CodeBlock language="typescript">{`import { createWalletClientSigner } from "@buildersgarden/siwa/signer";
+import { createWalletClient, custom } from "viem";
+import { baseSepolia } from "viem/chains";
+
+// Safe example
+import Safe from "@safe-global/protocol-kit";
+const safe = await Safe.init({ provider, safeAddress });
+const walletClient = createWalletClient({
+  chain: baseSepolia,
+  transport: custom(safe.getProvider()),
+});
+const signer = createWalletClientSigner(walletClient);
+
+// ZeroDev / Kernel example
+const walletClient = kernelClient.toWalletClient();
+const signer = createWalletClientSigner(walletClient);
+
+// Then use with SIWA — same as any other signer
+const { message, signature } = await signSIWAMessage(fields, signer);`}</CodeBlock>
           </SubSection>
 
-          {/* SIWA Signing */}
-          <SubSection id="api-signing" title="SIWA Signing">
+          <SubSection id="signing-siwa" title="SIWA Sign-In">
+            <P>
+              Build and sign a SIWA message to prove ownership of an ERC-8004 identity.
+            </P>
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
@@ -401,60 +370,15 @@ const { message, signature, address } = await signSIWAMessage({
 }, signer);`}</CodeBlock>
           </SubSection>
 
-          {/* SIWA Verification */}
-          <SubSection id="api-verification" title="SIWA Verification">
+          <SubSection id="signing-erc8128" title="ERC-8128 Request Signing">
             <P>
-              Server-side functions for verifying agent identity.
+              After SIWA sign-in, sign every outgoing API request with ERC-8128 HTTP Message Signatures.
             </P>
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
-                ["verifySIWA(msg, sig, options)", "SIWAVerificationResult", "Verify signature + onchain ownership."],
-                ["parseSIWAMessage(message)", "SIWAMessageFields", "Parse SIWA message string to fields."],
-              ]}
-            />
-            <P>
-              Import from <InlineCode>@buildersgarden/siwa</InlineCode>. The <InlineCode>options</InlineCode> argument:
-            </P>
-            <Table
-              headers={["Option", "Type", "Description"]}
-              rows={[
-                ["client", "PublicClient", "viem PublicClient for onchain verification."],
-                ["expectedDomain", "string", "Must match message domain."],
-                ["expectedAgentRegistry", "string", "Must match message registry."],
-                ["skipOnchainVerification", "boolean", "Skip registry check (signature-only mode)."],
-              ]}
-            />
-            <CodeBlock language="typescript">{`import { verifySIWA, parseSIWAMessage } from "@buildersgarden/siwa";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
-
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
-
-const result = await verifySIWA(message, signature, {
-  client,
-  expectedDomain: "api.example.com",
-  expectedAgentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
-});
-
-if (result.success) {
-  console.log("Verified agent:", result.data.agentId);
-}`}</CodeBlock>
-          </SubSection>
-
-          {/* ERC-8128 */}
-          <SubSection id="api-erc8128" title="ERC-8128 Request Signing">
-            <P>
-              After SIWA sign-in, use ERC-8128 HTTP Message Signatures for authenticated API calls.
-            </P>
-            <Table
-              headers={["Function", "Returns", "Description"]}
-              rows={[
-                ["signAuthenticatedRequest(req, receipt, signer, chainId)", "Request", "Sign outgoing request with ERC-8128."],
-                ["verifyAuthenticatedRequest(req, options)", "AuthResult", "Verify incoming signed request."],
+                ["signAuthenticatedRequest(req, receipt, signer, chainId, options?)", "Request", "Sign outgoing request with ERC-8128."],
+                ["createErc8128Signer(signer, chainId, options?)", "EthHttpSigner", "Create ERC-8128 HTTP signer from SIWA Signer."],
               ]}
             />
             <P>
@@ -477,11 +401,81 @@ const signedRequest = await signAuthenticatedRequest(
 
 const response = await fetch(signedRequest);`}</CodeBlock>
           </SubSection>
+        </Section>
 
-          {/* Receipts */}
-          <SubSection id="api-receipts" title="Receipts">
+        {/* Verification (Server-Side) */}
+        <Section id="verification" title="Verification (Server-Side)">
+          <P>
+            Everything a service needs to verify agents: validate SIWA sign-in, verify ERC-8128 signed requests, issue receipts, and plug into Express or Next.js.
+          </P>
+
+          <SubSection id="verify-siwa" title="SIWA Verification">
             <P>
-              Stateless HMAC-signed tokens that prove successful SIWA verification.
+              Verify a signed SIWA message and check onchain ownership.
+            </P>
+            <Table
+              headers={["Function", "Returns", "Description"]}
+              rows={[
+                ["verifySIWA(msg, sig, options)", "SIWAVerificationResult", "Verify signature + onchain ownership."],
+                ["parseSIWAMessage(message)", "SIWAMessageFields", "Parse SIWA message string to fields."],
+              ]}
+            />
+            <P>
+              Import from <InlineCode>@buildersgarden/siwa</InlineCode>. The <InlineCode>options</InlineCode> argument:
+            </P>
+            <Table
+              headers={["Option", "Type", "Description"]}
+              rows={[
+                ["client", "PublicClient", "viem PublicClient for onchain verification."],
+                ["expectedDomain", "string", "Must match message domain."],
+                ["expectedAgentRegistry", "string", "Must match message registry."],
+                ["skipOnchainVerification", "boolean", "Skip registry check (signature-only mode)."],
+                ["allowedSignerTypes", "SignerType[]", "Restrict to 'eoa', 'sca', or both. Default: both."],
+              ]}
+            />
+            <P>
+              The result includes a <InlineCode>signerType</InlineCode> field indicating whether the signer is an EOA or smart contract account.
+            </P>
+            <CodeBlock language="typescript">{`import { verifySIWA, parseSIWAMessage } from "@buildersgarden/siwa";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+const result = await verifySIWA(message, signature, {
+  client,
+  expectedDomain: "api.example.com",
+  expectedAgentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  allowedSignerTypes: ['eoa', 'sca'],  // optional policy
+});
+
+if (result.success) {
+  console.log("Verified agent:", result.data.agentId);
+  console.log("Signer type:", result.data.signerType); // 'eoa' or 'sca'
+}`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="verify-erc8128" title="ERC-8128 Request Verification">
+            <P>
+              Verify incoming ERC-8128 signed requests from authenticated agents.
+            </P>
+            <Table
+              headers={["Function", "Returns", "Description"]}
+              rows={[
+                ["verifyAuthenticatedRequest(req, options)", "AuthResult", "Verify incoming signed request."],
+              ]}
+            />
+            <P>
+              Import from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode>. Options accept <InlineCode>allowedSignerTypes</InlineCode> for policy enforcement. The verified agent includes a <InlineCode>signerType</InlineCode> field.
+            </P>
+          </SubSection>
+
+          <SubSection id="verify-receipts" title="Receipts">
+            <P>
+              Stateless HMAC-signed tokens issued after successful SIWA verification. The agent includes the receipt in subsequent requests, and the server verifies it.
             </P>
             <Table
               headers={["Function", "Returns", "Description"]}
@@ -490,18 +484,25 @@ const response = await fetch(signedRequest);`}</CodeBlock>
                 ["verifyReceipt(receipt, secret)", "ReceiptPayload | null", "Verify and decode. Returns null if invalid."],
               ]}
             />
+            <Table
+              headers={["Payload Field", "Type", "Description"]}
+              rows={[
+                ["address", "string", "Agent wallet address."],
+                ["agentId", "number", "ERC-8004 token ID."],
+                ["signerType", "SignerType?", "Optional: 'eoa' or 'sca'."],
+              ]}
+            />
             <P>
               Import from <InlineCode>@buildersgarden/siwa/receipt</InlineCode>.
             </P>
           </SubSection>
 
-          {/* Server Wrappers */}
-          <SubSection id="api-wrappers" title="Server Wrappers">
+          <SubSection id="verify-wrappers" title="Server Middleware">
             <P>
-              High-level middleware for Express and Next.js.
+              Drop-in middleware for Express and Next.js that handles ERC-8128 verification, receipt checking, and CORS automatically.
             </P>
 
-            <div id="api-wrappers-next" className="scroll-mt-20 mt-6 mb-4">
+            <div id="verify-wrappers-next" className="scroll-mt-20 mt-6 mb-4">
               <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Next.js</h4>
             </div>
             <Table
@@ -520,7 +521,7 @@ export const POST = withSiwa(async (agent, req) => {
 
 export { siwaOptions as OPTIONS };`}</CodeBlock>
 
-            <div id="api-wrappers-express" className="scroll-mt-20 mt-6 mb-4">
+            <div id="verify-wrappers-express" className="scroll-mt-20 mt-6 mb-4">
               <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Express</h4>
             </div>
             <Table
@@ -542,16 +543,15 @@ app.get("/api/protected", siwaMiddleware(), (req, res) => {
   res.json({ agent: req.agent });
 });`}</CodeBlock>
           </SubSection>
+        </Section>
 
-          {/* Identity & Registry */}
-          <SubSection id="api-identity" title="Identity & Registry">
-            <P>
-              Read and write agent identity state, query onchain profiles.
-            </P>
+        {/* Identity & Registry */}
+        <Section id="identity" title="Identity & Registry">
+          <P>
+            Read and write agent identity state, and query onchain profiles.
+          </P>
 
-            <div id="api-identity-file" className="scroll-mt-20 mt-6 mb-4">
-              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Identity File</h4>
-            </div>
+          <SubSection id="identity-file" title="Identity File">
             <Table
               headers={["Function", "Description"]}
               rows={[
@@ -564,10 +564,9 @@ app.get("/api/protected", siwaMiddleware(), (req, res) => {
             <P>
               Import from <InlineCode>@buildersgarden/siwa/identity</InlineCode>.
             </P>
+          </SubSection>
 
-            <div id="api-identity-registry" className="scroll-mt-20 mt-6 mb-4">
-              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Onchain Registry</h4>
-            </div>
+          <SubSection id="identity-registry" title="Onchain Registry">
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
@@ -578,25 +577,6 @@ app.get("/api/protected", siwaMiddleware(), (req, res) => {
             />
             <P>
               Import from <InlineCode>@buildersgarden/siwa/registry</InlineCode>.
-            </P>
-          </SubSection>
-
-          {/* Keystore (Proxy Admin) */}
-          <SubSection id="api-keystore" title="Keystore (Proxy Admin)">
-            <P>
-              Administrative functions for the keyring proxy. Only needed if using the keyring proxy.
-            </P>
-            <Table
-              headers={["Function", "Returns", "Description"]}
-              rows={[
-                ["createWallet(config?)", "{ address }", "Create a new wallet in the proxy."],
-                ["hasWallet(config?)", "boolean", "Check if wallet exists."],
-                ["getAddress(config?)", "string | null", "Get wallet address."],
-                ["signAuthorization(auth, config?)", "SignedAuthorization", "Sign EIP-7702 authorization."],
-              ]}
-            />
-            <P>
-              Import from <InlineCode>@buildersgarden/siwa/keystore</InlineCode>.
             </P>
           </SubSection>
         </Section>
