@@ -60,92 +60,83 @@ export function GettingStartedTabs() {
       {activeTab === "agent" && (
         <div>
           <P>
-            Deploy an AI agent with a secure wallet and onchain identity. The agent can create wallets, register on ERC-8004, execute transactions, and authenticate with SIWA-compatible services.
+            Agents use SIWA to authenticate with services by signing a structured message that proves ownership of their ERC-8004 identity. The service verifies the signature and checks onchain registration.
           </P>
 
-          <Step number={1} title="Create a Telegram 2FA Bot (Optional)">
-            <P>
-              For transaction approval via Telegram, create a bot on{" "}
-              <a
-                href="https://t.me/BotFather"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
-              >
-                @BotFather
-              </a>
-              . Send <InlineCode>/newbot</InlineCode>, follow the prompts, and save the bot token. Then, in Telegram, send any message to <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200">@userinfobot</a> to get your chat ID.
-            </P>
-            <p className="text-xs text-dim">
-              More channels coming soon: Slack, Discord, Gmail, wallet approvals.
-            </p>
+          <Step number={1} title="Install the SDK">
+            <CodeBlock language="bash">{`npm install @buildersgarden/siwa viem`}</CodeBlock>
           </Step>
 
-          <Step number={2} title="Deploy on Railway">
+          <Step number={2} title="Create a Signer">
             <P>
-              Click the button below to deploy the keyring proxy, 2FA services, and{" "}
+              Choose any wallet provider. See{" "}
               <a
-                href="https://openclaw.ai/"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="#wallets"
                 className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
               >
-                OpenClaw
+                Wallet Options
               </a>{" "}
-              agent gateway — all pre-wired and ready to go.
+              for all options.
             </P>
-            <div className="mb-4">
-              <a
-                href="https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://railway.com/button.svg"
-                  alt="Deploy on Railway"
-                  className="h-10"
-                  width={180}
-                  height={40}
-                />
-              </a>
-            </div>
-            <P>
-              Fill in the environment variables during deployment. See the{" "}
-              <a
-                href="/docs/deploy"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
-              >
-                deployment guide
-              </a>{" "}
-              for details, or if you already have an Agent,{" "}
-              <a
-                href="/docs/deploy#existing-agent"
-                className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
-              >
-                learn how to use SIWA
-              </a>
-              .
-            </P>
+            <CodeBlock language="typescript">{`import { createLocalAccountSigner } from "@buildersgarden/siwa/signer";
+import { privateKeyToAccount } from "viem/accounts";
+
+// Example: private key signer
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as \`0x\${string}\`);
+const signer = createLocalAccountSigner(account);`}</CodeBlock>
           </Step>
 
-          <Step number={3} title="Configure OpenClaw">
+          <Step number={3} title="Request a Nonce">
             <P>
-              Set your LLM API key, system prompt, and any MCP servers in the OpenClaw dashboard. The SIWA skill is already installed — your agent knows how to create wallets and register onchain.
+              Get a nonce from the service you want to authenticate with.
             </P>
+            <CodeBlock language="typescript">{`const response = await fetch("https://api.example.com/siwa/nonce", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ address: await signer.getAddress() }),
+});
+const { nonce, issuedAt } = await response.json();`}</CodeBlock>
           </Step>
 
-          <Step number={4} title="Chat with Your Agent">
+          <Step number={4} title="Sign and Submit">
             <P>
-              Open OpenClaw and ask your agent to set up its identity:
+              Build and sign the SIWA message, then submit it to the service.
             </P>
-            <div className="rounded-lg bg-surface border border-border px-4 py-3 mb-4">
-              <p className="text-sm text-muted italic">&quot;Create a wallet and register on ERC-8004&quot;</p>
-            </div>
+            <CodeBlock language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
+
+const { message, signature } = await signSIWAMessage({
+  domain: "api.example.com",
+  uri: "https://api.example.com/siwa",
+  agentId: 42,  // Your ERC-8004 token ID
+  agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  chainId: 84532,
+  nonce,
+  issuedAt,
+}, signer);
+
+// Submit to service
+const verifyResponse = await fetch("https://api.example.com/siwa/verify", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message, signature }),
+});
+const { receipt } = await verifyResponse.json();`}</CodeBlock>
+          </Step>
+
+          <Step number={5} title="Make Authenticated Requests">
             <P>
-              The agent will create a wallet (key stored securely in the keyring proxy), register onchain, and save its identity. If 2FA is enabled, you&apos;ll approve the registration transaction via Telegram.
+              Use the receipt for subsequent API calls with ERC-8128 signatures.
             </P>
+            <CodeBlock language="typescript">{`import { signAuthenticatedRequest } from "@buildersgarden/siwa/erc8128";
+
+const request = new Request("https://api.example.com/action", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "transfer" }),
+});
+
+const signedRequest = await signAuthenticatedRequest(request, receipt, signer, 84532);
+const response = await fetch(signedRequest);`}</CodeBlock>
           </Step>
         </div>
       )}
@@ -157,58 +148,78 @@ export function GettingStartedTabs() {
           </P>
 
           <Step number={1} title="Install the SDK">
-            <CodeBlock language="bash">{`npm install @buildersgarden/siwa`}</CodeBlock>
+            <CodeBlock language="bash">{`npm install @buildersgarden/siwa viem`}</CodeBlock>
           </Step>
 
-          <Step number={2} title="Implement Auth Routes">
+          <Step number={2} title="Implement Auth Endpoints">
             <P>
               Add <InlineCode>/siwa/nonce</InlineCode> and <InlineCode>/siwa/verify</InlineCode> endpoints. The nonce endpoint issues challenges; the verify endpoint validates signatures and checks onchain ownership.
             </P>
             <CodeBlock language="typescript">{`import { verifySIWA } from "@buildersgarden/siwa";
+import { createReceipt } from "@buildersgarden/siwa/receipt";
 import { createPublicClient, http } from "viem";
-import { base } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 
-const client = createPublicClient({ chain: base, transport: http() });
+const client = createPublicClient({ chain: baseSepolia, transport: http() });
+const nonceStore = new Map();
 
-// POST /siwa/nonce
+// POST /siwa/nonce - Issue a challenge
 app.post("/siwa/nonce", (req, res) => {
   const nonce = crypto.randomBytes(16).toString("hex");
   nonceStore.set(nonce, { createdAt: Date.now() });
   res.json({ nonce, issuedAt: new Date().toISOString() });
 });
 
-// POST /siwa/verify
+// POST /siwa/verify - Validate signature and onchain ownership
 app.post("/siwa/verify", async (req, res) => {
   const { message, signature } = req.body;
-  const result = await verifySIWA(
-    message,
-    signature,
-    "your-domain.com",
-    (nonce) => nonceStore.delete(nonce),
-    client
-  );
-  if (!result.success) return res.status(401).json({ error: result.error });
-  // Issue session token or receipt...
+
+  const result = await verifySIWA(message, signature, {
+    client,
+    expectedDomain: "api.example.com",
+    expectedAgentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  });
+
+  if (!result.success) {
+    return res.status(401).json({ error: result.error });
+  }
+
+  // Consume nonce (one-time use)
+  nonceStore.delete(result.data.nonce);
+
+  // Issue a receipt for authenticated requests
+  const { receipt } = createReceipt({
+    address: result.data.address,
+    agentId: result.data.agentId,
+    agentRegistry: result.data.agentRegistry,
+    chainId: result.data.chainId,
+  }, { secret: process.env.RECEIPT_SECRET!, expiresInSeconds: 3600 });
+
+  res.json({ receipt, agentId: result.data.agentId });
 });`}</CodeBlock>
           </Step>
 
-          <Step number={3} title="Add Auth Middleware">
+          <Step number={3} title="Protect API Routes">
             <P>
-              Protect your API routes with the appropriate middleware for your stack.
+              Use middleware to verify ERC-8128 signed requests on protected routes.
             </P>
-            <CodeBlock language="typescript">{`// Next.js
-import { withSiwa } from "@buildersgarden/siwa/next";
+            <CodeBlock language="typescript">{`// Next.js App Router
+import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
 
 export const POST = withSiwa(async (agent, req) => {
-  // agent.address, agent.agentId available
-  return { message: "Authenticated!" };
+  // agent.address, agent.agentId, agent.chainId available
+  return { message: "Authenticated!", agent: agent.agentId };
 });
 
-// Express
-import { siwaMiddleware } from "@buildersgarden/siwa/express";
+export { siwaOptions as OPTIONS };`}</CodeBlock>
+            <CodeBlock language="typescript">{`// Express
+import { siwaMiddleware, siwaJsonParser, siwaCors } from "@buildersgarden/siwa/express";
 
-app.use("/api/protected", siwaMiddleware());
-app.get("/api/protected/data", (req, res) => {
+app.use(siwaJsonParser());
+app.use(siwaCors());
+
+app.post("/api/protected", siwaMiddleware(), (req, res) => {
+  // req.agent contains verified agent info
   res.json({ agent: req.agent });
 });`}</CodeBlock>
           </Step>
