@@ -15,6 +15,8 @@
  */
 
 import chalk from 'chalk';
+import { spawn, type ChildProcess } from 'child_process';
+import * as path from 'path';
 import { createReceipt, verifyReceipt } from '@buildersgarden/siwa/receipt';
 import {
   signAuthenticatedRequest,
@@ -134,15 +136,47 @@ export async function testErc8128Flow(): Promise<boolean> {
     }
   }
 
-  // ── Server-dependent tests (5-10) — skip if server is not reachable ──
+  // ── Server-dependent tests (5-10) — auto-start server if not running ──
   let serverAvailable = false;
+  let serverProcess: ChildProcess | null = null;
+
   try {
     const health = await fetch(`${config.serverUrl}/health`, { signal: AbortSignal.timeout(2000) });
     serverAvailable = health.ok;
-  } catch { /* server not running */ }
+  } catch { /* server not running, try to start it */ }
 
   if (!serverAvailable) {
-    console.log(chalk.yellow('  ⏭  Tests 5-10 skipped (server not reachable at ' + config.serverUrl + ')'));
+    const rpcUrl = process.env.RPC_URL || 'https://sepolia.base.org';
+    const serverDir = path.resolve(import.meta.dirname || __dirname, '..', '..');
+    console.log(chalk.dim('  Starting test server...'));
+
+    serverProcess = spawn('npx', ['tsx', 'server/index.ts'], {
+      cwd: serverDir,
+      env: {
+        ...process.env,
+        PORT: '3000',
+        SERVER_DOMAIN: 'localhost:3000',
+        RPC_URL: rpcUrl,
+        RECEIPT_SECRET: RECEIPT_SECRET,
+        SIWA_SECRET: RECEIPT_SECRET,
+      },
+      stdio: 'pipe',
+    });
+
+    // Wait for server to be ready (poll health endpoint)
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      try {
+        const health = await fetch(`${config.serverUrl}/health`, { signal: AbortSignal.timeout(1000) });
+        if (health.ok) { serverAvailable = true; break; }
+      } catch { /* not ready yet */ }
+    }
+
+    if (serverAvailable) {
+      console.log(chalk.dim('  Server started on ' + config.serverUrl));
+    } else {
+      console.log(chalk.yellow('  ⏭  Tests 5-10 skipped (server failed to start)'));
+    }
   }
 
   // ── Test 5: Full round-trip: signed GET → server verifies ───────
@@ -421,6 +455,12 @@ export async function testErc8128Flow(): Promise<boolean> {
     } catch (err: any) {
       fail('signerAddress in signAuthenticatedRequest', err.message);
     }
+  }
+
+  // ── Cleanup: stop server if we started it ─────────────────────
+  if (serverProcess) {
+    serverProcess.kill();
+    console.log(chalk.dim('  Server stopped'));
   }
 
   // ── Summary ─────────────────────────────────────────────────────
