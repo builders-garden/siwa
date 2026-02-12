@@ -18,7 +18,7 @@ import {
   type VerifyResult,
   type NonceStore,
 } from '@slicekit/erc8128';
-import type { Signer } from './signer.js';
+import type { Signer, SignerType } from './signer.js';
 import { verifyReceipt, type ReceiptPayload } from './receipt.js';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +31,7 @@ export interface VerifyOptions {
   verifyOnchain?: boolean;
   publicClient?: PublicClient;
   nonceStore?: NonceStore;
+  allowedSignerTypes?: SignerType[];
 }
 
 /** Verified agent identity returned from a successful auth check. */
@@ -39,6 +40,7 @@ export interface SiwaAgent {
   agentId: number;
   agentRegistry: string;
   chainId: number;
+  signerType?: SignerType;
 }
 
 export type AuthResult =
@@ -75,13 +77,15 @@ export const RECEIPT_HEADER = 'X-SIWA-Receipt';
  *
  * @param signer - A SIWA Signer (createKeyringProxySigner, createLocalAccountSigner, etc.)
  * @param chainId - Chain ID for the ERC-8128 keyid
+ * @param options - Optional overrides (e.g. signerAddress for TBA identity)
  * @returns An EthHttpSigner for use with @slicekit/erc8128
  */
 export async function createErc8128Signer(
   signer: Signer,
   chainId: number,
+  options?: { signerAddress?: Address },
 ): Promise<EthHttpSigner> {
-  const address = await signer.getAddress();
+  const address = options?.signerAddress ?? await signer.getAddress();
 
   return {
     address,
@@ -128,6 +132,7 @@ export function attachReceipt(request: Request, receipt: string): Request {
  * @param receipt  Verification receipt from SIWA sign-in
  * @param signer   A SIWA Signer (createKeyringProxySigner, createLocalAccountSigner, etc.)
  * @param chainId  Chain ID for the ERC-8128 keyid
+ * @param options  Optional overrides (e.g. signerAddress for TBA identity)
  * @returns        A new Request with Signature, Signature-Input, Content-Digest, and X-SIWA-Receipt headers
  *
  * @example
@@ -151,12 +156,13 @@ export async function signAuthenticatedRequest(
   receipt: string,
   signer: Signer,
   chainId: number,
+  options?: { signerAddress?: Address },
 ): Promise<Request> {
   // 1. Attach receipt header
   const withReceipt = attachReceipt(request, receipt);
 
   // 2. Create ERC-8128 signer from SIWA signer
-  const erc8128Signer = await createErc8128Signer(signer, chainId);
+  const erc8128Signer = await createErc8128Signer(signer, chainId, options);
 
   // 3. Sign with ERC-8128 (includes Content-Digest for bodies and receipt header)
   return signRequest(withReceipt, erc8128Signer, {
@@ -222,6 +228,11 @@ export async function verifyAuthenticatedRequest(
   const receipt = verifyReceipt(receiptToken, options.receiptSecret);
   if (!receipt) {
     return { valid: false, error: 'Invalid or expired receipt' };
+  }
+
+  // 1b. Enforce signer type policy
+  if (options.allowedSignerTypes?.length && !options.allowedSignerTypes.includes(receipt.signerType as any)) {
+    return { valid: false, error: `Signer type '${receipt.signerType || 'unknown'}' is not in allowed types [${options.allowedSignerTypes.join(', ')}]` };
   }
 
   // 2. Verify ERC-8128 signature
@@ -304,6 +315,7 @@ export async function verifyAuthenticatedRequest(
       agentId: receipt.agentId,
       agentRegistry: receipt.agentRegistry,
       chainId: receipt.chainId,
+      ...(receipt.signerType ? { signerType: receipt.signerType } : {}),
     },
   };
 }

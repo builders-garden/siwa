@@ -24,6 +24,7 @@ import {
   type SiwaAgent,
   type VerifyOptions,
 } from './erc8128.js';
+import type { SignerType } from './signer.js';
 
 export type { SiwaAgent };
 
@@ -38,6 +39,8 @@ export interface WithSiwaOptions {
   rpcUrl?: string;
   /** Enable onchain ownerOf check. */
   verifyOnchain?: boolean;
+  /** Allowed signer types. Omit to accept all. */
+  allowedSignerTypes?: SignerType[];
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +102,7 @@ export function withSiwa(handler: SiwaHandler, options?: WithSiwaOptions) {
       receiptSecret: secret,
       rpcUrl: options?.rpcUrl,
       verifyOnchain: options?.verifyOnchain,
+      allowedSignerTypes: options?.allowedSignerTypes,
     };
 
     const result = await verifyAuthenticatedRequest(

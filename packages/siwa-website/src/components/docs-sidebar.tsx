@@ -2,7 +2,19 @@
 
 import { useEffect, useState } from "react";
 
-const sections = [
+type NavItem = { title: string; id: string };
+type NavGroup = { label: string; items: NavItem[] };
+type SectionChild = NavItem | NavGroup;
+
+function isGroup(child: SectionChild): child is NavGroup {
+  return "items" in child;
+}
+
+const sections: {
+  title: string;
+  id: string;
+  children: SectionChild[];
+}[] = [
   {
     title: "Getting Started",
     id: "getting-started",
@@ -16,28 +28,53 @@ const sections = [
     ],
   },
   {
-    title: "Wallet Options",
-    id: "wallets",
+    title: "Signing (Agent-Side)",
+    id: "signing",
     children: [
-      { title: "Embedded Wallets", id: "wallet-privy" },
-      { title: "Browser Wallets", id: "wallet-browser" },
-      { title: "Private Key", id: "wallet-privatekey" },
-      { title: "Keyring Proxy", id: "wallet-keyring" },
-      { title: "Signer Interface", id: "signer-interface" },
+      {
+        label: "Signers",
+        items: [
+          { title: "Agentic Wallets", id: "wallet-privy" },
+          { title: "Private Key", id: "wallet-privatekey" },
+          { title: "Keyring Proxy", id: "wallet-keyring" },
+          { title: "Smart Accounts", id: "smart-accounts" },
+        ],
+      },
+      {
+        label: "Sign & Send",
+        items: [
+          { title: "SIWA Sign-In", id: "signing-siwa" },
+          { title: "ERC-8128 Request Signing", id: "signing-erc8128" },
+        ],
+      },
     ],
   },
   {
-    title: "API Reference",
-    id: "api",
+    title: "Verification (Server-Side)",
+    id: "verification",
     children: [
-      { title: "Signer", id: "api-signer" },
-      { title: "SIWA Signing", id: "api-signing" },
-      { title: "SIWA Verification", id: "api-verification" },
-      { title: "ERC-8128 Requests", id: "api-erc8128" },
-      { title: "Receipts", id: "api-receipts" },
-      { title: "Server Wrappers", id: "api-wrappers" },
-      { title: "Identity & Registry", id: "api-identity" },
-      { title: "Keystore", id: "api-keystore" },
+      {
+        label: "Verify",
+        items: [
+          { title: "SIWA Verification", id: "verify-siwa" },
+          { title: "ERC-8128 Request Verification", id: "verify-erc8128" },
+        ],
+      },
+      {
+        label: "Auth State",
+        items: [
+          { title: "Receipts", id: "verify-receipts" },
+          { title: "Server Middleware", id: "verify-wrappers" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Identity & Registry",
+    id: "identity",
+    children: [
+      { title: "Identity File", id: "identity-file" },
+      { title: "Onchain Registry", id: "identity-registry" },
     ],
   },
   {
@@ -62,14 +99,20 @@ const sections = [
   },
 ];
 
+function getAllIds(): string[] {
+  return sections.flatMap((s) => [
+    s.id,
+    ...s.children.flatMap((c) =>
+      isGroup(c) ? c.items.map((i) => i.id) : [c.id]
+    ),
+  ]);
+}
+
 export function DocsSidebar() {
   const [activeId, setActiveId] = useState("");
 
   useEffect(() => {
-    const allIds = sections.flatMap((s) => [
-      s.id,
-      ...s.children.map((c) => c.id),
-    ]);
+    const allIds = getAllIds();
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -91,6 +134,20 @@ export function DocsSidebar() {
     return () => observer.disconnect();
   }, []);
 
+  const itemLink = (item: NavItem) => (
+    <a
+      key={item.id}
+      href={`#${item.id}`}
+      className={`block text-xs transition-colors duration-200 cursor-pointer ${
+        activeId === item.id
+          ? "text-accent"
+          : "text-dim hover:text-muted"
+      }`}
+    >
+      {item.title}
+    </a>
+  );
+
   return (
     <aside className="hidden md:block w-56 shrink-0 sticky top-20 h-fit max-h-[calc(100vh-6rem)] overflow-y-auto">
       <nav className="space-y-4">
@@ -107,20 +164,23 @@ export function DocsSidebar() {
               {section.title}
             </a>
             {section.children.length > 0 && (
-              <div className="mt-1.5 ml-2 space-y-1 border-l border-border pl-3">
-                {section.children.map((child) => (
-                  <a
-                    key={child.id}
-                    href={`#${child.id}`}
-                    className={`block text-xs transition-colors duration-200 cursor-pointer ${
-                      activeId === child.id
-                        ? "text-accent"
-                        : "text-dim hover:text-muted"
-                    }`}
-                  >
-                    {child.title}
-                  </a>
-                ))}
+              <div className="mt-1.5 ml-2 border-l border-border pl-3">
+                {section.children.map((child) =>
+                  isGroup(child) ? (
+                    <div key={child.label} className="mt-2 first:mt-0">
+                      <span className="block text-[10px] font-mono font-medium text-dim/60 uppercase tracking-wider mb-1">
+                        {child.label}
+                      </span>
+                      <div className="space-y-1">
+                        {child.items.map(itemLink)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={child.id} className="mt-1">
+                      {itemLink(child)}
+                    </div>
+                  )
+                )}
               </div>
             )}
           </div>

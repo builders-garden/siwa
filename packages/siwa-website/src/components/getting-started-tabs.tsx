@@ -64,7 +64,7 @@ export function GettingStartedTabs() {
           </P>
 
           <Step number={1} title="Install the SDK">
-            <CodeBlock language="bash">{`npm install @buildersgarden/siwa viem`}</CodeBlock>
+            <CodeBlock language="bash">{`npm install @buildersgarden/siwa`}</CodeBlock>
           </Step>
 
           <Step number={2} title="Create a Signer">
@@ -148,7 +148,7 @@ const response = await fetch(signedRequest);`}</CodeBlock>
           </P>
 
           <Step number={1} title="Install the SDK">
-            <CodeBlock language="bash">{`npm install @buildersgarden/siwa viem`}</CodeBlock>
+            <CodeBlock language="bash">{`npm install @buildersgarden/siwa`}</CodeBlock>
           </Step>
 
           <Step number={2} title="Implement Auth Endpoints">

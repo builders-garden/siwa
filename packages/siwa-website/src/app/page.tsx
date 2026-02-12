@@ -1,5 +1,6 @@
 import { GetStartedBox } from "@/components/get-started-box";
 import { CodeBlock } from "@/components/code-block";
+import { CopyInstallCommand } from "@/components/copy-install-command";
 
 const SIGN_IN_CODE = `import { signSIWAMessage } from "@buildersgarden/siwa";
 import { createLocalAccountSigner } from "@buildersgarden/siwa/signer";
@@ -47,20 +48,21 @@ function HeroSection() {
             Sign In With Agent
           </p>
           <p className="mt-6 max-w-md text-muted leading-relaxed">
-            Authentication for AI agents with onchain identity.
-            Built on{" "}
+            Authentication for AI agents built on{" "}
             <a
               href="https://eips.ethereum.org/EIPS/eip-8004"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-foreground hover:text-accent transition-colors duration-200 underline underline-offset-4 decoration-border cursor-pointer"
+              className="text-foreground hover:text-accent underline transition-colors duration-200 underline underline-offset-4 decoration-border cursor-pointer"
             >
               ERC-8004
             </a>
-            {" "}— like SIWE, but for agents.
+            {" "}onchain identity and{" "}
+            <a href="https://erc8128.org/" target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-accent transition-colors duration-200 underline underline-offset-4 decoration-border cursor-pointer underline">ERC-8128</a>
+            {" "}
           </p>
           <p className="mt-3 max-w-md text-sm text-dim leading-relaxed">
-            Wallet-agnostic. Works with any signer.
+            Works with any wallet.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
@@ -137,7 +139,7 @@ function WhySIWASection() {
     {
       title: "Wallet-agnostic",
       description:
-        "Works with any wallet provider — Privy, Coinbase, private keys, or our optional keyring proxy. You choose how to manage keys.",
+        "Works with any wallet provider — Privy, Coinbase, private keys, or a self-hosted keyring proxy. You choose how to manage keys.",
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
           <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -148,7 +150,7 @@ function WhySIWASection() {
     {
       title: "Identity lives onchain",
       description:
-        "Each agent gets an ERC-721 NFT on the Identity Registry. Transferable, verifiable, permanent — anyone can check it.",
+        "Each agent gets an ERC-721 NFT on the ERC-8004 Identity Registry. Transferable, verifiable, permanent — anyone can check it.",
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -159,7 +161,7 @@ function WhySIWASection() {
     {
       title: "Works on any chain",
       description:
-        "Base, Ethereum, Linea, Polygon. Deploy on mainnet or testnets — wherever your agents live.",
+        "On Ethereum and any EVM-compatible chain supporting ERC-8004 — wherever your agents live.",
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
           <circle cx="12" cy="12" r="10" />
@@ -282,14 +284,10 @@ function HowItWorksSection() {
           <p className="text-sm text-muted leading-relaxed mb-6">
             SIWA uses a simple <code className="text-accent">Signer</code> interface that works with any wallet. The SDK provides adapters for common providers:
           </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-md border border-border bg-background px-4 py-3">
-              <div className="font-mono text-xs text-foreground mb-1">Embedded</div>
-              <div className="text-xs text-dim">Privy, Dynamic, Magic</div>
-            </div>
-            <div className="rounded-md border border-border bg-background px-4 py-3">
-              <div className="font-mono text-xs text-foreground mb-1">Browser</div>
-              <div className="text-xs text-dim"> Coinbase, WalletConnect</div>
+              <div className="font-mono text-xs text-foreground mb-1">Agentic Wallets</div>
+              <div className="text-xs text-dim">Privy, Coinbase, Circle, Bankr</div>
             </div>
             <div className="rounded-md border border-border bg-background px-4 py-3">
               <div className="font-mono text-xs text-foreground mb-1">Backend</div>
@@ -328,14 +326,7 @@ function QuickstartSection() {
         </p>
 
         {/* Install command */}
-        <div className="mb-8 rounded-lg border border-border bg-surface overflow-hidden inline-block">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <span className="font-mono text-sm text-muted select-none">$</span>
-            <code className="font-mono text-sm text-foreground">
-              npm install @buildersgarden/siwa viem
-            </code>
-          </div>
-        </div>
+        <CopyInstallCommand />
 
         {/* Code panels */}
         <div className="grid gap-4 md:grid-cols-2">
