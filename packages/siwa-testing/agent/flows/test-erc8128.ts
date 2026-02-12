@@ -7,6 +7,8 @@
  *   3. Full signAuthenticatedRequest → server verifyAuthenticatedRequest
  *   4. Receipt tampering rejection
  *   5. Missing signature rejection
+ *   6. Receipt header swap post-signing (signature covers X-SIWA-Receipt)
+ *   7. Replay rejection (nonce store prevents duplicate requests)
  */
 
 import chalk from 'chalk';
@@ -206,6 +208,71 @@ export async function testErc8128Flow(): Promise<boolean> {
     }
   } catch (err: any) {
     fail('Missing signature rejection', err.message);
+  }
+
+  // ── Test 9: Receipt header swapped after signing is rejected ────
+  // The ERC-8128 signature now covers X-SIWA-Receipt (component binding).
+  // Swapping the receipt header post-signing should break the signature.
+  if (receipt) {
+    try {
+      const request = new Request(`${config.serverUrl}/api/protected`, {
+        method: 'GET',
+      });
+      const signed = await signAuthenticatedRequest(request, receipt, kc, 84532);
+
+      // Create a different receipt for the same agent
+      const altResult = createReceipt(
+        {
+          address,
+          agentId: 888,
+          agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e',
+          chainId: 84532,
+          verified: 'onchain',
+        },
+        { secret: RECEIPT_SECRET },
+      );
+
+      // Replace the receipt header after signing — signature should no longer verify
+      const headers = new Headers(signed.headers);
+      headers.set('X-SIWA-Receipt', altResult.receipt);
+      const tampered = new Request(signed.url, { method: signed.method, headers });
+
+      const res = await fetch(tampered);
+
+      if (res.status === 401) {
+        pass('Receipt header swapped post-signing rejected (401)');
+      } else {
+        fail('Receipt swap rejection', `Expected 401, got ${res.status}`);
+      }
+    } catch (err: any) {
+      fail('Receipt swap rejection', err.message);
+    }
+  }
+
+  // ── Test 10: Replay of exact same signed request is rejected ────
+  // The nonce store should prevent replaying the same signed request.
+  if (receipt) {
+    try {
+      const request = new Request(`${config.serverUrl}/api/protected`, {
+        method: 'GET',
+      });
+      const signed = await signAuthenticatedRequest(request, receipt, kc, 84532);
+
+      // First request should succeed
+      const res1 = await fetch(signed.clone());
+      // Second identical request should be rejected (nonce replay)
+      const res2 = await fetch(signed.clone());
+
+      if (res1.ok && res2.status === 401) {
+        pass('Replay of identical signed request rejected (401)');
+      } else if (!res1.ok) {
+        fail('Replay rejection', `First request failed: ${res1.status}`);
+      } else {
+        fail('Replay rejection', `Replay was not rejected: ${res2.status}`);
+      }
+    } catch (err: any) {
+      fail('Replay rejection', err.message);
+    }
   }
 
   // ── Summary ─────────────────────────────────────────────────────
