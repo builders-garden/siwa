@@ -24,6 +24,7 @@ import {
   type SiwaAgent,
   type VerifyOptions,
 } from './erc8128.js';
+import type { SignerType } from './signer.js';
 
 export type { SiwaAgent };
 
@@ -54,8 +55,8 @@ export interface SiwaMiddlewareOptions {
   verifyOnchain?: boolean;
   /** Public client for ERC-1271 or onchain checks. */
   publicClient?: VerifyOptions['publicClient'];
-  /** Require a specific signer type ('eoa' or 'sca'). */
-  requiredSignerType?: 'eoa' | 'sca';
+  /** Allowed signer types. Omit to accept all. */
+  allowedSignerTypes?: SignerType[];
 }
 
 export interface SiwaCorsOptions {
@@ -142,7 +143,7 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
         rpcUrl: options?.rpcUrl,
         verifyOnchain: options?.verifyOnchain,
         publicClient: options?.publicClient,
-        requiredSignerType: options?.requiredSignerType,
+        allowedSignerTypes: options?.allowedSignerTypes,
       });
 
       if (!result.valid) {

@@ -27,6 +27,14 @@ import { computeHmac } from './proxy-auth.js';
 // ─── Types ───────────────────────────────────────────────────────────
 
 /**
+ * Signer type detected during SIWA sign-in.
+ *
+ * - `'eoa'` — Externally Owned Account (ECDSA key pair)
+ * - `'sca'` — Smart Contract Account (ERC-1271, e.g. Safe, TBA, Kernel)
+ */
+export type SignerType = 'eoa' | 'sca';
+
+/**
  * Core signer interface for message signing.
  *
  * Implement this interface to add support for new wallet providers.

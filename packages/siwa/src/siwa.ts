@@ -18,7 +18,7 @@ import {
 } from 'viem';
 import * as crypto from 'crypto';
 import { AgentProfile, getAgent, getReputation, ServiceType, TrustModel } from './registry.js';
-import type { Signer } from './signer.js';
+import type { Signer, SignerType } from './signer.js';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -62,7 +62,7 @@ export interface SIWAVerificationResult {
   agentRegistry: string;
   chainId: number;
   verified: 'offline' | 'onchain';
-  signerType?: 'eoa' | 'sca';
+  signerType?: SignerType;
   code?: SIWAErrorCode;
   error?: string;
   agent?: AgentProfile;
@@ -75,7 +75,7 @@ export interface SIWAVerifyCriteria {
   requiredServices?: (ServiceType | (string & {}))[];
   mustBeActive?: boolean;
   requiredTrust?: (TrustModel | (string & {}))[];
-  requiredSignerType?: 'eoa' | 'sca';
+  allowedSignerTypes?: SignerType[];
   custom?: (agent: AgentProfile) => boolean | Promise<boolean>;
 }
 
@@ -88,7 +88,7 @@ export interface SIWAResponse {
   agentRegistry?: string;
   chainId?: number;
   verified?: 'offline' | 'onchain';
-  signerType?: 'eoa' | 'sca';
+  signerType?: SignerType;
   code?: SIWAErrorCode;
   error?: string;
   action?: SIWAAction;
@@ -548,7 +548,7 @@ export async function verifySIWA(
 
     // 2b. Detect signer type (EOA vs smart contract account)
     const signerCode = await client.getCode({ address: fields.address as Address });
-    const signerType: 'eoa' | 'sca' = (signerCode && signerCode !== '0x') ? 'sca' : 'eoa';
+    const signerType: SignerType = (signerCode && signerCode !== '0x') ? 'sca' : 'eoa';
 
     // 3. Address match is implicit in verifyMessage (it checks against the address)
 
@@ -623,8 +623,8 @@ export async function verifySIWA(
     if (!criteria) return baseResult;
 
     // Signer type policy (checked before fetching metadata for early exit)
-    if (criteria.requiredSignerType && signerType !== criteria.requiredSignerType) {
-      return { ...baseResult, valid: false, code: SIWAErrorCode.CUSTOM_CHECK_FAILED, error: `Signer type '${signerType}' does not meet required '${criteria.requiredSignerType}'` };
+    if (criteria.allowedSignerTypes?.length && !criteria.allowedSignerTypes.includes(signerType)) {
+      return { ...baseResult, valid: false, code: SIWAErrorCode.CUSTOM_CHECK_FAILED, error: `Signer type '${signerType}' is not in allowed types [${criteria.allowedSignerTypes.join(', ')}]` };
     }
 
     const agent = await getAgent(fields.agentId, {

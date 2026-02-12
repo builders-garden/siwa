@@ -16,6 +16,7 @@
  */
 
 import * as crypto from 'crypto';
+import type { SignerType } from './signer.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,7 +28,7 @@ export interface ReceiptPayload {
   agentRegistry: string;
   chainId: number;
   verified: 'offline' | 'onchain';
-  signerType?: 'eoa' | 'sca';
+  signerType?: SignerType;
   iat: number; // issued at (ms since epoch)
   exp: number; // expires at (ms since epoch)
 }

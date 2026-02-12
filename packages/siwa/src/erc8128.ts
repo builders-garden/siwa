@@ -18,7 +18,7 @@ import {
   type VerifyResult,
   type NonceStore,
 } from '@slicekit/erc8128';
-import type { Signer } from './signer.js';
+import type { Signer, SignerType } from './signer.js';
 import { verifyReceipt, type ReceiptPayload } from './receipt.js';
 
 // ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@ export interface VerifyOptions {
   verifyOnchain?: boolean;
   publicClient?: PublicClient;
   nonceStore?: NonceStore;
-  requiredSignerType?: 'eoa' | 'sca';
+  allowedSignerTypes?: SignerType[];
 }
 
 /** Verified agent identity returned from a successful auth check. */
@@ -40,7 +40,7 @@ export interface SiwaAgent {
   agentId: number;
   agentRegistry: string;
   chainId: number;
-  signerType?: 'eoa' | 'sca';
+  signerType?: SignerType;
 }
 
 export type AuthResult =
@@ -231,8 +231,8 @@ export async function verifyAuthenticatedRequest(
   }
 
   // 1b. Enforce signer type policy
-  if (options.requiredSignerType && receipt.signerType !== options.requiredSignerType) {
-    return { valid: false, error: `Signer type '${receipt.signerType || 'unknown'}' does not meet required '${options.requiredSignerType}'` };
+  if (options.allowedSignerTypes?.length && !options.allowedSignerTypes.includes(receipt.signerType as any)) {
+    return { valid: false, error: `Signer type '${receipt.signerType || 'unknown'}' is not in allowed types [${options.allowedSignerTypes.join(', ')}]` };
   }
 
   // 2. Verify ERC-8128 signature
