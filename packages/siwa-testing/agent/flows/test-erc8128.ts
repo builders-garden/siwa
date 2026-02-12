@@ -2,18 +2,19 @@
  * Direct integration test for ERC-8128 + Receipt pipeline.
  *
  * Bypasses sign-in (which requires onchain registration) and tests:
- *   1. signRawMessage via keyring proxy (new ERC-8128 signing support)
+ *   1. signRawMessage via Signer interface (ERC-8128 signing support)
  *   2. Receipt creation + verification
  *   3. Full signAuthenticatedRequest → server verifyAuthenticatedRequest
  *   4. Receipt tampering rejection
  *   5. Missing signature rejection
+ *   6. Receipt header swap post-signing (signature covers X-SIWA-Receipt)
+ *   7. Replay rejection (nonce store prevents duplicate requests)
  */
 
 import chalk from 'chalk';
-import { getAddress, signRawMessage } from '@buildersgarden/siwa/keystore';
 import { createReceipt, verifyReceipt } from '@buildersgarden/siwa/receipt';
 import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
-import { config, getKeystoreConfig } from '../config.js';
+import { config, getSigner } from '../config.js';
 
 let passed = 0;
 let failed = 0;
@@ -35,24 +36,24 @@ export async function testErc8128Flow(): Promise<boolean> {
   console.log(chalk.bold('ERC-8128 Integration Tests'));
   console.log('\u{2500}'.repeat(40));
 
-  const kc = getKeystoreConfig();
-  const address = await getAddress(kc);
+  const signer = getSigner();
+  const address = await signer.getAddress();
   if (!address) {
     fail('Setup', 'No wallet found. Run test-proxy first to create one.');
     return false;
   }
 
-  // ── Test 1: signRawMessage via proxy ─────────────────────────────
+  // ── Test 1: signRawMessage via signer ─────────────────────────────
   try {
-    const testHex = '0xdeadbeef';
-    const result = await signRawMessage(testHex, kc);
-    if (result.signature && result.signature.startsWith('0x') && result.signature.length === 132) {
-      pass(`signRawMessage() via proxy \u{2192} valid 65-byte signature`);
+    const testHex = '0xdeadbeef' as `0x${string}`;
+    const signature = await signer.signRawMessage!(testHex);
+    if (signature && signature.startsWith('0x') && signature.length === 132) {
+      pass(`signer.signRawMessage() \u{2192} valid 65-byte signature`);
     } else {
-      fail('signRawMessage() via proxy', `Unexpected signature: ${result.signature}`);
+      fail('signer.signRawMessage()', `Unexpected signature: ${signature}`);
     }
   } catch (err: any) {
-    fail('signRawMessage() via proxy', err.message);
+    fail('signer.signRawMessage()', err.message);
   }
 
   // ── Test 2: Receipt create + verify ──────────────────────────────
@@ -100,7 +101,7 @@ export async function testErc8128Flow(): Promise<boolean> {
       const request = new Request(`${config.serverUrl}/api/protected`, {
         method: 'GET',
       });
-      const signed = await signAuthenticatedRequest(request, receipt, kc, 84532);
+      const signed = await signAuthenticatedRequest(request, receipt, signer, 84532);
 
       // Check headers are present
       const hasSig = signed.headers.has('signature');
@@ -123,7 +124,7 @@ export async function testErc8128Flow(): Promise<boolean> {
       const request = new Request(`${config.serverUrl}/api/protected`, {
         method: 'GET',
       });
-      const signed = await signAuthenticatedRequest(request, receipt, kc, 84532);
+      const signed = await signAuthenticatedRequest(request, receipt, signer, 84532);
       const res = await fetch(signed);
 
       if (res.ok) {
@@ -151,7 +152,7 @@ export async function testErc8128Flow(): Promise<boolean> {
         headers: { 'Content-Type': 'application/json' },
         body,
       });
-      const signed = await signAuthenticatedRequest(request, receipt, kc, 84532);
+      const signed = await signAuthenticatedRequest(request, receipt, signer, 84532);
       const res = await fetch(signed);
 
       if (res.ok) {
@@ -179,7 +180,7 @@ export async function testErc8128Flow(): Promise<boolean> {
       headers: { 'X-SIWA-Receipt': tamperedReceipt },
     });
     // Still sign the request so it has Signature headers
-    const signed = await signAuthenticatedRequest(request, tamperedReceipt, kc, 84532);
+    const signed = await signAuthenticatedRequest(request, tamperedReceipt, signer, 84532);
     const res = await fetch(signed);
 
     if (res.status === 401) {
@@ -206,6 +207,71 @@ export async function testErc8128Flow(): Promise<boolean> {
     }
   } catch (err: any) {
     fail('Missing signature rejection', err.message);
+  }
+
+  // ── Test 9: Receipt header swapped after signing is rejected ────
+  // The ERC-8128 signature now covers X-SIWA-Receipt (component binding).
+  // Swapping the receipt header post-signing should break the signature.
+  if (receipt) {
+    try {
+      const request = new Request(`${config.serverUrl}/api/protected`, {
+        method: 'GET',
+      });
+      const signed = await signAuthenticatedRequest(request, receipt, signer, 84532);
+
+      // Create a different receipt for the same agent
+      const altResult = createReceipt(
+        {
+          address,
+          agentId: 888,
+          agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e',
+          chainId: 84532,
+          verified: 'onchain',
+        },
+        { secret: RECEIPT_SECRET },
+      );
+
+      // Replace the receipt header after signing — signature should no longer verify
+      const headers = new Headers(signed.headers);
+      headers.set('X-SIWA-Receipt', altResult.receipt);
+      const tampered = new Request(signed.url, { method: signed.method, headers });
+
+      const res = await fetch(tampered);
+
+      if (res.status === 401) {
+        pass('Receipt header swapped post-signing rejected (401)');
+      } else {
+        fail('Receipt swap rejection', `Expected 401, got ${res.status}`);
+      }
+    } catch (err: any) {
+      fail('Receipt swap rejection', err.message);
+    }
+  }
+
+  // ── Test 10: Replay of exact same signed request is rejected ────
+  // The nonce store should prevent replaying the same signed request.
+  if (receipt) {
+    try {
+      const request = new Request(`${config.serverUrl}/api/protected`, {
+        method: 'GET',
+      });
+      const signed = await signAuthenticatedRequest(request, receipt, signer, 84532);
+
+      // First request should succeed
+      const res1 = await fetch(signed.clone());
+      // Second identical request should be rejected (nonce replay)
+      const res2 = await fetch(signed.clone());
+
+      if (res1.ok && res2.status === 401) {
+        pass('Replay of identical signed request rejected (401)');
+      } else if (!res1.ok) {
+        fail('Replay rejection', `First request failed: ${res1.status}`);
+      } else {
+        fail('Replay rejection', `Replay was not rejected: ${res2.status}`);
+      }
+    } catch (err: any) {
+      fail('Replay rejection', err.message);
+    }
   }
 
   // ── Summary ─────────────────────────────────────────────────────

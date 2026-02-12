@@ -11,16 +11,14 @@
 import {
   createPublicClient,
   http,
-  verifyMessage,
-  hashMessage,
   getAddress as checksumAddress,
   type PublicClient,
   type Hex,
   type Address,
 } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 import * as crypto from 'crypto';
 import { AgentProfile, getAgent, getReputation, ServiceType, TrustModel } from './registry.js';
+import type { Signer } from './signer.js';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -411,53 +409,68 @@ export async function createSIWANonce(
 /**
  * Fields accepted by signSIWAMessage.
  * `address` is optional — when omitted, the address is fetched directly
- * from the keystore (the trusted source of truth for the agent wallet).
+ * from the signer (the trusted source of truth for the agent wallet).
  */
 export type SIWASignFields = Omit<SIWAMessageFields, 'address'> & { address?: string };
 
 /**
- * Sign a SIWA message using the secure keystore.
+ * Sign a SIWA message using the provided signer.
  *
- * The private key is loaded from the keystore, used to sign, and discarded.
- * It is NEVER returned or exposed to the caller.
+ * The signer abstracts the wallet implementation, allowing you to use:
+ *   - createKeyringProxySigner(config)   — Keyring proxy server
+ *   - createLocalAccountSigner(account)  — viem LocalAccount (private key)
+ *   - createWalletClientSigner(client)   — viem WalletClient (Privy, MetaMask, etc.)
  *
- * The agent address is always resolved from the keystore — the single source
+ * The agent address is always resolved from the signer — the single source
  * of truth — so the caller doesn't need to supply (or risk hallucinating) it.
- * If `fields.address` is provided it must match the keystore address.
+ * If `fields.address` is provided it must match the signer's address.
  *
  * @param fields — SIWA message fields (domain, agentId, etc.). `address` is optional.
- * @param keystoreConfig — Optional keystore configuration override
+ * @param signer — A Signer implementation (see createKeyringProxySigner, createLocalAccountSigner, createWalletClientSigner)
  * @returns { message, signature, address } — the plaintext message, EIP-191 signature, and resolved address
+ *
+ * @example
+ * ```typescript
+ * import { signSIWAMessage, createLocalAccountSigner } from '@buildersgarden/siwa';
+ * import { privateKeyToAccount } from 'viem/accounts';
+ *
+ * const account = privateKeyToAccount('0x...');
+ * const signer = createLocalAccountSigner(account);
+ *
+ * const { message, signature, address } = await signSIWAMessage({
+ *   domain: 'example.com',
+ *   uri: 'https://example.com/login',
+ *   agentId: 123,
+ *   agentRegistry: 'eip155:84532:0x...',
+ *   chainId: 84532,
+ *   nonce: 'abc123',
+ *   issuedAt: new Date().toISOString(),
+ * }, signer);
+ * ```
  */
 export async function signSIWAMessage(
   fields: SIWASignFields,
-  keystoreConfig?: import('./keystore').KeystoreConfig
+  signer: Signer
 ): Promise<{ message: string; signature: string; address: string }> {
-  // Import keystore dynamically to avoid circular deps
-  const { signMessage, getAddress } = await import('./keystore');
-
-  // Resolve the address from the keystore — the trusted source of truth
-  const keystoreAddress = await getAddress(keystoreConfig);
-  if (!keystoreAddress) {
-    throw new Error('No wallet found in keystore. Run createWallet() first.');
-  }
+  // Resolve the address from the signer — the trusted source of truth
+  const signerAddress = await signer.getAddress();
 
   // If the caller supplied an address, verify it matches (defensive check)
-  if (fields.address && keystoreAddress.toLowerCase() !== fields.address.toLowerCase()) {
-    throw new Error(`Address mismatch: keystore has ${keystoreAddress}, message claims ${fields.address}`);
+  if (fields.address && signerAddress.toLowerCase() !== fields.address.toLowerCase()) {
+    throw new Error(`Address mismatch: signer has ${signerAddress}, message claims ${fields.address}`);
   }
 
   const resolvedFields: SIWAMessageFields = {
     ...fields,
-    address: keystoreAddress,
+    address: signerAddress,
   };
 
   const message = buildSIWAMessage(resolvedFields);
 
-  // Sign via keystore — private key is loaded, used, and discarded internally
-  const result = await signMessage(message, keystoreConfig);
+  // Sign via signer
+  const signature = await signer.signMessage(message);
 
-  return { message, signature: result.signature, address: keystoreAddress };
+  return { message, signature, address: signerAddress };
 }
 
 
@@ -512,8 +525,12 @@ export async function verifySIWA(
     // 1. Parse
     const fields = parseSIWAMessage(message);
 
-    // 2. Recover signer
-    const isValid = await verifyMessage({
+    // 2. Verify signature (supports both EOA and ERC-1271 smart wallets)
+    // Using client.verifyMessage handles:
+    //   - EOA signatures (ECDSA recovery)
+    //   - ERC-1271 smart contract wallets (Safe, Argent, etc.)
+    //   - ERC-6492 pre-deployed smart wallets
+    const isValid = await client.verifyMessage({
       address: fields.address as Address,
       message,
       signature: signature as Hex,
@@ -581,21 +598,7 @@ export async function verifySIWA(
     }
 
     if (owner.toLowerCase() !== recovered.toLowerCase()) {
-      // ERC-1271 fallback for smart contract wallets / EIP-7702 delegated accounts
-      const messageHash = hashMessage(message);
-      try {
-        const magicValue = await client.readContract({
-          address: owner as Address,
-          abi: [{ name: 'isValidSignature', type: 'function', stateMutability: 'view', inputs: [{ name: 'hash', type: 'bytes32' }, { name: 'signature', type: 'bytes' }], outputs: [{ name: '', type: 'bytes4' }] }] as const,
-          functionName: 'isValidSignature',
-          args: [messageHash, signature as Hex],
-        });
-        if (magicValue !== '0x1626ba7e') {
-          return fail(fields, SIWAErrorCode.NOT_OWNER, 'Signer is not the owner of this agent NFT (ERC-1271 check also failed)');
-        }
-      } catch {
-        return fail(fields, SIWAErrorCode.NOT_OWNER, 'Signer is not the owner of this agent NFT');
-      }
+      return fail(fields, SIWAErrorCode.NOT_OWNER, 'Signer is not the owner of this agent NFT');
     }
 
     // 8. Base result

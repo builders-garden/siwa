@@ -1,26 +1,25 @@
 /**
  * keystore.ts
  *
- * Secure signing abstraction for ERC-8004 agents.
+ * Keyring proxy administrative operations.
  *
- * All signing is delegated to a **keyring proxy server** — a separate process
- * that holds the encrypted private key and exposes only HMAC-authenticated
- * signing endpoints. The private key NEVER enters the agent process.
+ * This module provides admin functions for the keyring proxy server:
+ *   - createWallet() - Create a new wallet
+ *   - hasWallet() - Check if a wallet exists
+ *   - signAuthorization() - Sign EIP-7702 authorizations
  *
- * External code interacts only through:
- *   - createWallet()          → returns { address } (no private key)
- *   - signMessage(msg)        → returns { signature, address }
- *   - signTransaction(tx)     → returns { signedTx, address }
- *   - signAuthorization(auth) → returns signed EIP-7702 authorization
- *   - getAddress()            → returns the public address
- *   - hasWallet()             → returns boolean
+ * For signing operations, use the Signer API instead:
  *
- * Configuration (via env vars or passed options):
- *   KEYRING_PROXY_URL     — URL of the keyring proxy server
- *   KEYRING_PROXY_SECRET  — HMAC shared secret
+ * ```typescript
+ * import { createKeyringProxySigner } from '@buildersgarden/siwa/signer';
+ *
+ * const signer = createKeyringProxySigner({ proxyUrl, proxySecret });
+ * const address = await signer.getAddress();
+ * const signature = await signer.signMessage(message);
+ * const signedTx = await signer.signTransaction(tx);
+ * ```
  */
 
-import type { Hex, Address } from "viem";
 import { computeHmac } from "./proxy-auth.js";
 
 // ---------------------------------------------------------------------------
@@ -36,19 +35,14 @@ export interface WalletInfo {
   address: string;
 }
 
-export interface SignResult {
-  signature: string;
-  address: string;
-}
-
 export interface AuthorizationRequest {
-  address: string; // Contract address to delegate to
-  chainId?: number; // Optional; auto-detected if omitted
-  nonce?: number; // Optional; use current_nonce + 1 for self-sent txns
+  address: string;
+  chainId?: number;
+  nonce?: number;
 }
 
 export interface SignedAuthorization {
-  address: string; // Delegated contract address
+  address: string;
   nonce: number;
   chainId: number;
   yParity: number;
@@ -56,24 +50,8 @@ export interface SignedAuthorization {
   s: string;
 }
 
-// Transaction type compatible with viem
-export interface TransactionLike {
-  to?: string;
-  data?: string;
-  value?: bigint;
-  nonce?: number;
-  chainId?: number;
-  type?: number;
-  maxFeePerGas?: bigint | null;
-  maxPriorityFeePerGas?: bigint | null;
-  gasLimit?: bigint;
-  gas?: bigint;
-  gasPrice?: bigint | null;
-  accessList?: any[];
-}
-
 // ---------------------------------------------------------------------------
-// Proxy backend — HMAC-authenticated HTTP to a keyring proxy server
+// Proxy backend
 // ---------------------------------------------------------------------------
 
 async function proxyRequest(
@@ -85,11 +63,11 @@ async function proxyRequest(
   const secret = config.proxySecret || process.env.KEYRING_PROXY_SECRET;
   if (!url)
     throw new Error(
-      "Keystore requires KEYRING_PROXY_URL or config.proxyUrl"
+      "Keyring proxy requires KEYRING_PROXY_URL or config.proxyUrl"
     );
   if (!secret)
     throw new Error(
-      "Keystore requires KEYRING_PROXY_SECRET or config.proxySecret"
+      "Keyring proxy requires KEYRING_PROXY_SECRET or config.proxySecret"
     );
 
   const bodyStr = JSON.stringify(body, (_key, value) =>
@@ -120,7 +98,7 @@ async function proxyRequest(
 
 /**
  * Create a new random wallet via the keyring proxy.
- * Returns only the public address — NEVER the private key.
+ * Returns only the public address.
  */
 export async function createWallet(
   config: KeystoreConfig = {}
@@ -138,7 +116,7 @@ export async function hasWallet(config: KeystoreConfig = {}): Promise<boolean> {
 }
 
 /**
- * Get the wallet's public address (no private key exposed).
+ * Get the wallet's public address from the keyring proxy.
  */
 export async function getAddress(
   config: KeystoreConfig = {}
@@ -148,56 +126,10 @@ export async function getAddress(
 }
 
 /**
- * Sign a message (EIP-191 personal_sign) via the keyring proxy.
- * Only the signature is returned.
- */
-export async function signMessage(
-  message: string,
-  config: KeystoreConfig = {}
-): Promise<SignResult> {
-  const msg = typeof message === "string" ? message : String(message ?? "");
-  const data = await proxyRequest(config, "/sign-message", { message: msg });
-  return { signature: data.signature, address: data.address };
-}
-
-/**
- * Sign a raw hex message via the keyring proxy.
- *
- * Used internally by the ERC-8128 signer — the signature base bytes are
- * passed as a hex string and signed with `{ raw: true }` so the proxy
- * interprets them as raw bytes (not UTF-8). Note: the proxy still applies
- * EIP-191 personal_sign wrapping (viem `signMessage({ message: { raw } })`).
- */
-export async function signRawMessage(
-  rawHex: string,
-  config: KeystoreConfig = {}
-): Promise<SignResult> {
-  const data = await proxyRequest(config, "/sign-message", {
-    message: rawHex,
-    raw: true,
-  });
-  return { signature: data.signature, address: data.address };
-}
-
-/**
- * Sign a transaction via the keyring proxy.
- * Only the signed transaction is returned.
- */
-export async function signTransaction(
-  tx: TransactionLike,
-  config: KeystoreConfig = {}
-): Promise<{ signedTx: string; address: string }> {
-  const data = await proxyRequest(config, "/sign-transaction", {
-    tx: tx as Record<string, unknown>,
-  });
-  return { signedTx: data.signedTx, address: data.address };
-}
-
-/**
  * Sign an EIP-7702 authorization for delegating the EOA to a contract.
  *
  * This allows the agent's EOA to temporarily act as a smart contract
- * during a type 4 transaction. Only the signed authorization tuple is returned.
+ * during a type 4 transaction.
  */
 export async function signAuthorization(
   auth: AuthorizationRequest,

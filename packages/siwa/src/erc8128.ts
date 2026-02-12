@@ -18,7 +18,7 @@ import {
   type VerifyResult,
   type NonceStore,
 } from '@slicekit/erc8128';
-import { signRawMessage, getAddress, type KeystoreConfig } from './keystore.js';
+import type { Signer } from './signer.js';
 import { verifyReceipt, type ReceiptPayload } from './receipt.js';
 
 // ---------------------------------------------------------------------------
@@ -30,6 +30,7 @@ export interface VerifyOptions {
   rpcUrl?: string;
   verifyOnchain?: boolean;
   publicClient?: PublicClient;
+  nonceStore?: NonceStore;
 }
 
 /** Verified agent identity returned from a successful auth check. */
@@ -67,26 +68,34 @@ export const RECEIPT_HEADER = 'X-SIWA-Receipt';
 // ---------------------------------------------------------------------------
 
 /**
- * Create an ERC-8128 signer backed by the keyring proxy.
+ * Create an ERC-8128 HTTP signer from a SIWA Signer.
  *
  * The `signMessage` callback converts the RFC 9421 signature base
- * (Uint8Array) to a hex string and delegates to the proxy via
- * `signRawMessage`, which signs with `{ raw: true }`.
+ * (Uint8Array) to a hex string and delegates to the signer.
+ *
+ * @param signer - A SIWA Signer (createKeyringProxySigner, createLocalAccountSigner, etc.)
+ * @param chainId - Chain ID for the ERC-8128 keyid
+ * @returns An EthHttpSigner for use with @slicekit/erc8128
  */
-export async function createProxySigner(
-  config: KeystoreConfig,
+export async function createErc8128Signer(
+  signer: Signer,
   chainId: number,
 ): Promise<EthHttpSigner> {
-  const address = await getAddress(config);
-  if (!address) throw new Error('No wallet found in keystore');
+  const address = await signer.getAddress();
 
   return {
-    address: address as Address,
+    address,
     chainId,
     signMessage: async (message: Uint8Array): Promise<Hex> => {
       const hex = ('0x' + Array.from(message).map(b => b.toString(16).padStart(2, '0')).join('')) as Hex;
-      const result = await signRawMessage(hex, config);
-      return result.signature as Hex;
+
+      // Use signRawMessage if available (preferred for raw bytes)
+      if (signer.signRawMessage) {
+        return signer.signRawMessage(hex);
+      }
+
+      // Fallback to signMessage for signers without signRawMessage
+      return signer.signMessage(hex);
     },
   };
 }
@@ -112,29 +121,47 @@ export function attachReceipt(request: Request, receipt: string): Request {
  * This is the main function platform developers use on the agent side.
  * One call does everything:
  *   1. Attaches the receipt header
- *   2. Creates a proxy-backed ERC-8128 signer
+ *   2. Creates an ERC-8128 signer from the SIWA signer
  *   3. Signs the request with HTTP Message Signatures (RFC 9421)
  *
  * @param request  The outgoing Request object
  * @param receipt  Verification receipt from SIWA sign-in
- * @param config   Keystore config (proxy URL + secret)
+ * @param signer   A SIWA Signer (createKeyringProxySigner, createLocalAccountSigner, etc.)
  * @param chainId  Chain ID for the ERC-8128 keyid
  * @returns        A new Request with Signature, Signature-Input, Content-Digest, and X-SIWA-Receipt headers
+ *
+ * @example
+ * ```typescript
+ * import { signAuthenticatedRequest, createLocalAccountSigner } from '@buildersgarden/siwa';
+ * import { privateKeyToAccount } from 'viem/accounts';
+ *
+ * const account = privateKeyToAccount('0x...');
+ * const signer = createLocalAccountSigner(account);
+ *
+ * const signedRequest = await signAuthenticatedRequest(
+ *   new Request('https://api.example.com/data'),
+ *   receipt,
+ *   signer,
+ *   84532
+ * );
+ * ```
  */
 export async function signAuthenticatedRequest(
   request: Request,
   receipt: string,
-  config: KeystoreConfig,
+  signer: Signer,
   chainId: number,
 ): Promise<Request> {
   // 1. Attach receipt header
   const withReceipt = attachReceipt(request, receipt);
 
-  // 2. Create proxy-backed signer
-  const signer = await createProxySigner(config, chainId);
+  // 2. Create ERC-8128 signer from SIWA signer
+  const erc8128Signer = await createErc8128Signer(signer, chainId);
 
-  // 3. Sign with ERC-8128 (includes Content-Digest for bodies)
-  return signRequest(withReceipt, signer);
+  // 3. Sign with ERC-8128 (includes Content-Digest for bodies and receipt header)
+  return signRequest(withReceipt, erc8128Signer, {
+    components: [RECEIPT_HEADER],
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +245,11 @@ export async function verifyAuthenticatedRequest(
         signature: args.signature,
       });
     },
-    nonceStore,
+    options.nonceStore ?? nonceStore,
+    {
+      additionalRequestBoundComponents: [RECEIPT_HEADER], 
+      classBoundPolicies: [RECEIPT_HEADER]
+    }
   );
 
   if (!verifyResult.ok) {

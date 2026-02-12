@@ -5,10 +5,11 @@ import { registerFlow } from './flows/register.js';
 import { signInFlow, callApiFlow } from './flows/sign-in.js';
 import { testProxyFlow } from './flows/test-proxy.js';
 import { testErc8128Flow } from './flows/test-erc8128.js';
-import { hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
+import { testSignersFlow, testViemSignerFlow, testKeyringSignerFlow } from './flows/test-signers.js';
+import { hasWallet } from '@buildersgarden/siwa/keystore';
 import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
 import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
-import { config, getKeystoreConfig } from './config.js';
+import { config, getSigner, getKeystoreConfig } from './config.js';
 
 const command = process.argv[2];
 
@@ -30,14 +31,25 @@ function printUsage(): void {
   console.log('  status         Print current SIWA_IDENTITY.md state + keystore status');
   console.log('  test-proxy     Run keyring proxy tests (requires running proxy server)');
   console.log('  test-erc8128   Run ERC-8128 integration tests (requires proxy + server)');
+  console.log('  test-signers   Run signer tests (both viem private key and keyring proxy)');
+  console.log('  test-viem      Run signer tests with viem private key only (no proxy needed)');
+  console.log('  test-keyring   Run signer tests with keyring proxy only');
   console.log('');
 }
 
 async function statusCommand(): Promise<void> {
   const kc = getKeystoreConfig();
+  const signer = getSigner();
   const identity = readIdentity(config.identityPath);
   const walletExists = await hasWallet(kc);
-  const address = walletExists ? await getAddress(kc) : null;
+  let address: string | null = null;
+  if (walletExists) {
+    try {
+      address = await signer.getAddress();
+    } catch {
+      // Ignore - wallet might not be accessible
+    }
+  }
 
   console.log(chalk.bold('Agent Status'));
   console.log('\u{2500}'.repeat(40));
@@ -53,7 +65,7 @@ async function statusCommand(): Promise<void> {
 }
 
 async function fullFlow(): Promise<void> {
-  const kc = getKeystoreConfig();
+  const signer = getSigner();
   const sep = '\u{2550}'.repeat(47);
   console.log(sep);
   console.log('  ERC-8004 Agent \u{2014} Local Test Flow');
@@ -112,7 +124,7 @@ async function fullFlow(): Promise<void> {
         headers: { 'Content-Type': 'application/json' },
         body,
       });
-      const signedRequest = await signAuthenticatedRequest(request, result.receipt, kc, chainId);
+      const signedRequest = await signAuthenticatedRequest(request, result.receipt, signer, chainId);
       const res = await fetch(signedRequest);
 
       if (res.ok) {
@@ -164,6 +176,21 @@ async function main(): Promise<void> {
       }
       case 'test-erc8128': {
         const ok = await testErc8128Flow();
+        if (!ok) process.exit(1);
+        break;
+      }
+      case 'test-signers': {
+        const ok = await testSignersFlow();
+        if (!ok) process.exit(1);
+        break;
+      }
+      case 'test-viem': {
+        const ok = await testViemSignerFlow();
+        if (!ok) process.exit(1);
+        break;
+      }
+      case 'test-keyring': {
+        const ok = await testKeyringSignerFlow();
         if (!ok) process.exit(1);
         break;
       }

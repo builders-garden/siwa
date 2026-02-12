@@ -7,6 +7,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./signer": {
+      "types": "./dist/signer.d.ts",
+      "default": "./dist/signer.js"
+    },
     "./keystore": {
       "types": "./dist/keystore.d.ts",
       "default": "./dist/keystore.js"

@@ -20,7 +20,7 @@ import {
 } from 'viem';
 
 import { getRegistryAddress, getAgentRegistryString, RPC_ENDPOINTS } from './addresses.js';
-import { getAddress, signTransaction, type KeystoreConfig } from './keystore.js';
+import type { TransactionSigner } from './signer.js';
 
 // ─── ERC-8004 Value Types ────────────────────────────────────────────
 
@@ -285,10 +285,14 @@ export async function getReputation(
 // ─── Agent Registration ─────────────────────────────────────────────
 
 export interface RegisterAgentOptions {
+  /** The agent metadata URI (IPFS, HTTP, or data URL) */
   agentURI: string;
+  /** The chain ID to register on */
   chainId: number;
+  /** Optional RPC URL (defaults to chain's default endpoint) */
   rpcUrl?: string;
-  keystoreConfig: KeystoreConfig;
+  /** A TransactionSigner for signing the registration transaction */
+  signer: TransactionSigner;
 }
 
 export interface RegisterAgentResult {
@@ -301,13 +305,28 @@ export interface RegisterAgentResult {
 /**
  * Register an agent on the ERC-8004 Identity Registry in a single call.
  *
- * Builds, signs (via keyring proxy), and broadcasts the `register(agentURI)`
+ * Builds, signs (via the provided signer), and broadcasts the `register(agentURI)`
  * transaction, then waits for confirmation and parses the `Registered` event.
+ *
+ * @example
+ * ```typescript
+ * import { registerAgent, createLocalAccountSigner } from '@buildersgarden/siwa';
+ * import { privateKeyToAccount } from 'viem/accounts';
+ *
+ * const account = privateKeyToAccount('0x...');
+ * const signer = createLocalAccountSigner(account);
+ *
+ * const result = await registerAgent({
+ *   agentURI: 'ipfs://...',
+ *   chainId: 84532,
+ *   signer,
+ * });
+ * ```
  */
 export async function registerAgent(
   options: RegisterAgentOptions
 ): Promise<RegisterAgentResult> {
-  const { agentURI, chainId, keystoreConfig } = options;
+  const { agentURI, chainId, signer } = options;
 
   const registryAddress = getRegistryAddress(chainId);
   const rpcUrl = options.rpcUrl || RPC_ENDPOINTS[chainId];
@@ -317,10 +336,7 @@ export async function registerAgent(
 
   const publicClient = createPublicClient({ transport: http(rpcUrl) });
 
-  const address = await getAddress(keystoreConfig);
-  if (!address) {
-    throw new Error('Could not resolve wallet address from keyring proxy.');
-  }
+  const address = await signer.getAddress();
 
   const data = encodeFunctionData({
     abi: IDENTITY_REGISTRY_ABI,
@@ -328,17 +344,17 @@ export async function registerAgent(
     args: [agentURI],
   });
 
-  const nonce = await publicClient.getTransactionCount({ address: address as Address });
+  const nonce = await publicClient.getTransactionCount({ address });
   const feeData = await publicClient.estimateFeesPerGas();
   const gasEstimate = await publicClient.estimateGas({
     to: registryAddress as Address,
     data,
-    account: address as Address,
+    account: address,
   });
   const gas = (gasEstimate * 120n) / 100n;
 
   const txReq = {
-    to: registryAddress,
+    to: registryAddress as Address,
     data,
     nonce,
     chainId,
@@ -348,12 +364,12 @@ export async function registerAgent(
     gas,
   };
 
-  const { signedTx } = await signTransaction(txReq, keystoreConfig);
+  const signedTx = await signer.signTransaction(txReq);
   const txHash = await publicClient.sendRawTransaction({
-    serializedTransaction: signedTx as Hex,
+    serializedTransaction: signedTx,
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as Hex });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
   const logs = parseEventLogs({
     abi: IDENTITY_REGISTRY_ABI,
