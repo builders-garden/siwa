@@ -9,11 +9,20 @@
  *   5. Missing signature rejection
  *   6. Receipt header swap post-signing (signature covers X-SIWA-Receipt)
  *   7. Replay rejection (nonce store prevents duplicate requests)
+ *   8. SignerType in receipt round-trip
+ *   9. allowedSignerTypes policy enforcement (reject + accept)
+ *  10. signerAddress override in ERC-8128 signing
  */
 
 import chalk from 'chalk';
 import { createReceipt, verifyReceipt } from '@buildersgarden/siwa/receipt';
-import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
+import {
+  signAuthenticatedRequest,
+  verifyAuthenticatedRequest,
+  expressToFetchRequest,
+  resolveReceiptSecret,
+  createErc8128Signer,
+} from '@buildersgarden/siwa/erc8128';
 import { config, getSigner } from '../config.js';
 
 let passed = 0;
@@ -271,6 +280,128 @@ export async function testErc8128Flow(): Promise<boolean> {
       }
     } catch (err: any) {
       fail('Replay rejection', err.message);
+    }
+  }
+
+  // ── Test 11: Receipt with signerType round-trips ─────────────────
+  try {
+    const typedResult = createReceipt(
+      {
+        address,
+        agentId: 999,
+        agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e',
+        chainId: 84532,
+        verified: 'onchain',
+        signerType: 'eoa',
+      },
+      { secret: RECEIPT_SECRET },
+    );
+    const decoded = verifyReceipt(typedResult.receipt, RECEIPT_SECRET);
+    if (decoded && decoded.signerType === 'eoa') {
+      pass('Receipt with signerType=eoa round-trips correctly');
+    } else {
+      fail('Receipt signerType round-trip', `Decoded signerType: ${decoded?.signerType}`);
+    }
+  } catch (err: any) {
+    fail('Receipt signerType round-trip', err.message);
+  }
+
+  // ── Test 12: allowedSignerTypes rejects mismatched type ─────────
+  try {
+    // Create a receipt with signerType: 'eoa'
+    const eoaReceipt = createReceipt(
+      {
+        address,
+        agentId: 999,
+        agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e',
+        chainId: 84532,
+        verified: 'onchain',
+        signerType: 'eoa',
+      },
+      { secret: RECEIPT_SECRET },
+    );
+
+    // Sign a request with this receipt
+    const request = new Request(`${config.serverUrl}/api/protected`, { method: 'GET' });
+    const signed = await signAuthenticatedRequest(request, eoaReceipt.receipt, signer, 84532);
+
+    // Verify with allowedSignerTypes: ['sca'] — should reject EOA
+    const result = await verifyAuthenticatedRequest(signed, {
+      receiptSecret: RECEIPT_SECRET,
+      allowedSignerTypes: ['sca'],
+    });
+
+    if (!result.valid && result.error.includes('not in allowed types')) {
+      pass('allowedSignerTypes rejects EOA when only SCA allowed');
+    } else {
+      fail('allowedSignerTypes enforcement', `Expected rejection, got: ${JSON.stringify(result)}`);
+    }
+  } catch (err: any) {
+    fail('allowedSignerTypes enforcement', err.message);
+  }
+
+  // ── Test 13: allowedSignerTypes accepts matching type ───────────
+  try {
+    const eoaReceipt = createReceipt(
+      {
+        address,
+        agentId: 999,
+        agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e',
+        chainId: 84532,
+        verified: 'onchain',
+        signerType: 'eoa',
+      },
+      { secret: RECEIPT_SECRET },
+    );
+
+    const request = new Request(`${config.serverUrl}/api/protected`, { method: 'GET' });
+    const signed = await signAuthenticatedRequest(request, eoaReceipt.receipt, signer, 84532);
+
+    // Verify with allowedSignerTypes: ['eoa'] — should pass
+    const result = await verifyAuthenticatedRequest(signed, {
+      receiptSecret: RECEIPT_SECRET,
+      allowedSignerTypes: ['eoa'],
+    });
+
+    if (result.valid && result.agent.signerType === 'eoa') {
+      pass('allowedSignerTypes accepts EOA when EOA is allowed');
+    } else {
+      fail('allowedSignerTypes accept', `Expected valid with signerType=eoa, got: ${JSON.stringify(result)}`);
+    }
+  } catch (err: any) {
+    fail('allowedSignerTypes accept', err.message);
+  }
+
+  // ── Test 14: signerAddress override in createErc8128Signer ──────
+  try {
+    const fakeAddress = '0x1234567890abcdef1234567890abcdef12345678' as `0x${string}`;
+    const erc8128Signer = await createErc8128Signer(signer, 84532, { signerAddress: fakeAddress });
+
+    if (erc8128Signer.address.toLowerCase() === fakeAddress.toLowerCase()) {
+      pass('createErc8128Signer with signerAddress override uses custom address');
+    } else {
+      fail('signerAddress override', `Expected ${fakeAddress}, got ${erc8128Signer.address}`);
+    }
+  } catch (err: any) {
+    fail('signerAddress override', err.message);
+  }
+
+  // ── Test 15: signerAddress override propagates through signAuthenticatedRequest ─
+  if (receipt) {
+    try {
+      const fakeAddress = '0x1234567890abcdef1234567890abcdef12345678' as `0x${string}`;
+      const request = new Request(`${config.serverUrl}/api/protected`, { method: 'GET' });
+      const signed = await signAuthenticatedRequest(request, receipt, signer, 84532, { signerAddress: fakeAddress });
+
+      // Check signature-input contains the overridden address in keyid
+      const sigInput = signed.headers.get('signature-input') || '';
+      if (sigInput.toLowerCase().includes(fakeAddress.toLowerCase())) {
+        pass('signAuthenticatedRequest with signerAddress puts custom address in keyid');
+      } else {
+        fail('signerAddress in signAuthenticatedRequest', `keyid not found in signature-input: ${sigInput}`);
+      }
+    } catch (err: any) {
+      fail('signerAddress in signAuthenticatedRequest', err.message);
     }
   }
 
