@@ -4,6 +4,21 @@ import { useEffect, useState } from "react";
 
 const sections = [
   {
+    title: "Why Keyring Proxy?",
+    id: "why",
+    children: [],
+  },
+  {
+    title: "Architecture",
+    id: "architecture",
+    children: [
+      { title: "Security Model", id: "security-model" },
+      { title: "Threat Model", id: "threat-model" },
+      { title: "Network Topology", id: "network-topology" },
+      { title: "2FA via Telegram", id: "2fa" },
+    ],
+  },
+  {
     title: "Prerequisites",
     id: "prerequisites",
     children: [
@@ -16,6 +31,15 @@ const sections = [
     id: "one-click",
     children: [
       { title: "Configuration", id: "one-click-config" },
+    ],
+  },
+  {
+    title: "SDK Usage",
+    id: "sdk-usage",
+    children: [
+      { title: "Create a Signer", id: "sdk-signer" },
+      { title: "Admin Functions", id: "sdk-admin" },
+      { title: "Sign Transactions", id: "sdk-transactions" },
     ],
   },
   {
@@ -33,14 +57,6 @@ const sections = [
     children: [
       { title: "Existing Wallet", id: "existing-wallet" },
       { title: "Existing Agent", id: "existing-agent" },
-    ],
-  },
-  {
-    title: "Verify Deployment",
-    id: "verify",
-    children: [
-      { title: "Health Checks", id: "health-checks" },
-      { title: "Test 2FA Flow", id: "test-2fa" },
     ],
   },
 ];

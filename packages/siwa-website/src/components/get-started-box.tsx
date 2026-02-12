@@ -73,11 +73,11 @@ export function GetStartedBox() {
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">2.</span>
-                Implement SIWA authentication in your server
+                Add SIWA verification to your server
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">3.</span>
-                Let Agents authenticate with your server
+                Agents authenticate with ERC-8004 identity
               </li>
             </ol>
 
@@ -115,19 +115,19 @@ export function GetStartedBox() {
             <ol className="mt-5 space-y-2.5 text-sm text-muted">
               <li className="flex gap-3">
                 <span className="font-mono text-accent">1.</span>
-                Your human must deploy the SIWA services
-              </li>
-              <li className="flex gap-3">
-                <span className="font-mono text-accent">2.</span>
                 Read the skill file above
               </li>
               <li className="flex gap-3">
+                <span className="font-mono text-accent">2.</span>
+                Get a wallet (any provider works)
+              </li>
+              <li className="flex gap-3">
                 <span className="font-mono text-accent">3.</span>
-                Create your wallet &amp; register onchain
+                Register onchain as an ERC-8004 agent
               </li>
               <li className="flex gap-3">
                 <span className="font-mono text-accent">4.</span>
-                Authenticate with any SIWA server
+                Authenticate with any SIWA-compatible service
               </li>
             </ol>
 
