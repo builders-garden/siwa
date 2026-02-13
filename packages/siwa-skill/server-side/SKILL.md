@@ -41,20 +41,22 @@ const client = createPublicClient({
 async function verifyAgent(message: string, signature: string) {
   const fields = parseSIWAMessage(message);
 
-  const result = await verifySIWA(message, signature, {
-    expectedDomain: "api.example.com",
-    expectedAgentRegistry: fields.agentRegistry,
+  const result = await verifySIWA(
+    message,
+    signature,
+    "api.example.com",
+    (nonce) => validateAndConsumeNonce(nonce),
     client,
-  });
+  );
 
-  if (!result.success) {
+  if (!result.valid) {
     throw new Error(result.error);
   }
 
   return {
-    address: result.data.address,
-    agentId: result.data.agentId,
-    verified: result.data.verified,  // "onchain" | "signature-only"
+    address: result.address,
+    agentId: result.agentId,
+    verified: result.verified,  // "onchain" | "offline"
   };
 }
 ```
@@ -166,36 +168,40 @@ app.post("/api/siwa/verify", async (req, res) => {
     }
 
     // 3. Verify signature and onchain registration
-    const result = await verifySIWA(message, signature, {
-      expectedDomain: process.env.DOMAIN || "localhost",
-      expectedAgentRegistry: fields.agentRegistry,
+    const result = await verifySIWA(
+      message,
+      signature,
+      process.env.DOMAIN || "localhost",
+      (nonce) => {
+        // Validate nonce was issued by us and consume it
+        if (stored.nonce !== nonce) return false;
+        nonceStore.delete(key);
+        return true;
+      },
       client,
-    });
+    );
 
-    if (!result.success) {
+    if (!result.valid) {
       return res.status(401).json({ error: result.error });
     }
 
-    // 4. Consume nonce (prevent replay)
-    nonceStore.delete(key);
-
-    // 5. Create receipt for authenticated API calls
+    // 4. Create receipt for authenticated API calls
     const { receipt } = createReceipt({
-      address: result.data.address,
-      agentId: result.data.agentId,
-      agentRegistry: fields.agentRegistry,
-      chainId: fields.chainId,
-      verified: result.data.verified,
+      address: result.address,
+      agentId: result.agentId,
+      agentRegistry: result.agentRegistry,
+      chainId: result.chainId,
+      verified: result.verified,
     }, {
       secret: SIWA_SECRET,
-      expiresIn: 3600,  // 1 hour
+      ttl: 3600_000,  // 1 hour in ms
     });
 
     res.json({
       success: true,
-      address: result.data.address,
-      agentId: result.data.agentId,
-      verified: result.data.verified,
+      address: result.address,
+      agentId: result.agentId,
+      verified: result.verified,
       receipt,
     });
 
@@ -213,12 +219,12 @@ app.post("/api/agent-action", async (req, res) => {
       receiptSecret: SIWA_SECRET,
     });
 
-    if (!result.success) {
+    if (!result.valid) {
       return res.status(401).json({ error: result.error });
     }
 
     // Access verified agent info
-    const { address, agentId, verified } = result.data;
+    const { address, agentId } = result.agent;
 
     // Process the action
     const { action, params } = req.body;
@@ -312,36 +318,39 @@ export async function POST(req: Request) {
     }
 
     // Verify signature + onchain
-    const result = await verifySIWA(message, signature, {
-      expectedDomain: process.env.NEXT_PUBLIC_DOMAIN!,
-      expectedAgentRegistry: fields.agentRegistry,
+    const result = await verifySIWA(
+      message,
+      signature,
+      process.env.NEXT_PUBLIC_DOMAIN!,
+      (nonce) => {
+        if (!stored || stored.nonce !== nonce) return false;
+        nonceStore.delete(key);
+        return true;
+      },
       client,
-    });
+    );
 
-    if (!result.success) {
+    if (!result.valid) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
 
-    // Consume nonce
-    nonceStore.delete(key);
-
     // Create receipt
     const { receipt } = createReceipt({
-      address: result.data.address,
-      agentId: result.data.agentId,
-      agentRegistry: fields.agentRegistry,
-      chainId: fields.chainId,
-      verified: result.data.verified,
+      address: result.address,
+      agentId: result.agentId,
+      agentRegistry: result.agentRegistry,
+      chainId: result.chainId,
+      verified: result.verified,
     }, {
       secret: SIWA_SECRET,
-      expiresIn: 3600,
+      ttl: 3600_000,  // 1 hour in ms
     });
 
     return NextResponse.json({
       success: true,
-      address: result.data.address,
-      agentId: result.data.agentId,
-      verified: result.data.verified,
+      address: result.address,
+      agentId: result.agentId,
+      verified: result.verified,
       receipt,
     });
 
@@ -364,13 +373,13 @@ export async function GET(req: Request) {
     receiptSecret: SIWA_SECRET,
   });
 
-  if (!result.success) {
+  if (!result.valid) {
     return NextResponse.json({ error: result.error }, { status: 401 });
   }
 
   return NextResponse.json({
-    message: `Hello Agent #${result.data.agentId}!`,
-    agent: result.data,
+    message: `Hello Agent #${result.agent.agentId}!`,
+    agent: result.agent,
   });
 }
 
@@ -379,7 +388,7 @@ export async function POST(req: Request) {
     receiptSecret: SIWA_SECRET,
   });
 
-  if (!result.success) {
+  if (!result.valid) {
     return NextResponse.json({ error: result.error }, { status: 401 });
   }
 
@@ -387,7 +396,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     success: true,
-    agent: result.data,
+    agent: result.agent,
     received: body,
   });
 }
@@ -462,50 +471,49 @@ export const GET = withSiwa(async (req, { siwa }) => {
 
 ## Verification Options
 
-### verifySIWA Options
+### verifySIWA Parameters
 
 ```typescript
-interface VerifyOptions {
-  // Required
-  client: PublicClient;              // viem client for onchain checks
+verifySIWA(
+  message: string,          // Full SIWA message string
+  signature: string,        // EIP-191 signature hex
+  expectedDomain: string,   // Must match message domain
+  nonceValid: NonceValidator, // Nonce validation (see below)
+  client: PublicClient,     // viem client for onchain checks
+  criteria?: SIWAVerifyCriteria, // Optional verification criteria
+)
 
-  // Domain verification
-  expectedDomain?: string;           // Must match message domain
-  expectedAgentRegistry?: string;    // Must match message registry
+// NonceValidator: either a callback or stateless token
+type NonceValidator =
+  | ((nonce: string) => boolean | Promise<boolean>)
+  | { nonceToken: string; secret: string };
 
-  // Time validation
-  clockTolerance?: number;           // Seconds of clock skew allowed (default: 60)
-
-  // Onchain verification
-  skipOnchainVerification?: boolean; // Skip registry check (signature-only mode)
+// SIWAVerifyCriteria: optional policy enforcement
+interface SIWAVerifyCriteria {
+  allowedSignerTypes?: SignerType[];   // 'eoa', 'sca', or both
+  requiredServices?: string[];         // Required ERC-8004 services
+  requiredTrust?: string[];            // Required trust models
+  minScore?: number;                   // Minimum reputation score
+  minFeedbackCount?: number;           // Minimum feedback count
+  reputationRegistryAddress?: string;  // For reputation queries
+  mustBeActive?: boolean;              // Require active agent
+  custom?: (agent) => boolean;         // Custom validation
 }
 ```
 
-### Verification Modes
-
-**Full Verification (default)**
-- Verifies signature
-- Verifies onchain registration in ERC-8004 registry
-- Returns `verified: "onchain"`
+### Verification Example
 
 ```typescript
-const result = await verifySIWA(message, signature, {
+const result = await verifySIWA(
+  message,
+  signature,
+  "example.com",
+  (nonce) => validateAndConsumeNonce(nonce),
   client,
-  expectedDomain: "example.com",
-  expectedAgentRegistry: "eip155:84532:0x8004...",
-});
-```
+  { allowedSignerTypes: ['eoa'] },  // optional criteria
+);
 
-**Signature-Only Verification**
-- Only verifies the signature is valid
-- Does not check onchain registration
-- Returns `verified: "signature-only"`
-
-```typescript
-const result = await verifySIWA(message, signature, {
-  client,
-  skipOnchainVerification: true,
-});
+// result.valid, result.address, result.agentId, result.signerType
 ```
 
 ---
@@ -564,20 +572,20 @@ async function handleRequest(req: Request) {
     nonceStore: myNonceStore,
   });
 
-  if (!result.success) {
+  if (!result.valid) {
     return new Response(JSON.stringify({ error: result.error }), {
       status: 401,
     });
   }
 
-  // result.data contains:
+  // result.agent contains:
   // - address: string
   // - agentId: number
   // - agentRegistry: string
   // - chainId: number
-  // - verified: "onchain" | "signature-only"
+  // - signerType?: 'eoa' | 'sca'
 
-  return new Response(JSON.stringify({ agent: result.data }));
+  return new Response(JSON.stringify({ agent: result.agent }));
 }
 ```
 
@@ -619,7 +627,7 @@ async function handleRequest(req: Request) {
 | Export | Description |
 |--------|-------------|
 | `parseSIWAMessage(message)` | Parse SIWA message string to fields |
-| `verifySIWA(message, signature, options)` | Verify signature + onchain registration |
+| `verifySIWA(message, signature, domain, nonceValid, client, criteria?)` | Verify signature + onchain registration |
 | `buildSIWAMessage(fields)` | Build SIWA message from fields |
 
 ### Receipt Module (`@buildersgarden/siwa/receipt`)

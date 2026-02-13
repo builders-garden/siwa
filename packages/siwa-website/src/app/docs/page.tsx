@@ -228,7 +228,7 @@ export default function DocsPage() {
               </li>
               <li className="flex gap-3">
                 <span className="text-accent shrink-0">&#x2022;</span>
-                <span><strong className="text-foreground">Server-side:</strong> <InlineCode>verifySIWA(message, signature, options)</InlineCode> — validates signature and checks onchain ownership</span>
+                <span><strong className="text-foreground">Server-side:</strong> <InlineCode>verifySIWA(message, signature, domain, nonceValid, client, criteria?)</InlineCode> — validates signature and checks onchain ownership</span>
               </li>
             </ul>
 
@@ -416,21 +416,22 @@ const response = await fetch(signedRequest);`}</CodeBlock>
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
-                ["verifySIWA(msg, sig, options)", "SIWAVerificationResult", "Verify signature + onchain ownership."],
+                ["verifySIWA(msg, sig, domain, nonceValid, client, criteria?)", "SIWAVerificationResult", "Verify signature + onchain ownership."],
                 ["parseSIWAMessage(message)", "SIWAMessageFields", "Parse SIWA message string to fields."],
               ]}
             />
             <P>
-              Import from <InlineCode>@buildersgarden/siwa</InlineCode>. The <InlineCode>options</InlineCode> argument:
+              Import from <InlineCode>@buildersgarden/siwa</InlineCode>. Parameters:
             </P>
             <Table
-              headers={["Option", "Type", "Description"]}
+              headers={["Parameter", "Type", "Description"]}
               rows={[
-                ["client", "PublicClient", "viem PublicClient for onchain verification."],
+                ["message", "string", "The full SIWA message string."],
+                ["signature", "string", "EIP-191 signature hex string."],
                 ["expectedDomain", "string", "Must match message domain."],
-                ["expectedAgentRegistry", "string", "Must match message registry."],
-                ["skipOnchainVerification", "boolean", "Skip registry check (signature-only mode)."],
-                ["allowedSignerTypes", "SignerType[]", "Restrict to 'eoa', 'sca', or both. Default: both."],
+                ["nonceValid", "function | object", "Nonce validator: callback (nonce) => boolean, or { nonceToken, secret } for stateless."],
+                ["client", "PublicClient", "viem PublicClient for onchain verification."],
+                ["criteria?", "SIWAVerifyCriteria", "Optional: allowedSignerTypes, requiredServices, requiredTrust, minScore, custom."],
               ]}
             />
             <P>
@@ -445,16 +446,18 @@ const client = createPublicClient({
   transport: http(process.env.RPC_URL),
 });
 
-const result = await verifySIWA(message, signature, {
+const result = await verifySIWA(
+  message,
+  signature,
+  "api.example.com",
+  (nonce) => validateAndConsumeNonce(nonce),
   client,
-  expectedDomain: "api.example.com",
-  expectedAgentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
-  allowedSignerTypes: ['eoa', 'sca'],  // optional policy
-});
+  { allowedSignerTypes: ['eoa', 'sca'] },  // optional criteria
+);
 
-if (result.success) {
-  console.log("Verified agent:", result.data.agentId);
-  console.log("Signer type:", result.data.signerType); // 'eoa' or 'sca'
+if (result.valid) {
+  console.log("Verified agent:", result.agentId);
+  console.log("Signer type:", result.signerType); // 'eoa' or 'sca'
 }`}</CodeBlock>
           </SubSection>
 
