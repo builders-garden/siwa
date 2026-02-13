@@ -12,7 +12,7 @@ import {
 } from '@buildersgarden/siwa/identity';
 import { registerAgent } from '@buildersgarden/siwa/registry';
 import {
-  config, getKeystoreConfig, isLiveMode, REGISTRY_ADDRESSES, RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, txUrl, addressUrl,
+  config, getKeystoreConfig, getSigner, isLiveMode, REGISTRY_ADDRESSES, RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, txUrl, addressUrl,
 } from '../config.js';
 
 async function uploadToIPFS(data: object, pinataJwt: string): Promise<string> {
@@ -158,11 +158,12 @@ async function registerLive(): Promise<void> {
   console.log(chalk.dim(`   From:      ${address}`));
   console.log(chalk.dim(`   AgentURI:  ${agentURI.slice(0, 80)}...`));
 
+  const signer = getSigner();
   const result = await registerAgent({
     agentURI,
     chainId,
     rpcUrl,
-    keystoreConfig: kc,
+    signer,
   });
 
   writeIdentityField('Agent ID', result.agentId, config.identityPath);

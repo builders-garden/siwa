@@ -6,9 +6,10 @@ import {
   FAUCETS,
   BLOCK_EXPLORERS,
 } from "@buildersgarden/siwa/addresses";
+import { createKeyringProxySigner, type TransactionSigner } from "@buildersgarden/siwa/signer";
 import * as path from "path";
 
-const projectRoot = path.resolve(import.meta.dirname, "..");
+const projectRoot = path.resolve(import.meta.dirname || __dirname, "..");
 const skillRoot = path.resolve(projectRoot, "..", "siwa-skill");
 
 // Re-export address constants from SDK for consumers of this module
@@ -56,11 +57,25 @@ export const config = {
   mockChainId: parseInt(process.env.MOCK_CHAIN_ID || "84532"),
 };
 
+/**
+ * @deprecated Use getSigner() instead.
+ */
 export function getKeystoreConfig() {
   return {
     proxyUrl: config.keyringProxyUrl || undefined,
     proxySecret: config.keyringProxySecret || undefined,
   };
+}
+
+/**
+ * Get a signer configured from environment variables.
+ * Uses the keyring proxy by default.
+ */
+export function getSigner(): TransactionSigner {
+  return createKeyringProxySigner({
+    proxyUrl: config.keyringProxyUrl || undefined,
+    proxySecret: config.keyringProxySecret || undefined,
+  });
 }
 
 export function isLiveMode(): boolean {

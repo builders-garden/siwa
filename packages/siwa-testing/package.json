@@ -12,6 +12,9 @@
     "agent:status": "tsx agent/cli.ts status",
     "reset": "bash scripts/reset.sh",
     "proxy:test": "tsx agent/cli.ts test-proxy",
+    "test:signers": "tsx agent/cli.ts test-signers",
+    "test:viem": "tsx agent/cli.ts test-viem",
+    "test:keyring": "tsx agent/cli.ts test-keyring",
     "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\""
   },
   "dependencies": {

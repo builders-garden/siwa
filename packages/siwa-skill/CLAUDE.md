@@ -93,7 +93,7 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent t
 
 ### 8. Run ERC-8128 Integration Tests
 
-Validates ERC-8128 HTTP Message Signatures and receipt handling (10 tests: raw signing, receipt HMAC create/verify, signAuthenticatedRequest headers, server GET/POST verification, tampered receipt rejection, missing signature rejection, receipt header swap post-signing, replay rejection).
+Validates ERC-8128 HTTP Message Signatures and receipt handling (15 tests: raw signing, receipt HMAC create/verify, signAuthenticatedRequest headers, server GET/POST verification, tampered receipt rejection, missing signature rejection, receipt header swap post-signing, replay rejection, signerType receipt round-trip, allowedSignerTypes policy reject/accept, signerAddress override, signerAddress in signAuthenticatedRequest).
 
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run agent test-erc8128

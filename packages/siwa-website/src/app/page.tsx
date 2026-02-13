@@ -1,48 +1,39 @@
 import { GetStartedBox } from "@/components/get-started-box";
 import { CodeBlock } from "@/components/code-block";
+import { CopyInstallCommand } from "@/components/copy-install-command";
 
-const SIGN_IN_CODE = `import { signSIWAMessage } from '@buildersgarden/siwa';
+const SIGN_IN_CODE = `import { signSIWAMessage } from "@buildersgarden/siwa";
+import { createLocalAccountSigner } from "@buildersgarden/siwa/signer";
 
-// address is resolved from the keystore
-const { message, signature, address } = await signSIWAMessage(
-  {
-    domain: 'api.example.com',
-    uri: 'https://api.example.com',
-    agentId,
-    agentRegistry,
-    chainId,
-    nonce,
-    issuedAt: new Date().toISOString(),
-  },
-  keystoreConfig
-);`;
+// Use any wallet - private key, Privy, etc.
+const signer = createLocalAccountSigner(account);
 
-const VERIFY_CODE = `import { verifySIWA } from '@buildersgarden/siwa';
-import { createPublicClient, http } from 'viem';
+const { message, signature } = await signSIWAMessage({
+  domain: "api.example.com",
+  uri: "https://api.example.com/siwa",
+  agentId: 42,
+  agentRegistry: "eip155:84532:0x8004...",
+  chainId: 84532,
+  nonce,
+  issuedAt: new Date().toISOString(),
+}, signer);`;
 
-const client = createPublicClient({ transport: http() });
+const VERIFY_CODE = `import { verifySIWA } from "@buildersgarden/siwa";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
 
-const result = await verifySIWA(
-  message,
-  signature,
-  'api.example.com',
-  (nonce) => nonceStore.check(nonce),
-  client
-);
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(),
+});
 
-// result.valid, result.address, result.agentId`;
+const result = await verifySIWA(message, signature, {
+  client,
+  expectedDomain: "api.example.com",
+  expectedAgentRegistry: "eip155:84532:0x8004...",
+});
 
-const WALLET_CODE = `import { signMessage, signTransaction } from "@buildersgarden/siwa/keystore";
-
-// Sign a message (EIP-191)
-const { signature, address } = await signMessage("Hello from my agent!");
-
-// Sign and broadcast a transaction
-const { signedTx } = await signTransaction({
-  to: "0xRecipient...",
-  value: parseEther("0.01"),
-  chainId: base.id,
-});`;
+// result.success, result.data.agentId, result.data.address`;
 
 function HeroSection() {
   return (
@@ -57,29 +48,21 @@ function HeroSection() {
             Sign In With Agent
           </p>
           <p className="mt-6 max-w-md text-muted leading-relaxed">
-            Trustless identity and authentication for AI agents.
-            An open standard built on{" "}
+            Authentication for AI agents built on{" "}
             <a
               href="https://eips.ethereum.org/EIPS/eip-8004"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-foreground hover:text-accent transition-colors duration-200 underline underline-offset-4 decoration-border cursor-pointer"
+              className="text-foreground hover:text-accent underline transition-colors duration-200 underline underline-offset-4 decoration-border cursor-pointer"
             >
               ERC-8004
             </a>
-            {" "}and{" "}
-            <a
-              href="https://erc8128.org/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-foreground hover:text-accent transition-colors duration-200 underline underline-offset-4 decoration-border cursor-pointer"
-            >
-              ERC-8128
-            </a>
-            .
+            {" "}onchain identity and{" "}
+            <a href="https://erc8128.org/" target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-accent transition-colors duration-200 underline underline-offset-4 decoration-border cursor-pointer underline">ERC-8128</a>
+            {" "}
           </p>
           <p className="mt-3 max-w-md text-sm text-dim leading-relaxed">
-            Give your agent one prompt and it will create a wallet, register onchain, and start authenticating.
+            Works with any wallet.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
@@ -125,8 +108,7 @@ function ValueSection() {
             Prove who you are
           </h2>
           <p className="mt-3 text-sm text-muted leading-relaxed">
-            Read a skill file, get an onchain identity, and authenticate
-            with any service — autonomously, without exposing your keys.
+            Sign a SIWA message with your wallet and authenticate with any service. Your ERC-8004 identity is verifiable onchain.
           </p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-8">
@@ -135,18 +117,16 @@ function ValueSection() {
             Give your agent an identity
           </h2>
           <p className="mt-3 text-sm text-muted leading-relaxed">
-            Register your agent onchain, store its keys safely, and let it
-            authenticate with any service — one open standard.
+            Register your agent onchain and let it authenticate with any SIWA-compatible service. Use any wallet solution.
           </p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-8">
           <div className="font-mono text-xs text-dim uppercase tracking-wider mb-4">For Platform Builders</div>
           <h2 className="font-mono text-xl font-bold tracking-tight text-foreground">
-            Gate your platform for agents
+            Verify agent identity
           </h2>
           <p className="mt-3 text-sm text-muted leading-relaxed">
-            Know which agent is calling your API. Verify its identity
-            on every request — no API keys, no shared secrets.
+            Know which agent is calling your API. Verify signatures and check onchain registration — no API keys needed.
           </p>
         </div>
       </div>
@@ -157,20 +137,20 @@ function ValueSection() {
 function WhySIWASection() {
   const features = [
     {
-      title: "Keys never touch the agent",
+      title: "Wallet-agnostic",
       description:
-        "Private keys are stored in a separate secure service. The agent can request signatures but never access the key — even if the agent is compromised.",
+        "Works with any wallet provider — Privy, Coinbase, private keys, or a self-hosted keyring proxy. You choose how to manage keys.",
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <path d="M2 10h20" />
         </svg>
       ),
     },
     {
       title: "Identity lives onchain",
       description:
-        "Each agent gets an ERC-721 NFT on the Identity Registry. Transferable, verifiable, permanent — anyone can check it.",
+        "Each agent gets an ERC-721 NFT on the ERC-8004 Identity Registry. Transferable, verifiable, permanent — anyone can check it.",
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -181,7 +161,7 @@ function WhySIWASection() {
     {
       title: "Works on any chain",
       description:
-        "Base, Ethereum, Linea, Polygon. Deploy on mainnet or testnets — wherever your agents live.",
+        "On Ethereum and any EVM-compatible chain supporting ERC-8004 — wherever your agents live.",
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
           <circle cx="12" cy="12" r="10" />
@@ -234,15 +214,15 @@ function HowItWorksSection() {
   const signInSteps = [
     {
       number: "1",
-      title: "Agent gets an identity",
+      title: "Agent has an identity",
       description:
-        "Create a wallet via the keyring proxy and register an onchain NFT on the Identity Registry.",
+        "The agent has a wallet and an ERC-8004 NFT registered onchain — proving it's a valid agent.",
     },
     {
       number: "2",
       title: "Agent signs a message",
       description:
-        "Build a structured SIWA message and sign it. The private key never leaves the keyring.",
+        "Build a SIWA message with nonce, domain, and agent ID. Sign it with any wallet provider.",
     },
     {
       number: "3",
@@ -259,11 +239,7 @@ function HowItWorksSection() {
           How It Works
         </h2>
 
-        {/* Subsection 1: Sign-in with Agent verification */}
-        <div className="mb-16">
-          <h3 className="font-mono text-sm font-semibold text-foreground mb-8">
-            Sign-in with Agent verification
-          </h3>
+        <div className="mb-12">
           <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-center">
             {signInSteps.map((step, i) => (
               <div key={step.number} className="contents">
@@ -300,25 +276,38 @@ function HowItWorksSection() {
           </div>
         </div>
 
-        {/* Subsection 2: Use the Agentic Wallet */}
-        <div>
-          <h3 className="font-mono text-sm font-semibold text-foreground mb-8">
-            Use the SIWA Agentic Wallet
+        {/* Wallet Options */}
+        <div className="rounded-lg border border-border bg-surface p-8">
+          <h3 className="font-mono text-sm font-semibold text-foreground mb-4">
+            Bring Your Own Wallet
           </h3>
-          <div className="rounded-lg border border-border bg-surface p-8">
-            <p className="text-sm text-muted leading-relaxed mb-6">
-              Once the agent has a wallet, it can sign messages and transactions through the keyring proxy. The private key never leaves the proxy — the agent only receives signatures. If 2FA is enabled, transaction signing will require owner approval via Telegram before the proxy returns the signature.
-            </p>
-            <div className="rounded-lg border border-border bg-background overflow-hidden">
-              <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-                <span className="font-mono text-xs text-dim">wallet.ts</span>
-                <span className="ml-auto font-mono text-[10px] text-accent uppercase tracking-wider">Agent</span>
-              </div>
-              <div className="[&>pre]:rounded-none [&>pre]:border-0">
-                <CodeBlock language="typescript">{WALLET_CODE}</CodeBlock>
-              </div>
+          <p className="text-sm text-muted leading-relaxed mb-6">
+            SIWA uses a simple <code className="text-accent">Signer</code> interface that works with any wallet. The SDK provides adapters for common providers:
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-md border border-border bg-background px-4 py-3">
+              <div className="font-mono text-xs text-foreground mb-1">Agentic Wallets</div>
+              <div className="text-xs text-dim">Privy, Coinbase, Circle, Bankr</div>
+            </div>
+            <div className="rounded-md border border-border bg-background px-4 py-3">
+              <div className="font-mono text-xs text-foreground mb-1">Backend</div>
+              <div className="text-xs text-dim">Private key, viem LocalAccount</div>
+            </div>
+            <div className="rounded-md border border-border bg-background px-4 py-3">
+              <div className="font-mono text-xs text-foreground mb-1">Self-hosted</div>
+              <div className="text-xs text-dim">Keyring proxy with 2FA</div>
             </div>
           </div>
+          <a
+            href="/docs#wallets"
+            className="mt-4 inline-flex items-center gap-1 text-sm text-accent hover:text-blue-400 transition-colors duration-200 cursor-pointer"
+          >
+            See all wallet options
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </a>
         </div>
       </div>
     </section>
@@ -333,18 +322,11 @@ function QuickstartSection() {
           Quickstart
         </h2>
         <p className="text-sm text-muted mb-8 max-w-lg">
-          Install the SDK and add two functions — one on the agent, one on the server.
+          Two functions — one on the agent to sign, one on the server to verify.
         </p>
 
         {/* Install command */}
-        <div className="mb-8 rounded-lg border border-border bg-surface overflow-hidden inline-block">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <span className="font-mono text-sm text-muted select-none">$</span>
-            <code className="font-mono text-sm text-foreground">
-              npm install @buildersgarden/siwa
-            </code>
-          </div>
-        </div>
+        <CopyInstallCommand />
 
         {/* Code panels */}
         <div className="grid gap-4 md:grid-cols-2">

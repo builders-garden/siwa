@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
 import { signSIWAMessage } from '@buildersgarden/siwa';
 import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
-import { config, getKeystoreConfig } from '../config.js';
+import { config, getSigner } from '../config.js';
 import type { NonceResponse, VerifyResponse } from '../../shared/types.js';
 
 export interface SignInResult {
@@ -10,7 +10,7 @@ export interface SignInResult {
 }
 
 export async function signInFlow(): Promise<SignInResult | null> {
-  const kc = getKeystoreConfig();
+  const signer = getSigner();
 
   // Read SIWA_IDENTITY.md
   if (!(await isRegistered({ identityPath: config.identityPath }))) {
@@ -62,8 +62,8 @@ export async function signInFlow(): Promise<SignInResult | null> {
   const nonceData: NonceResponse = await nonceRes.json();
   console.log(chalk.dim(`\u{1F4E8} Nonce received: ${nonceData.nonce} (expires: ${nonceData.expirationTime})`));
 
-  // 2. Build and sign SIWA message via keystore
-  // Address is resolved directly from the keystore (trusted source of truth)
+  // 2. Build and sign SIWA message via signer
+  // Address is resolved directly from the signer (trusted source of truth)
   const { message, signature } = await signSIWAMessage(
     {
       domain: config.serverDomain,
@@ -76,7 +76,7 @@ export async function signInFlow(): Promise<SignInResult | null> {
       issuedAt: nonceData.issuedAt,
       expirationTime: nonceData.expirationTime,
     },
-    kc
+    signer
   );
 
   console.log(chalk.green(`\u{1F511} SIWA message signed (key loaded from keystore, used, discarded)`));
@@ -144,7 +144,7 @@ export async function signInFlow(): Promise<SignInResult | null> {
   const testRequest = new Request(`${config.serverUrl}/api/protected`, {
     method: 'GET',
   });
-  const signedTestRequest = await signAuthenticatedRequest(testRequest, verifyData.receipt!, kc, chainId);
+  const signedTestRequest = await signAuthenticatedRequest(testRequest, verifyData.receipt!, signer, chainId);
   const apiRes = await fetch(signedTestRequest);
 
   if (apiRes.ok) {
@@ -159,7 +159,7 @@ export async function signInFlow(): Promise<SignInResult | null> {
 }
 
 export async function callApiFlow(): Promise<void> {
-  const kc = getKeystoreConfig();
+  const signer = getSigner();
   const identity = readIdentity(config.identityPath);
   const chainId = identity.chainId!;
 
@@ -178,7 +178,7 @@ export async function callApiFlow(): Promise<void> {
     body,
   });
 
-  const signedRequest = await signAuthenticatedRequest(request, result.receipt, kc, chainId);
+  const signedRequest = await signAuthenticatedRequest(request, result.receipt, signer, chainId);
   const res = await fetch(signedRequest);
 
   if (res.ok) {

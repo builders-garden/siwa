@@ -19,6 +19,7 @@ interface VerificationResult {
   agentId: number;
   agentRegistry: string;
   chainId: number;
+  signerType?: 'eoa' | 'sca';
 }
 
 const sessions: AgentSession[] = [];
@@ -31,6 +32,7 @@ export function createReceiptForAgent(result: VerificationResult & { verified: "
       agentRegistry: result.agentRegistry,
       chainId: result.chainId,
       verified: result.verified,
+      ...(result.signerType ? { signerType: result.signerType } : {}),
     },
     { secret: RECEIPT_SECRET, ttl: RECEIPT_TTL },
   );

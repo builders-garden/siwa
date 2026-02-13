@@ -20,16 +20,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { isAddress, verifyMessage, type Hex, type Address } from 'viem';
 import {
-  createWallet, hasWallet, getAddress, signMessage, signTransaction, signAuthorization,
+  createWallet, hasWallet, getAddress, signAuthorization,
   type KeystoreConfig,
 } from '@buildersgarden/siwa/keystore';
+import { createKeyringProxySigner, type TransactionSigner } from '@buildersgarden/siwa/signer';
 import {
   ensureIdentityExists, readIdentity, writeIdentityField, hasWalletRecord, isRegistered,
 } from '@buildersgarden/siwa/identity';
 import { signSIWAMessage, buildSIWAMessage, parseSIWAMessage } from '@buildersgarden/siwa';
 import { computeHmac } from '@buildersgarden/siwa/proxy-auth';
 
-const projectRoot = path.resolve(import.meta.dirname, '..');
+const projectRoot = path.resolve(import.meta.dirname || __dirname, '..');
 const identityPath = path.resolve(projectRoot, 'IDENTITY.stress-test.md');
 const templatePath = path.resolve(projectRoot, '..', 'siwa-skill', 'assets', 'SIWA_IDENTITY.template.md');
 
@@ -37,6 +38,9 @@ const kc: KeystoreConfig = {
   proxyUrl: process.env.KEYRING_PROXY_URL || 'http://localhost:3100',
   proxySecret: process.env.KEYRING_PROXY_SECRET || 'test-secret-123',
 };
+
+// Signer for new signer-based API
+const signer: TransactionSigner = createKeyringProxySigner(kc);
 
 let passed = 0;
 let failed = 0;
@@ -131,25 +135,26 @@ async function testProxy() {
     fail('getAddress()', err.message);
   }
 
-  // 1.7 signMessage + verify
+  // 1.7 signer.signMessage + verify
   const msg = 'ERC-8004 stress test message';
   try {
-    const result = await signMessage(msg, kc);
+    const signature = await signer.signMessage(msg);
+    const address = await signer.getAddress();
     const valid = await verifyMessage({
-      address: result.address as Address,
+      address: address as Address,
       message: msg,
-      signature: result.signature as Hex,
+      signature: signature as Hex,
     });
-    if (valid) pass('signMessage() + verifyMessage()');
-    else fail('signMessage()', 'Signature verification failed');
+    if (valid) pass('signer.signMessage() + verifyMessage()');
+    else fail('signer.signMessage()', 'Signature verification failed');
   } catch (err: any) {
-    fail('signMessage()', err.message);
+    fail('signer.signMessage()', err.message);
   }
 
-  // 1.8a signTransaction — EIP-1559
+  // 1.8a signer.signTransaction — EIP-1559
   try {
     const tx = {
-      to: '0x0000000000000000000000000000000000000001',
+      to: '0x0000000000000000000000000000000000000001' as Address,
       value: BigInt(0),
       nonce: 0,
       chainId: 84532,
@@ -158,28 +163,28 @@ async function testProxy() {
       maxPriorityFeePerGas: BigInt(1000000),
       gas: BigInt(21000),
     };
-    const result = await signTransaction(tx, kc);
-    if (result.signedTx && result.address) pass(`signTransaction() EIP-1559 → signed tx (${result.signedTx.slice(0, 20)}...)`);
-    else fail('signTransaction() EIP-1559', 'Missing signedTx or address');
+    const signedTx = await signer.signTransaction(tx);
+    if (signedTx) pass(`signer.signTransaction() EIP-1559 → signed tx (${signedTx.slice(0, 20)}...)`);
+    else fail('signer.signTransaction() EIP-1559', 'Missing signedTx');
   } catch (err: any) {
-    fail('signTransaction() EIP-1559', err.message);
+    fail('signer.signTransaction() EIP-1559', err.message);
   }
 
-  // 1.8b signTransaction — legacy
+  // 1.8b signer.signTransaction — legacy
   try {
     const tx = {
-      to: '0x0000000000000000000000000000000000000001',
+      to: '0x0000000000000000000000000000000000000001' as Address,
       value: BigInt(0),
       nonce: 0,
       chainId: 84532,
       gasPrice: BigInt(20000000000),
       gas: BigInt(21000),
     };
-    const result = await signTransaction(tx, kc);
-    if (result.signedTx && result.address) pass(`signTransaction() legacy → signed tx (${result.signedTx.slice(0, 20)}...)`);
-    else fail('signTransaction() legacy', 'Missing signedTx or address');
+    const signedTx = await signer.signTransaction(tx);
+    if (signedTx) pass(`signer.signTransaction() legacy → signed tx (${signedTx.slice(0, 20)}...)`);
+    else fail('signer.signTransaction() legacy', 'Missing signedTx');
   } catch (err: any) {
-    fail('signTransaction() legacy', err.message);
+    fail('signer.signTransaction() legacy', err.message);
   }
 
   // 1.9 signAuthorization
@@ -221,7 +226,8 @@ async function testProxy() {
   try {
     delete process.env.KEYRING_PROXY_URL;
     delete process.env.KEYRING_PROXY_SECRET;
-    await signMessage('test', {});
+    const badSigner = createKeyringProxySigner({});
+    await badSigner.signMessage('test');
     fail('Missing proxyUrl error', 'Did not throw');
   } catch (err: any) {
     if (err.message.includes('KEYRING_PROXY_URL') || err.message.includes('proxyUrl')) {
@@ -244,11 +250,11 @@ async function testConcurrency() {
   const messages = Array.from({ length: 10 }, (_, i) => `Concurrent message #${i}`);
   try {
     const results = await Promise.all(
-      messages.map(msg => signMessage(msg, kc))
+      messages.map(msg => signer.signMessage(msg))
     );
-    const allValid = results.every(r => r.signature && r.address);
-    if (allValid) pass(`10 concurrent signMessage() calls — all returned valid results`);
-    else fail('Concurrent signing', 'Some results missing signature or address');
+    const allValid = results.every(r => r && r.startsWith('0x'));
+    if (allValid) pass(`10 concurrent signer.signMessage() calls — all returned valid results`);
+    else fail('Concurrent signing', 'Some results missing signature');
   } catch (err: any) {
     fail('Concurrent signing (10 parallel)', err.message);
   }
@@ -256,12 +262,12 @@ async function testConcurrency() {
   // 2.2 Parallel sign + getAddress interleaved
   try {
     const ops = [
-      signMessage('interleave-1', kc),
-      getAddress(kc),
-      signMessage('interleave-2', kc),
+      signer.signMessage('interleave-1'),
+      signer.getAddress(),
+      signer.signMessage('interleave-2'),
       hasWallet(kc),
-      signMessage('interleave-3', kc),
-      getAddress(kc),
+      signer.signMessage('interleave-3'),
+      signer.getAddress(),
     ];
     const results = await Promise.all(ops);
     if (results.every(r => r !== undefined && r !== null)) {
@@ -416,7 +422,7 @@ async function testSIWASigning() {
         nonce: 'abc123def456',
         issuedAt: new Date().toISOString(),
       },
-      kc,
+      signer,
     );
 
     if (!message || !signature || !address) {
@@ -474,7 +480,7 @@ async function testSIWASigning() {
         nonce: 'n',
         issuedAt: new Date().toISOString(),
       },
-      kc,
+      signer,
     );
     if (isAddress(address)) pass(`signSIWAMessage() resolves address from proxy: ${address}`);
     else fail('signSIWAMessage() address resolve', `Got: ${address}`);
@@ -488,49 +494,51 @@ async function testEdgeCases() {
 
   // 5.1 Sign empty message
   try {
-    const result = await signMessage('', kc);
-    if (result.signature) pass('signMessage("") returns signature');
-    else fail('signMessage("")', 'No signature');
+    const signature = await signer.signMessage('');
+    if (signature) pass('signer.signMessage("") returns signature');
+    else fail('signer.signMessage("")', 'No signature');
   } catch (err: any) {
-    fail('signMessage("")', err.message);
+    fail('signer.signMessage("")', err.message);
   }
 
   // 5.2 Sign very long message
   try {
     const longMsg = 'A'.repeat(10000);
-    const result = await signMessage(longMsg, kc);
-    if (result.signature) pass('signMessage(10K chars) returns signature');
-    else fail('signMessage(10K)', 'No signature');
+    const signature = await signer.signMessage(longMsg);
+    if (signature) pass('signer.signMessage(10K chars) returns signature');
+    else fail('signer.signMessage(10K)', 'No signature');
   } catch (err: any) {
-    fail('signMessage(10K)', err.message);
+    fail('signer.signMessage(10K)', err.message);
   }
 
   // 5.3 Sign message with special chars
   try {
     const specialMsg = '🤖 ERC-8004 Agent\n\twith "special" chars & <tags>';
-    const result = await signMessage(specialMsg, kc);
+    const signature = await signer.signMessage(specialMsg);
+    const address = await signer.getAddress();
     const valid = await verifyMessage({
-      address: result.address as Address,
+      address: address as Address,
       message: specialMsg,
-      signature: result.signature as Hex,
+      signature: signature as Hex,
     });
-    if (valid) pass('signMessage() with special chars → valid');
-    else fail('signMessage() special chars', 'Verification failed');
+    if (valid) pass('signer.signMessage() with special chars → valid');
+    else fail('signer.signMessage() special chars', 'Verification failed');
   } catch (err: any) {
-    fail('signMessage() special chars', err.message);
+    fail('signer.signMessage() special chars', err.message);
   }
 
-  // 5.4 KeystoreConfig with no fields (falls back to env vars)
+  // 5.4 Signer with env var fallback
   try {
-    const result = await signMessage('env-fallback-test', {});
-    if (result.signature) pass('KeystoreConfig {} falls back to env vars');
-    else fail('KeystoreConfig {} fallback', 'No signature');
+    const envSigner = createKeyringProxySigner({});
+    const signature = await envSigner.signMessage('env-fallback-test');
+    if (signature) pass('createKeyringProxySigner({}) falls back to env vars');
+    else fail('Signer env fallback', 'No signature');
   } catch (err: any) {
     // This may fail if env vars aren't set, which is fine
     if (err.message.includes('KEYRING_PROXY_URL')) {
-      pass('KeystoreConfig {} correctly requires env vars');
+      pass('createKeyringProxySigner({}) correctly requires env vars');
     } else {
-      fail('KeystoreConfig {} fallback', err.message);
+      fail('Signer env fallback', err.message);
     }
   }
 

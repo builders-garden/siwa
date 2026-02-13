@@ -46,11 +46,14 @@ export async function POST(req: NextRequest) {
     return corsJson(response, { status: statusCode });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const signerType = (result as any).signerType as 'eoa' | 'sca' | undefined;
   const verificationResult = {
     address: result.address,
     agentId: result.agentId,
     agentRegistry: result.agentRegistry,
     chainId: result.chainId,
+    ...(signerType ? { signerType } : {}),
   };
 
   const receiptResult = createReceiptForAgent({ ...verificationResult, verified: result.verified });
