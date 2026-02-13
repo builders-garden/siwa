@@ -5,7 +5,7 @@ description: >
   SIWA (Sign-In With Agent) authentication for ERC-8004 registered agents.
 ---
 
-# SIWA SDK
+# SIWA SDK 
 
 Sign-In With Agent (SIWA) lets AI agents authenticate with services using their ERC-8004 onchain identity.
 
