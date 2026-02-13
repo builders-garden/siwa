@@ -20,6 +20,14 @@ import * as crypto from 'crypto';
 import { AgentProfile, getAgent, getReputation, ServiceType, TrustModel } from './registry.js';
 import type { Signer, SignerType } from './signer.js';
 import type { SIWANonceStore } from './nonce-store.js';
+import {
+  createCaptchaChallenge,
+  unpackCaptchaResponse,
+  verifyCaptchaSolution,
+  type CaptchaChallenge,
+  type CaptchaPolicy,
+  type CaptchaOptions,
+} from './captcha.js';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -38,6 +46,8 @@ export enum SIWAErrorCode {
   LOW_REPUTATION = 'LOW_REPUTATION',
   CUSTOM_CHECK_FAILED = 'CUSTOM_CHECK_FAILED',
   VERIFICATION_FAILED = 'VERIFICATION_FAILED',
+  CAPTCHA_REQUIRED = 'CAPTCHA_REQUIRED',
+  CAPTCHA_FAILED = 'CAPTCHA_FAILED',
 }
 
 export interface SIWAMessageFields {
@@ -299,16 +309,20 @@ export interface SIWANonceParams {
   address: string;
   agentId: number;
   agentRegistry: string;   // e.g. "eip155:84532:0x8004AA63..."
+  challengeResponse?: string;
 }
 
 export interface SIWANonceOptions {
   expirationTTL?: number;  // milliseconds, defaults to 300_000 (5 min)
   secret?: string;         // HMAC secret for stateless nonce tokens (pass your SIWA_SECRET or any server secret)
   nonceStore?: SIWANonceStore; // pluggable nonce store for replay protection
+  captchaPolicy?: CaptchaPolicy;
+  captchaOptions?: CaptchaOptions;
 }
 
 export type SIWANonceResult =
   | { status: 'nonce_issued'; nonce: string; nonceToken?: string; issuedAt: string; expirationTime: string }
+  | { status: 'captcha_required'; challenge: CaptchaChallenge; challengeToken: string }
   | SIWAResponse;
 
 /**
@@ -386,6 +400,60 @@ export async function createSIWANonce(
       code: SIWAErrorCode.NOT_OWNER,
       error: 'Signer is not the owner of this agent NFT',
     });
+  }
+
+  // Captcha evaluation (after ownership check, before nonce issuance)
+  if (options?.captchaPolicy) {
+    const captchaSecret = options.captchaOptions?.secret ?? options.secret;
+    if (!captchaSecret) {
+      throw new Error('captchaPolicy requires a secret — set captchaOptions.secret or options.secret');
+    }
+
+    const difficulty = await options.captchaPolicy({ address, agentId, agentRegistry });
+    if (difficulty) {
+      // Check if the agent submitted a challenge response
+      if (params.challengeResponse) {
+        const unpacked = unpackCaptchaResponse(params.challengeResponse);
+        if (!unpacked) {
+          return buildSIWAResponse({
+            valid: false,
+            address,
+            agentId,
+            agentRegistry,
+            chainId,
+            verified: 'onchain',
+            code: SIWAErrorCode.CAPTCHA_FAILED,
+            error: 'Invalid captcha response format',
+          });
+        }
+
+        const verification = await verifyCaptchaSolution(
+          unpacked.challengeToken, unpacked.solution, captchaSecret, options.captchaOptions?.verify,
+        );
+        if (!verification || !verification.overallPass) {
+          return buildSIWAResponse({
+            valid: false,
+            address,
+            agentId,
+            agentRegistry,
+            chainId,
+            verified: 'onchain',
+            code: SIWAErrorCode.CAPTCHA_FAILED,
+            error: `Captcha verification failed: ${verification?.verdict ?? 'invalid token'}`,
+          });
+        }
+        // Captcha passed — fall through to issue nonce
+      } else {
+        // No response yet — issue a challenge
+        const captchaOpts: CaptchaOptions = {
+          secret: captchaSecret,
+          topics: options.captchaOptions?.topics,
+          formats: options.captchaOptions?.formats,
+        };
+        const { challenge, challengeToken } = createCaptchaChallenge(difficulty, captchaOpts);
+        return { status: 'captcha_required', challenge, challengeToken };
+      }
+    }
   }
 
   // Agent is registered — issue the nonce

@@ -512,6 +512,7 @@ if (result.valid) {
               headers={["Export", "Description"]}
               rows={[
                 ["withSiwa(handler, options?)", "Wrap route handler with ERC-8128 auth."],
+                ["createWithSiwa(defaults)", "Factory: pre-configured withSiwa with shared options (captcha policy, signer types). Per-handler overrides supported."],
                 ["siwaOptions()", "Return 204 OPTIONS response with CORS."],
                 ["corsJson(data, init?)", "JSON Response with CORS headers."],
               ]}
@@ -531,6 +532,7 @@ export { siwaOptions as OPTIONS };`}</CodeBlock>
               headers={["Export", "Description"]}
               rows={[
                 ["siwaMiddleware(options?)", "Auth middleware for protected routes."],
+                ["createSiwaMiddleware(defaults)", "Factory: pre-configured middleware with shared options. Per-route overrides supported."],
                 ["siwaJsonParser()", "JSON parser with rawBody capture."],
                 ["siwaCors(options?)", "CORS middleware with SIWA headers."],
               ]}
@@ -736,6 +738,176 @@ const nonceStore: SIWANonceStore = {
     return (result.rowCount ?? 0) > 0;
   },
 };`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="captcha-how" title="Captcha (Reverse CAPTCHA)">
+            <P>
+              SIWA includes a <strong className="text-foreground">reverse CAPTCHA</strong> — inspired by <a href="https://github.com/MoltCaptcha/MoltCaptcha" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">MoltCaptcha</a> — that proves an entity <em>is</em> an AI agent, not a human. Challenges exploit how LLMs generate text in a single autoregressive pass, satisfying multiple constraints simultaneously, while humans must iterate.
+            </P>
+            <P>
+              The server generates a challenge with constraints the agent must satisfy in its response text — line count, sum of ASCII values of first characters, word count, character at a specific position, and total character count. Higher difficulty levels add more constraints with tighter time limits.
+            </P>
+            <P>
+              Two integration points:
+            </P>
+            <ul className="space-y-2 mb-6 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Sign-in flow</strong> — server requires captcha before issuing a nonce</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Per-request</strong> — middleware randomly challenges agents during authenticated API calls (server-defined policy/probability)</span>
+              </li>
+            </ul>
+          </SubSection>
+
+          <SubSection id="captcha-signin" title="Sign-In Captcha">
+            <P>
+              Add <InlineCode>captchaPolicy</InlineCode> and <InlineCode>captchaOptions</InlineCode> to your nonce endpoint. The policy function receives the agent&apos;s identity and returns a difficulty level or <InlineCode>null</InlineCode> to skip.
+            </P>
+            <CodeBlock language="typescript">{`import { createSIWANonce } from "@buildersgarden/siwa";
+
+const result = await createSIWANonce(
+  { address, agentId, agentRegistry, challengeResponse },
+  client,
+  {
+    secret: SIWA_SECRET,
+    captchaPolicy: async ({ address }) => {
+      const known = await db.agents.exists(address);
+      return known ? null : 'medium'; // challenge unknown agents
+    },
+    captchaOptions: { secret: SIWA_SECRET },
+  },
+);
+
+// result.status is 'captcha_required' | 'nonce_issued' | SIWAResponse`}</CodeBlock>
+            <P>
+              Agent-side: use <InlineCode>solveCaptchaChallenge()</InlineCode> to detect and solve in one step.
+            </P>
+            <CodeBlock language="typescript">{`import { solveCaptchaChallenge } from "@buildersgarden/siwa/captcha";
+
+const res = await fetch("/api/siwa/nonce", {
+  method: "POST",
+  body: JSON.stringify({ address, agentId, agentRegistry }),
+});
+const data = await res.json();
+
+const captcha = await solveCaptchaChallenge(data, async (challenge) => {
+  // LLM generates text satisfying all constraints in a single pass
+  // Your LLM generates text satisfying all constraints in one pass.
+  // Use any provider (Anthropic, OpenAI, etc.) — just return a string.
+  return await generateText(challenge);
+});
+
+if (captcha.solved) {
+  // Retry with challengeResponse
+  await fetch("/api/siwa/nonce", {
+    method: "POST",
+    body: JSON.stringify({ ...params, challengeResponse: captcha.challengeResponse }),
+  });
+}`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="captcha-perrequest" title="Per-Request Captcha">
+            <P>
+              Add <InlineCode>captchaPolicy</InlineCode> to middleware for random spot-checks on authenticated requests.
+            </P>
+            <CodeBlock language="typescript">{`// Next.js
+export const POST = withSiwa(handler, {
+  captchaPolicy: ({ request }) => {
+    if (request?.url.includes('/transfer') && Math.random() < 0.05)
+      return 'hard';
+    return null;
+  },
+  captchaOptions: { secret: process.env.SIWA_SECRET! },
+});
+
+// Express
+app.use(siwaMiddleware({
+  captchaPolicy: () => Math.random() < 0.05 ? 'easy' : null,
+  captchaOptions: { secret: SIWA_SECRET },
+}));`}</CodeBlock>
+            <P>
+              Agent-side: use <InlineCode>retryWithCaptcha()</InlineCode> to detect a 401 captcha challenge, solve it, re-sign with ERC-8128, and get a ready-to-send retry request.
+            </P>
+            <CodeBlock language="typescript">{`import { signAuthenticatedRequest, retryWithCaptcha } from "@buildersgarden/siwa/erc8128";
+
+const url = "https://api.example.com/action";
+const body = JSON.stringify({ key: "value" });
+
+// Sign and send
+const signed = await signAuthenticatedRequest(
+  new Request(url, { method: "POST", body }), receipt, signer, chainId,
+);
+const response = await fetch(signed);
+
+// Detect + solve + re-sign if captcha required
+const result = await retryWithCaptcha(
+  response,
+  new Request(url, { method: "POST", body }), // fresh request
+  receipt, signer, chainId,
+  async (challenge) => generateText(challenge), // your LLM solver
+);
+
+if (result.retry) {
+  const retryResponse = await fetch(result.request);
+}`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="captcha-difficulty" title="Difficulty Levels & Configuration">
+            <Table
+              headers={["Level", "Time Limit", "Constraints"]}
+              rows={[
+                ["easy", "30s", "Line count + ASCII sum of first chars"],
+                ["medium", "20s", "+ word count"],
+                ["hard", "15s", "+ character at specific position"],
+                ["extreme", "10s", "+ total character count"],
+              ]}
+            />
+            <P>
+              All verification behavior is configurable via <InlineCode>captchaOptions.verify</InlineCode>:
+            </P>
+            <Table
+              headers={["Option", "Default", "Description"]}
+              rows={[
+                ["useServerTiming", "true", "Use server wall-clock time instead of trusting the agent's solvedAt."],
+                ["timingToleranceSeconds", "2", "Extra seconds added to time limit for network latency."],
+                ["asciiTolerance", "0", "Allow \u00B1N tolerance on ASCII sum comparison."],
+                ["revealConstraints", "true", "Include actual vs target values in verification results."],
+                ["consumeChallenge", "\u2014", "Callback for one-time-use tokens. Return false to reject replays."],
+              ]}
+            />
+            <P>
+              Override difficulty settings per tier with <InlineCode>captchaOptions.difficulties</InlineCode>:
+            </P>
+            <CodeBlock language="typescript">{`captchaOptions: {
+  secret: SIWA_SECRET,
+  verify: {
+    useServerTiming: true,
+    timingToleranceSeconds: 5,
+    revealConstraints: false,
+    consumeChallenge: (token) => redis.set(\`captcha:\${token}\`, '1', 'NX', 'EX', 60).then(r => r === 'OK'),
+  },
+  difficulties: {
+    easy: { timeLimitSeconds: 45 },
+    extreme: { timeLimitSeconds: 8 },
+  },
+}`}</CodeBlock>
+            <P>
+              Import from <InlineCode>@buildersgarden/siwa/captcha</InlineCode>.
+            </P>
+            <Table
+              headers={["Export", "Side", "Description"]}
+              rows={[
+                ["solveCaptchaChallenge(nonceResponse, solver)", "Agent", "Detect + solve captcha from nonce response."],
+                ["retryWithCaptcha(response, request, ...)", "Agent", "Detect captcha in 401, solve, re-sign, return retry request. (from erc8128 module)"],
+                ["packCaptchaResponse(token, text)", "Agent", "Package solution for submission."],
+                ["createCaptchaChallenge(difficulty, opts)", "Server", "Generate challenge + HMAC-signed token."],
+                ["verifyCaptchaSolution(token, solution, secret, verifyOpts?)", "Server", "Verify all constraints + timing. Async."],
+                ["unpackCaptchaResponse(packed)", "Server", "Unpack agent response."],
+              ]}
+            />
           </SubSection>
         </Section>
 

@@ -27,7 +27,7 @@ Before using any capabilities, you MUST install the SIWA SDK in your environment
 npm install @buildersgarden/siwa
 ```
 
-This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (SIWA_IDENTITY.md helpers), `@buildersgarden/siwa/registry` (onchain lookups), `@buildersgarden/siwa/receipt` (receipt helpers), `@buildersgarden/siwa/erc8128` (ERC-8128 signing/verification), `@buildersgarden/siwa/next` (Next.js server-side wrappers: `withSiwa`, `siwaOptions`, `corsJson`), and `@buildersgarden/siwa/express` (Express wrappers: `siwaMiddleware`, `siwaJsonParser`, `siwaCors`). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
+This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (SIWA_IDENTITY.md helpers), `@buildersgarden/siwa/registry` (onchain lookups), `@buildersgarden/siwa/receipt` (receipt helpers), `@buildersgarden/siwa/erc8128` (ERC-8128 signing/verification), `@buildersgarden/siwa/captcha` (reverse CAPTCHA: `packCaptchaResponse` for solving challenges), `@buildersgarden/siwa/next` (Next.js server-side wrappers: `withSiwa`, `siwaOptions`, `corsJson`), and `@buildersgarden/siwa/express` (Express wrappers: `siwaMiddleware`, `siwaJsonParser`, `siwaCors`). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
 
 ## Your Capabilities
 
@@ -106,6 +106,10 @@ Clears SIWA_IDENTITY.md to start fresh.
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
 ```
+
+### 10. Handle Captcha Challenges
+
+If a server requires a reverse CAPTCHA during sign-in or API calls, use `solveCaptchaChallenge()` from `@buildersgarden/siwa/captcha` for sign-in or `retryWithCaptcha()` from `@buildersgarden/siwa/erc8128` for per-request challenges. The challenge contains constraints (topic, format, line count, ASCII target, etc.) that you must satisfy in a single text generation pass.
 
 ## Important Notes
 

@@ -44,6 +44,7 @@ const { message, signature } = await signSIWAMessage(fields, signer);
 | `@buildersgarden/siwa/registry` | Onchain registration & reads | `registerAgent()`, `getAgent()`, `getReputation()` |
 | `@buildersgarden/siwa/erc8128` | Authenticated API calls | `signAuthenticatedRequest()`, `verifyAuthenticatedRequest()` |
 | `@buildersgarden/siwa/receipt` | Receipt helpers | `createReceipt()`, `verifyReceipt()` |
+| `@buildersgarden/siwa/captcha` | Reverse CAPTCHA | `solveCaptchaChallenge()`, `packCaptchaResponse()`, `createCaptchaChallenge()`, `verifyCaptchaSolution()` |
 
 ---
 
@@ -439,6 +440,31 @@ const signedRequest = await signAuthenticatedRequest(
 
 // Send the signed request
 const response = await fetch(signedRequest);
+```
+
+---
+
+## Captcha (Reverse CAPTCHA)
+
+If a server returns `status: 'captcha_required'` during nonce request, or a 401 with `X-SIWA-Challenge` during an API call, the agent must solve the challenge and resubmit:
+
+```typescript
+import { packCaptchaResponse } from "@buildersgarden/siwa/captcha";
+
+// During nonce request:
+const data = await nonceRes.json();
+if (data.status === "captcha_required") {
+  // LLM reads challenge constraints and generates text
+  const solutionText = "..."; // must satisfy lineCount, asciiTarget, etc.
+  const challengeResponse = packCaptchaResponse(data.challengeToken, solutionText);
+
+  // Resubmit with solution
+  const retryRes = await fetch("/api/siwa/nonce", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address, agentId, agentRegistry, challengeResponse }),
+  });
+}
 ```
 
 ---

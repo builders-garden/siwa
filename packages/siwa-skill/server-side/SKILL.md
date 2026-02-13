@@ -591,6 +591,114 @@ async function handleRequest(req: Request) {
 
 ---
 
+## Captcha (Reverse CAPTCHA)
+
+SIWA includes a "reverse CAPTCHA" — inspired by [MoltCaptcha](https://github.com/MoltCaptcha/MoltCaptcha) — that proves an entity is an AI agent. Servers can challenge agents at sign-in or during authenticated requests.
+
+### Sign-In Captcha
+
+Add `captchaPolicy` and `captchaOptions` to `createSIWANonce`:
+
+```typescript
+import { createSIWANonce } from "@buildersgarden/siwa";
+
+const result = await createSIWANonce(
+  { address, agentId, agentRegistry },
+  client,
+  {
+    secret: SIWA_SECRET,
+    captchaPolicy: async ({ address }) => {
+      const known = await db.agents.exists(address);
+      return known ? null : 'medium';  // challenge unknown agents
+    },
+    captchaOptions: { secret: SIWA_SECRET },
+  },
+);
+
+if (result.status === 'captcha_required') {
+  // Return challenge to agent
+  return res.json(result);
+}
+// result.status === 'nonce_issued' — continue normally
+```
+
+When the agent resubmits with `challengeResponse`, `createSIWANonce` verifies it automatically:
+
+```typescript
+const result = await createSIWANonce(
+  { address, agentId, agentRegistry, challengeResponse: req.body.challengeResponse },
+  client,
+  { secret: SIWA_SECRET, captchaPolicy, captchaOptions: { secret: SIWA_SECRET } },
+);
+```
+
+### Per-Request Captcha
+
+Add `captchaPolicy` to middleware options for random spot-checks:
+
+```typescript
+// Express
+app.use("/api/sensitive", siwaMiddleware({
+  receiptSecret: SIWA_SECRET,
+  captchaPolicy: ({ request }) => {
+    if (request?.url.includes('/transfer') && Math.random() < 0.05) return 'hard';
+    return null;
+  },
+  captchaOptions: { secret: SIWA_SECRET },
+}));
+
+// Next.js
+export const POST = withSiwa(handler, {
+  captchaPolicy: () => Math.random() < 0.05 ? 'easy' : null,
+  captchaOptions: { secret: process.env.SIWA_SECRET! },
+});
+```
+
+When a captcha is required, the middleware returns 401 with the challenge in the body and `X-SIWA-Challenge` header. The agent solves it, adds `X-SIWA-Challenge-Response`, re-signs the request with ERC-8128, and retries.
+
+### Verification Options
+
+All verification behavior is configurable via `captchaOptions.verify`:
+
+```typescript
+captchaOptions: {
+  secret: SIWA_SECRET,
+  verify: {
+    useServerTiming: true,         // don't trust client timestamps (default)
+    timingToleranceSeconds: 5,     // extra seconds for latency (default: 2)
+    asciiTolerance: 2,             // allow ±2 on ASCII sum (default: 0)
+    revealConstraints: false,      // hide actual/target in results (default: true)
+    consumeChallenge: async (token) => {
+      // One-time use via Redis
+      return await redis.set(`captcha:${token}`, '1', 'NX', 'EX', 60) === 'OK';
+    },
+  },
+  // Override difficulty settings per tier
+  difficulties: {
+    easy: { timeLimitSeconds: 45 },
+  },
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `useServerTiming` | `true` | Check elapsed time server-side instead of trusting the agent's `solvedAt` |
+| `timingToleranceSeconds` | `2` | Extra seconds added to time limit for network latency |
+| `asciiTolerance` | `0` | Allow ±N tolerance on ASCII sum comparison |
+| `revealConstraints` | `true` | Include actual vs target values in verification results |
+| `consumeChallenge` | — | Callback for one-time-use tokens (return `false` to reject replays) |
+
+### Difficulty Levels
+
+| Level | Time Limit | Constraints |
+|-------|-----------|-------------|
+| `easy` | 30s | Line count + ASCII sum of first chars |
+| `medium` | 20s | + word count |
+| `hard` | 15s | + character at specific position |
+| `extreme` | 10s | + total character count |
+
+---
+
 ## Security Considerations
 
 ### Nonce Management
@@ -641,13 +749,25 @@ async function handleRequest(req: Request) {
 
 | Export | Description |
 |--------|-------------|
-| `verifyAuthenticatedRequest(req, options)` | Verify ERC-8128 signed HTTP request |
+| `verifyAuthenticatedRequest(req, options)` | Verify ERC-8128 signed HTTP request. Options accept `captchaPolicy` and `captchaOptions`. |
+| `retryWithCaptcha(response, request, receipt, signer, chainId, solver, options?)` | Agent-side: detect captcha in 401, solve, re-sign, return retry request. |
+
+### Captcha Module (`@buildersgarden/siwa/captcha`)
+
+| Export | Description |
+|--------|-------------|
+| `createCaptchaChallenge(difficulty, options)` | Generate challenge + HMAC-signed token |
+| `verifyCaptchaSolution(token, solution, secret, verifyOptions?)` | Verify constraints + timing (async) |
+| `unpackCaptchaResponse(packed)` | Unpack agent's challenge response |
+| `solveCaptchaChallenge(nonceResponse, solver)` | Agent-side: detect + solve captcha from nonce response |
+| `CaptchaSolver` | Type: solver callback `(challenge) => string \| Promise<string>` |
 
 ### Express Module (`@buildersgarden/siwa/express`)
 
 | Export | Description |
 |--------|-------------|
-| `siwaMiddleware(options)` | Express middleware for SIWA verification |
+| `siwaMiddleware(options)` | Express middleware for SIWA verification. Options accept `captchaPolicy` and `captchaOptions`. |
+| `createSiwaMiddleware(defaults)` | Factory: pre-configured `siwaMiddleware` with shared options. Per-route overrides supported. |
 | `siwaJsonParser()` | JSON parser with SIWA-aware error handling |
 | `siwaCors(options)` | CORS middleware for SIWA endpoints |
 
@@ -655,7 +775,8 @@ async function handleRequest(req: Request) {
 
 | Export | Description |
 |--------|-------------|
-| `withSiwa(handler, options)` | Wrap route handler with SIWA verification |
+| `withSiwa(handler, options)` | Wrap route handler with SIWA verification. Options accept `captchaPolicy` and `captchaOptions`. |
+| `createWithSiwa(defaults)` | Factory: pre-configured `withSiwa` with shared options. Per-handler overrides supported. |
 | `siwaOptions(config)` | Create options object for withSiwa |
 | `corsJson(data, status?)` | Return JSON with CORS headers |
 

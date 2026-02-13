@@ -24,6 +24,7 @@ import {
   type SiwaAgent,
   type VerifyOptions,
 } from './erc8128.js';
+import { CHALLENGE_HEADER, type CaptchaPolicy, type CaptchaOptions } from './captcha.js';
 import type { SignerType } from './signer.js';
 
 export type { SiwaAgent };
@@ -41,6 +42,10 @@ export interface WithSiwaOptions {
   verifyOnchain?: boolean;
   /** Allowed signer types. Omit to accept all. */
   allowedSignerTypes?: SignerType[];
+  /** Captcha policy for per-request challenges. */
+  captchaPolicy?: CaptchaPolicy;
+  /** Captcha options (secret, topics, formats). Secret defaults to receiptSecret. */
+  captchaOptions?: CaptchaOptions;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,7 +58,8 @@ export function corsHeaders(): Record<string, string> {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers':
-      'Content-Type, X-SIWA-Receipt, Signature, Signature-Input, Content-Digest',
+      'Content-Type, X-SIWA-Receipt, X-SIWA-Challenge-Response, Signature, Signature-Input, Content-Digest',
+    'Access-Control-Expose-Headers': 'X-SIWA-Challenge',
   };
 }
 
@@ -77,7 +83,7 @@ export function siwaOptions(): Response {
 // withSiwa wrapper
 // ---------------------------------------------------------------------------
 
-type SiwaHandler = (
+export type SiwaHandler = (
   agent: SiwaAgent,
   req: Request,
 ) => Promise<Record<string, unknown> | Response> | Record<string, unknown> | Response;
@@ -103,6 +109,8 @@ export function withSiwa(handler: SiwaHandler, options?: WithSiwaOptions) {
       rpcUrl: options?.rpcUrl,
       verifyOnchain: options?.verifyOnchain,
       allowedSignerTypes: options?.allowedSignerTypes,
+      captchaPolicy: options?.captchaPolicy,
+      captchaOptions: options?.captchaOptions,
     };
 
     const result = await verifyAuthenticatedRequest(
@@ -111,6 +119,14 @@ export function withSiwa(handler: SiwaHandler, options?: WithSiwaOptions) {
     );
 
     if (!result.valid) {
+      if ('captchaRequired' in result && result.captchaRequired) {
+        const response = corsJson(
+          { error: result.error, challenge: result.challenge, challengeToken: result.challengeToken },
+          { status: 401 },
+        );
+        response.headers.set(CHALLENGE_HEADER, result.challengeToken);
+        return response;
+      }
       return corsJson({ error: result.error }, { status: 401 });
     }
 
@@ -131,4 +147,44 @@ export function withSiwa(handler: SiwaHandler, options?: WithSiwaOptions) {
 
     return corsJson(response);
   };
+}
+
+// ---------------------------------------------------------------------------
+// Factory: pre-configured withSiwa
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a pre-configured `withSiwa` wrapper with shared defaults.
+ *
+ * Use this to apply the same captcha policy, signer type restrictions,
+ * and other options across all your route handlers without repeating them.
+ * Per-handler overrides are still supported.
+ *
+ * @param defaults  Shared options applied to all handlers
+ * @returns         A `withSiwa`-like function that bakes in the defaults
+ *
+ * @example
+ * ```typescript
+ * // lib/siwa.ts — define once
+ * import { createWithSiwa } from "@buildersgarden/siwa/next";
+ *
+ * export const withAuth = createWithSiwa({
+ *   captchaPolicy: async ({ address }) => {
+ *     const known = await db.agents.exists(address);
+ *     return known ? null : 'medium';
+ *   },
+ *   captchaOptions: { secret: process.env.SIWA_SECRET! },
+ * });
+ *
+ * // app/api/action/route.ts — use everywhere
+ * import { withAuth } from "@/lib/siwa";
+ *
+ * export const POST = withAuth(async (agent, req) => {
+ *   return { ok: true };
+ * });
+ * ```
+ */
+export function createWithSiwa(defaults: WithSiwaOptions) {
+  return (handler: SiwaHandler, overrides?: Partial<WithSiwaOptions>) =>
+    withSiwa(handler, { ...defaults, ...overrides });
 }

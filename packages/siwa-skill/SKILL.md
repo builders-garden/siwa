@@ -442,6 +442,147 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 
 ---
 
+## Captcha (Reverse CAPTCHA)
+
+SIWA includes a "reverse CAPTCHA" mechanism — inspired by [MoltCaptcha](https://github.com/MoltCaptcha/MoltCaptcha) — that proves an entity **is** an AI agent, not a human. Challenges exploit how LLMs generate text in a single autoregressive pass (satisfying multiple constraints simultaneously), while humans must iterate.
+
+Two integration points:
+1. **Sign-in flow** — server requires captcha before issuing a nonce
+2. **Per-request** — middleware randomly challenges agents during authenticated API calls
+
+### Agent-Side: Handling a Captcha Challenge
+
+The SDK provides two convenience wrappers for the captcha retry pattern:
+
+#### Sign-In Captcha: `solveCaptchaChallenge()`
+
+```typescript
+import { solveCaptchaChallenge } from "@buildersgarden/siwa/captcha";
+
+// 1. Request nonce
+const nonceRes = await fetch("/api/siwa/nonce", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ address, agentId, agentRegistry }),
+});
+const data = await nonceRes.json();
+
+// 2. Detect + solve captcha if required
+const captcha = await solveCaptchaChallenge(data, async (challenge) => {
+  // LLM generates text satisfying all constraints in a single pass
+  // challenge: { topic, format, lineCount, asciiTarget, wordCount?, timeLimitSeconds, ... }
+  // Your LLM generates text satisfying all constraints in one pass.
+  // Use any provider (Anthropic, OpenAI, etc.) — the solver just returns a string.
+  return await generateText(challenge);
+});
+
+if (captcha.solved) {
+  // 3. Retry with challenge response
+  const retryRes = await fetch("/api/siwa/nonce", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address, agentId, agentRegistry, challengeResponse: captcha.challengeResponse }),
+  });
+}
+```
+
+#### Per-Request Captcha: `retryWithCaptcha()`
+
+```typescript
+import { signAuthenticatedRequest, retryWithCaptcha } from "@buildersgarden/siwa/erc8128";
+
+const url = "https://api.example.com/action";
+const body = JSON.stringify({ key: "value" });
+
+// 1. Sign and send
+const signed = await signAuthenticatedRequest(
+  new Request(url, { method: "POST", body }),
+  receipt, signer, chainId,
+);
+const response = await fetch(signed);
+
+// 2. Detect + solve captcha, re-sign, and get retry request
+const result = await retryWithCaptcha(
+  response,
+  new Request(url, { method: "POST", body }), // fresh request (original body consumed)
+  receipt, signer, chainId,
+  async (challenge) => generateText(challenge), // your LLM solver
+);
+
+if (result.retry) {
+  const retryResponse = await fetch(result.request);
+}
+```
+
+> **Note:** Pass a **fresh, unconsumed** Request to `retryWithCaptcha` — the original is consumed after signing/sending.
+
+### Server-Side: Enabling Captcha
+
+```typescript
+import { withSiwa } from "@buildersgarden/siwa/next";
+
+export const POST = withSiwa(handler, {
+  captchaPolicy: async ({ address }) => {
+    const known = await db.agents.exists(address);
+    return known ? null : 'medium';  // challenge unknown agents
+  },
+  captchaOptions: { secret: process.env.SIWA_SECRET! },
+});
+```
+
+### Verification Options
+
+All verification behavior is configurable via `captchaOptions.verify`:
+
+```typescript
+captchaOptions: {
+  secret: process.env.SIWA_SECRET!,
+  verify: {
+    useServerTiming: true,         // use server wall-clock, don't trust client (default: true)
+    timingToleranceSeconds: 5,     // extra seconds for network latency (default: 2)
+    asciiTolerance: 2,             // allow ±2 on ASCII sum (default: 0 = exact)
+    revealConstraints: false,      // hide actual/target values in results (default: true)
+    consumeChallenge: async (token) => {
+      // One-time use: reject replays via Redis/DB
+      return await redis.set(`captcha:${token}`, '1', 'NX', 'EX', 60) === 'OK';
+    },
+  },
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `useServerTiming` | `true` | Check elapsed time server-side instead of trusting the agent's `solvedAt` |
+| `timingToleranceSeconds` | `2` | Extra seconds added to time limit for network latency |
+| `asciiTolerance` | `0` | Allow ±N tolerance on ASCII sum comparison |
+| `revealConstraints` | `true` | Include actual vs target values in verification results |
+| `consumeChallenge` | — | Callback for one-time-use tokens (return `false` to reject replays) |
+
+### Custom Difficulty Overrides
+
+Override time limits or constraints per tier:
+
+```typescript
+captchaOptions: {
+  secret: SIWA_SECRET,
+  difficulties: {
+    easy: { timeLimitSeconds: 45 },  // more generous for easy
+    extreme: { timeLimitSeconds: 8, useTotalChars: false },  // tighter but fewer constraints
+  },
+}
+```
+
+### Difficulty Levels
+
+| Level | Time Limit | Constraints |
+|-------|-----------|-------------|
+| `easy` | 30s | Line count + ASCII sum of first chars |
+| `medium` | 20s | + word count |
+| `hard` | 15s | + character at specific position |
+| `extreme` | 10s | + total character count |
+
+---
+
 ## SDK Reference
 
 ### Signer Module (`@buildersgarden/siwa/signer`)
@@ -477,6 +618,7 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 | Export | Description |
 |--------|-------------|
 | `signAuthenticatedRequest(req, receipt, signer, chainId, options?)` | Sign HTTP request with ERC-8128. Options: `{ signerAddress }` for TBA identity override. |
+| `retryWithCaptcha(response, request, receipt, signer, chainId, solver, options?)` | Detect captcha challenge in 401 response, solve it, re-sign with ERC-8128, return retry request. |
 | `verifyAuthenticatedRequest(req, options)` | Verify signed HTTP request. Options accept `allowedSignerTypes`. Result includes `signerType`. |
 | `createErc8128Signer(signer, chainId, options?)` | Create ERC-8128 HTTP signer from SIWA Signer |
 
@@ -495,11 +637,27 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 | `computeTbaAddress(params)` | Compute deterministic Token Bound Account address for an NFT |
 | `isTbaForAgent(params)` | Check if a signer address matches the expected Token Bound Account for an agent |
 
+### Captcha Module (`@buildersgarden/siwa/captcha`)
+
+| Export | Description |
+|--------|-------------|
+| `solveCaptchaChallenge(nonceResponse, solver)` | Agent: detect + solve captcha from nonce response. Returns `{ solved, challengeResponse }`. |
+| `packCaptchaResponse(token, text)` | Agent: package solution for submission |
+| `createCaptchaChallenge(difficulty, options)` | Server: generate challenge + HMAC-signed token. Options accept `difficulties` for per-tier overrides. |
+| `verifyCaptchaSolution(token, solution, secret, verifyOptions?)` | Server: verify all constraints + timing. Async. See `CaptchaVerifyOptions`. |
+| `unpackCaptchaResponse(packed)` | Server: unpack agent response |
+| `CaptchaSolver` | Type: `(challenge: CaptchaChallenge) => string \| Promise<string>` — solver callback |
+| `CHALLENGE_HEADER` | `'X-SIWA-Challenge'` — server → agent |
+| `CHALLENGE_RESPONSE_HEADER` | `'X-SIWA-Challenge-Response'` — agent → server |
+| `CaptchaVerifyOptions` | Type: `{ useServerTiming?, timingToleranceSeconds?, revealConstraints?, asciiTolerance?, consumeChallenge? }` |
+| `DifficultyConfig` | Type: `{ timeLimitSeconds, lineCount, useWordCount, useCharPosition, useTotalChars }` |
+
 ### Next.js Module (`@buildersgarden/siwa/next`)
 
 | Export | Description |
 |--------|-------------|
-| `withSiwa(handler, options?)` | Wrap route handler with ERC-8128 auth. Options: `{ allowedSignerTypes }` |
+| `withSiwa(handler, options?)` | Wrap route handler with ERC-8128 auth. Options: `{ allowedSignerTypes, captchaPolicy, captchaOptions }` |
+| `createWithSiwa(defaults)` | Factory: returns pre-configured `withSiwa` with shared options. Per-handler overrides supported. |
 | `siwaOptions()` | Return 204 OPTIONS response with CORS |
 | `corsJson(data, init?)` | JSON Response with CORS headers |
 
@@ -507,7 +665,8 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 
 | Export | Description |
 |--------|-------------|
-| `siwaMiddleware(options?)` | Auth middleware. Options: `{ allowedSignerTypes }` |
+| `siwaMiddleware(options?)` | Auth middleware. Options: `{ allowedSignerTypes, captchaPolicy, captchaOptions }` |
+| `createSiwaMiddleware(defaults)` | Factory: returns pre-configured `siwaMiddleware` with shared options. Per-route overrides supported. |
 | `siwaJsonParser()` | JSON parser with rawBody capture |
 | `siwaCors(options?)` | CORS middleware with SIWA headers |
 
@@ -535,6 +694,10 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 **"Nonce already used"** — Replay attack prevented; get a fresh nonce
 
 **"Signer type not allowed"** — The server's `allowedSignerTypes` policy rejected the signer (EOA vs SCA)
+
+**"Captcha required"** — The server requires a captcha challenge to be solved; use `solveCaptchaChallenge()` for sign-in or `retryWithCaptcha()` for per-request challenges
+
+**"Captcha verification failed"** — The captcha solution did not satisfy all constraints (check line count, ASCII sum, timing)
 
 ---
 
