@@ -672,7 +672,7 @@ id = "<your-kv-namespace-id>"`}</CodeBlock>
             <P>
               <strong className="text-foreground">Schema</strong> — create a table with a unique nonce column and an expiry timestamp:
             </P>
-            <CodeBlock language="sql">{`CREATE TABLE siwa_nonces (
+            <CodeBlock language="text">{`CREATE TABLE siwa_nonces (
   nonce      VARCHAR(64) PRIMARY KEY,
   expires_at TIMESTAMPTZ NOT NULL
 );
