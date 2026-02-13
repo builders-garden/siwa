@@ -19,24 +19,24 @@ const { message, signature } = await signSIWAMessage({
   issuedAt: new Date().toISOString(),
 }, signer);`;
 
-const VERIFY_CODE = `import { verifySIWA, parseSIWAMessage } from "@buildersgarden/siwa";
+const VERIFY_CODE = `import { createSIWANonce, verifySIWA } from "@buildersgarden/siwa";
+import { createMemorySIWANonceStore } from "@buildersgarden/siwa/nonce-store";
 import { createPublicClient, http } from "viem";
 import { baseSepolia } from "viem/chains";
 
 const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(),
+  chain: baseSepolia, transport: http(),
 });
+const nonceStore = createMemorySIWANonceStore();
 
-const fields = parseSIWAMessage(message);
+// Nonce endpoint — issue
+const nonce = await createSIWANonce(params, client, { nonceStore });
+
+// Verify endpoint — consume
 const result = await verifySIWA(
-  message,
-  signature,
-  "api.example.com",
-  (nonce) => validateNonce(nonce), // your nonce check
-  client,
+  message, signature, "api.example.com",
+  { nonceStore }, client,
 );
-
 // result.valid, result.agentId, result.address`;
 
 function HeroSection() {
