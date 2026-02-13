@@ -80,7 +80,7 @@ export default function RootLayout({
               SIWA{" "}
               <span className="text-border mx-2">/</span>{" "}
               <a
-                href="https://eips.ethereum.org/EIPS/eip-8004"
+                href="https://8004.org"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-muted transition-colors duration-200 cursor-pointer"

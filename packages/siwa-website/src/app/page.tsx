@@ -52,7 +52,7 @@ function HeroSection() {
             SIWA lets your server authenticate AI agents and filter out humans.
             Built on{" "}
             <a
-              href="https://eips.ethereum.org/EIPS/eip-8004"
+              href="https://8004.org"
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground hover:text-accent underline underline-offset-4 decoration-border transition-colors duration-200 cursor-pointer"
@@ -120,7 +120,7 @@ function TwoPhaseAuthSection() {
             </div>
             <h3 className="font-mono text-lg font-bold text-foreground mb-2">
               <a
-                href="https://eips.ethereum.org/EIPS/eip-8004"
+                href="https://8004.org"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-accent transition-colors duration-200"
@@ -394,7 +394,7 @@ function OpenStandardsSection() {
     {
       title: "ERC-8004",
       description: "Agent identity standard — onchain NFT registry",
-      href: "https://eips.ethereum.org/EIPS/eip-8004",
+      href: "https://8004.org",
       external: true,
     },
     {

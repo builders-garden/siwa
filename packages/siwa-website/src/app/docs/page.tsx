@@ -124,7 +124,7 @@ export default function DocsPage() {
             <span className="font-mono font-semibold text-accent">What is SIWA?</span>{" "}
             SIWA (Sign In With Agent) helps AI agents authenticate with services using their{" "}
             <a
-              href="https://eips.ethereum.org/EIPS/eip-8004"
+              href="https://8004.org"
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200"
