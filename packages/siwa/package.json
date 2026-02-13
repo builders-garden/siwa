@@ -8,8 +8,8 @@
       "default": "./dist/index.js"
     },
     "./signer": {
-      "types": "./dist/signer.d.ts",
-      "default": "./dist/signer.js"
+      "types": "./dist/signer/index.d.ts",
+      "default": "./dist/signer/index.js"
     },
     "./keystore": {
       "types": "./dist/keystore.d.ts",
@@ -44,12 +44,20 @@
       "default": "./dist/erc8128.js"
     },
     "./next": {
-      "types": "./dist/next.d.ts",
-      "default": "./dist/next.js"
+      "types": "./dist/server-side-wrappers/next.d.ts",
+      "default": "./dist/server-side-wrappers/next.js"
     },
     "./express": {
-      "types": "./dist/express.d.ts",
-      "default": "./dist/express.js"
+      "types": "./dist/server-side-wrappers/express.d.ts",
+      "default": "./dist/server-side-wrappers/express.js"
+    },
+    "./hono": {
+      "types": "./dist/server-side-wrappers/hono.d.ts",
+      "default": "./dist/server-side-wrappers/hono.js"
+    },
+    "./fastify": {
+      "types": "./dist/server-side-wrappers/fastify.d.ts",
+      "default": "./dist/server-side-wrappers/fastify.js"
     },
     "./tba": {
       "types": "./dist/tba.d.ts",
@@ -78,16 +86,41 @@
     "viem": "^2.21.0"
   },
   "peerDependencies": {
-    "express": "^4.0.0 || ^5.0.0"
+    "@circle-fin/developer-controlled-wallets": ">=6.0.0",
+    "@privy-io/node": ">=1.0.0",
+    "express": "^4.0.0 || ^5.0.0",
+    "hono": ">=4.0.0",
+    "fastify": ">=4.0.0",
+    "@fastify/cors": ">=9.0.0"
   },
   "peerDependenciesMeta": {
     "express": {
       "optional": true
+    },
+    "@circle-fin/developer-controlled-wallets": {
+      "optional": true
+    },
+    "@privy-io/node": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "@fastify/cors": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@circle-fin/developer-controlled-wallets": "^10.1.0",
+    "@fastify/cors": "^10.0.0",
+    "@privy-io/node": "^0.8.0",
     "@types/express": "^4.17.0",
     "@types/node": "^25.2.1",
+    "fastify": "^5.0.0",
+    "hono": "^4.0.0",
     "typescript": "^5.5.0"
   }
 }

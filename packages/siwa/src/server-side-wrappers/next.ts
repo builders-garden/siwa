@@ -23,8 +23,8 @@ import {
   resolveReceiptSecret,
   type SiwaAgent,
   type VerifyOptions,
-} from './erc8128.js';
-import type { SignerType } from './signer.js';
+} from '../erc8128.js';
+import type { SignerType } from '../signer/index.js';
 
 export type { SiwaAgent };
 

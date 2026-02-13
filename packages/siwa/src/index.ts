@@ -1,4 +1,4 @@
-export * from './signer.js';
+export * from './signer/index.js';
 export * from './keystore.js';
 export * from './siwa.js';
 export * from './identity.js';

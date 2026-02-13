@@ -20,7 +20,7 @@ import {
 } from 'viem';
 
 import { getRegistryAddress, getAgentRegistryString, RPC_ENDPOINTS } from './addresses.js';
-import type { TransactionSigner } from './signer.js';
+import type { TransactionSigner } from './signer/index.js';
 
 // ─── ERC-8004 Value Types ────────────────────────────────────────────
 
