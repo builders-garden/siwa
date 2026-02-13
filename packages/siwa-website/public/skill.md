@@ -21,14 +21,14 @@ npm install @buildersgarden/siwa
 
 Choose based on your wallet provider:
 
-- [Circle](https://siwa.id/skills/circle/SKILL.md) — Circle developer-controlled wallets
-- [Privy](https://siwa.id/skills/privy/SKILL.md) — Privy server wallets
-- [Private Key](https://siwa.id/skills/private-key/SKILL.md) — Raw private key (viem LocalAccount)
-- [Keyring Proxy](https://siwa.id/skills/keyring-proxy/SKILL.md) — Self-hosted proxy with optional 2FA
+- [Circle](https://siwa.id/skills/circle/skill.md) — Circle developer-controlled wallets
+- [Privy](https://siwa.id/skills/privy/skill.md) — Privy server wallets
+- [Private Key](https://siwa.id/skills/private-key/skill.md) — Raw private key (viem LocalAccount)
+- [Keyring Proxy](https://siwa.id/skills/keyring-proxy/skill.md) — Self-hosted proxy with optional 2FA
 
 ### Server-Side (Verification)
 
-- [Server-Side Verification](https://siwa.id/skills/server-side/SKILL.md) — Next.js, Express, Hono, Fastify
+- [Server-Side Verification](https://siwa.id/skills/server-side/skill.md) — Next.js, Express, Hono, Fastify
 
 ## SDK Modules
 

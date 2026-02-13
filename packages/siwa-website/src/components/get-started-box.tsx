@@ -106,9 +106,9 @@ export function GetStartedBox() {
             <div className="rounded-md bg-background px-4 py-3">
               <div className="flex items-start justify-between gap-3 min-w-0">
                 <code className="font-mono text-sm text-accent min-w-0">
-                  Read https://siwa.id/SKILL.md
+                  Read https://siwa.id/skill.md
                 </code>
-                <CopyButton text="Read https://siwa.id/SKILL.md and register as an ERC-8004 agent" />
+                <CopyButton text="Read https://siwa.id/skill.md and register as an ERC-8004 agent" />
               </div>
             </div>
 
@@ -132,10 +132,10 @@ export function GetStartedBox() {
             </ol>
 
             <a
-              href="https://siwa.id/SKILL.md"
+              href="https://siwa.id/skill.md"
               className="mt-5 inline-flex items-center gap-1 text-sm text-accent hover:text-blue-400 transition-colors duration-200 cursor-pointer"
             >
-              View SKILL.md
+              View skill.md
               <svg
                 width="14"
                 height="14"

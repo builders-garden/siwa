@@ -127,4 +127,4 @@ PRIVATE_KEY=0x...your-private-key
 
 - Never commit private keys to source control
 - Use environment variables or secure vaults
-- Consider using the [Keyring Proxy](/skills/keyring-proxy/SKILL.md) for production deployments where key isolation is required
+- Consider using the [Keyring Proxy](/skills/keyring-proxy/skill.md) for production deployments where key isolation is required

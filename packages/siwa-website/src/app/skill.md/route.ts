@@ -6,7 +6,7 @@ export async function GET() {
     process.cwd(),
     "..",
     "siwa-skill",
-    "SKILL.md"
+    "skill.md"
   );
 
   try {
@@ -18,7 +18,7 @@ export async function GET() {
       },
     });
   } catch {
-    return new Response("# SKILL.md not found\n\nPlease check the deployment configuration.", {
+    return new Response("# skill.md not found\n\nPlease check the deployment configuration.", {
       status: 404,
       headers: { "Content-Type": "text/markdown; charset=utf-8" },
     });
