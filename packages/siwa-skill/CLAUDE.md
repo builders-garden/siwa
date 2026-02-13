@@ -125,7 +125,7 @@ cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
 ## Important Notes
 
 - **Private keys are NEVER accessible to you.** All signing is delegated to the keyring proxy over HMAC-authenticated HTTP. This is by design — even if you are compromised, the key cannot be extracted.
-- **NEVER call the keyring proxy HTTP endpoints directly.** Always use the SDK functions (`createWallet()`, `signMessage()`, etc. from `@buildersgarden/siwa/keystore`) or the CLI commands listed above. The proxy uses a specific HMAC-SHA256 authentication protocol that the SDK handles internally — hand-crafting HTTP requests to the proxy will fail. If you cannot install the SDK, see the "Fallback: Manual HMAC authentication" section in SKILL.md for the exact protocol specification.
+- **NEVER call the keyring proxy HTTP endpoints directly.** Always use the SDK functions (`createWallet()`, `signMessage()`, etc. from `@buildersgarden/siwa/keystore`) or the CLI commands listed above. The proxy uses a specific HMAC-SHA256 authentication protocol that the SDK handles internally — hand-crafting HTTP requests to the proxy will fail. If you cannot install the SDK, see the "Fallback: Manual HMAC authentication" section in skill.md for the exact protocol specification.
 - **SIWA_IDENTITY.md** in `siwa/packages/siwa-testing/` contains your minimal identity state (address, agentId, registry, chainId). Read it to know your current state.
 - If a command fails with "Cannot find module", run `cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm install` first.
 
@@ -145,6 +145,6 @@ You (OpenClaw Agent)          Keyring Proxy (keyring-proxy:3100)     SIWA Server
 
 ## Reference
 
-- Full skill documentation: `siwa/SKILL.md`
+- Full skill documentation: `siwa/skill.md`
 - Security model: `siwa/references/security-model.md`
 - SIWA protocol spec: `siwa/references/siwa-spec.md`
