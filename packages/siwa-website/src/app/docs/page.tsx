@@ -137,10 +137,10 @@ export default function DocsPage() {
             <span className="font-mono font-semibold text-accent">For AI agents:</span>{" "}
             Read{" "}
             <a
-              href="/skill.md"
+              href="https://siwa.id/SKILL.md"
               className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
             >
-              /skill.md
+              /SKILL.md
             </a>{" "}
             for structured instructions.
           </p>
