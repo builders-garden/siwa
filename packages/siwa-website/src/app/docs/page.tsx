@@ -438,8 +438,18 @@ const { message, signature } = await signSIWAMessage({
 
           <SubSection id="signing-siwa" title="SIWA Sign-In">
             <P>
-              Build and sign a SIWA message to prove ownership of an ERC-8004 identity.
+              Build and sign a SIWA message to prove ownership of an ERC-8004 identity. The authentication flow consists of two steps:
             </P>
+            <ul className="space-y-2 mb-4 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">1.</span>
+                <span><strong className="text-foreground">Get a nonce</strong> from the server&apos;s <InlineCode>/siwa/nonce</InlineCode> endpoint</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">2.</span>
+                <span><strong className="text-foreground">Sign and verify</strong> by sending the signature to <InlineCode>/siwa/verify</InlineCode></span>
+              </li>
+            </ul>
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
@@ -450,17 +460,41 @@ const { message, signature } = await signSIWAMessage({
             <P>
               Import from <InlineCode>@buildersgarden/siwa</InlineCode>.
             </P>
-            <CollapsibleCodeBlock title="Sign-In Example" language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
+            <CollapsibleCodeBlock title="Full Authentication Flow" language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
 
+// Step 1: Request nonce from server
+const nonceRes = await fetch("https://api.example.com/siwa/nonce", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    address: await signer.getAddress(),
+    agentId: 42,
+    agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  }),
+});
+const { nonce, issuedAt, expirationTime } = await nonceRes.json();
+
+// Step 2: Sign the SIWA message
 const { message, signature, address } = await signSIWAMessage({
   domain: "api.example.com",
   uri: "https://api.example.com/siwa",
   agentId: 42,
   agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
   chainId: 84532,
-  nonce: nonceFromServer,
-  issuedAt: new Date().toISOString(),
-}, signer);`}</CollapsibleCodeBlock>
+  nonce,
+  issuedAt,
+  expirationTime,
+}, signer);
+
+// Step 3: Send to server for verification
+const verifyRes = await fetch("https://api.example.com/siwa/verify", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message, signature }),
+});
+
+const { receipt, agentId } = await verifyRes.json();
+// Store the receipt for authenticated API calls`}</CollapsibleCodeBlock>
           </SubSection>
 
           <SubSection id="signing-erc8128" title="ERC-8128 Request Signing">
@@ -504,8 +538,18 @@ const response = await fetch(signedRequest);`}</CollapsibleCodeBlock>
 
           <SubSection id="verify-siwa" title="SIWA Verification">
             <P>
-              Verify a signed SIWA message, check onchain ownership, and optionally validate ERC-8004 agent profile criteria.
+              Verify a signed SIWA message, check onchain ownership, and optionally validate ERC-8004 agent profile criteria. Implement two endpoints:
             </P>
+            <ul className="space-y-2 mb-4 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">1.</span>
+                <span><InlineCode>/siwa/nonce</InlineCode> — Issue a nonce for the agent to sign</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">2.</span>
+                <span><InlineCode>/siwa/verify</InlineCode> — Verify the signed message and issue a receipt</span>
+              </li>
+            </ul>
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
@@ -552,10 +596,165 @@ const response = await fetch(signedRequest);`}</CollapsibleCodeBlock>
             </P>
 
             <div className="mt-6 mb-3">
-              <h4 className="font-mono text-sm font-semibold text-foreground">Implementation Examples</h4>
+              <h4 className="font-mono text-sm font-semibold text-foreground">Nonce Endpoint Examples</h4>
+              <p className="text-xs text-dim mt-1">Issue a nonce for the agent to sign. Import <InlineCode>createSIWANonce</InlineCode> from <InlineCode>@buildersgarden/siwa</InlineCode>.</p>
             </div>
 
-            <CollapsibleCodeBlock title="Next.js (App Router)" language="typescript">{`// app/api/siwa/verify/route.ts
+            <CollapsibleCodeBlock title="Next.js Nonce Endpoint" language="typescript">{`// app/api/siwa/nonce/route.ts
+import { createSIWANonce } from "@buildersgarden/siwa";
+import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+// Simple in-memory nonce store (use Redis in production)
+const nonceStore = new Map<string, number>();
+
+export async function POST(req: Request) {
+  const { address, agentId, agentRegistry } = await req.json();
+
+  const result = await createSIWANonce(
+    { address, agentId, agentRegistry },
+    client,
+  );
+
+  // Store nonce for verification
+  nonceStore.set(result.nonce, Date.now());
+
+  return corsJson({
+    nonce: result.nonce,
+    issuedAt: result.issuedAt,
+    expirationTime: result.expirationTime,
+  });
+}
+
+export { siwaOptions as OPTIONS };`}</CollapsibleCodeBlock>
+
+            <CollapsibleCodeBlock title="Express Nonce Endpoint" language="typescript">{`// routes/siwa.ts
+import express from "express";
+import { createSIWANonce } from "@buildersgarden/siwa";
+import { siwaCors, siwaJsonParser } from "@buildersgarden/siwa/express";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const router = express.Router();
+router.use(siwaJsonParser());
+router.use(siwaCors());
+
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+const nonceStore = new Map<string, number>();
+
+router.post("/nonce", async (req, res) => {
+  const { address, agentId, agentRegistry } = req.body;
+
+  const result = await createSIWANonce(
+    { address, agentId, agentRegistry },
+    client,
+  );
+
+  nonceStore.set(result.nonce, Date.now());
+
+  res.json({
+    nonce: result.nonce,
+    issuedAt: result.issuedAt,
+    expirationTime: result.expirationTime,
+  });
+});
+
+export default router;`}</CollapsibleCodeBlock>
+
+            <CollapsibleCodeBlock title="Hono Nonce Endpoint" language="typescript">{`// src/routes/siwa.ts
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { createSIWANonce } from "@buildersgarden/siwa";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const app = new Hono();
+
+app.use("*", cors({
+  origin: "*",
+  allowHeaders: ["Content-Type", "X-SIWA-Receipt", "Signature", "Signature-Input", "Content-Digest"],
+}));
+
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+const nonceStore = new Map<string, number>();
+
+app.post("/nonce", async (c) => {
+  const { address, agentId, agentRegistry } = await c.req.json();
+
+  const result = await createSIWANonce(
+    { address, agentId, agentRegistry },
+    client,
+  );
+
+  nonceStore.set(result.nonce, Date.now());
+
+  return c.json({
+    nonce: result.nonce,
+    issuedAt: result.issuedAt,
+    expirationTime: result.expirationTime,
+  });
+});
+
+export default app;`}</CollapsibleCodeBlock>
+
+            <CollapsibleCodeBlock title="Fastify Nonce Endpoint" language="typescript">{`// src/routes/siwa.ts
+import { FastifyPluginAsync } from "fastify";
+import { createSIWANonce } from "@buildersgarden/siwa";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+const nonceStore = new Map<string, number>();
+
+const siwaRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.post("/nonce", async (req) => {
+    const { address, agentId, agentRegistry } = req.body as {
+      address: string;
+      agentId: number;
+      agentRegistry: string;
+    };
+
+    const result = await createSIWANonce(
+      { address, agentId, agentRegistry },
+      client,
+    );
+
+    nonceStore.set(result.nonce, Date.now());
+
+    return {
+      nonce: result.nonce,
+      issuedAt: result.issuedAt,
+      expirationTime: result.expirationTime,
+    };
+  });
+};
+
+export default siwaRoutes;`}</CollapsibleCodeBlock>
+
+            <div className="mt-6 mb-3">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Verify Endpoint Examples</h4>
+              <p className="text-xs text-dim mt-1">Verify the signed message and issue a receipt.</p>
+            </div>
+
+            <CollapsibleCodeBlock title="Next.js Verify Endpoint" language="typescript">{`// app/api/siwa/verify/route.ts
 import { verifySIWA } from "@buildersgarden/siwa";
 import { createReceipt } from "@buildersgarden/siwa/receipt";
 import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
@@ -608,8 +807,7 @@ export async function POST(req: Request) {
 
 export { siwaOptions as OPTIONS };`}</CollapsibleCodeBlock>
 
-            <CollapsibleCodeBlock title="Express" language="typescript">{`// routes/siwa.ts
-import express from "express";
+            <CollapsibleCodeBlock title="Express Verify Endpoint" language="typescript">{`// routes/siwa.ts (add to same router as nonce)
 import { verifySIWA } from "@buildersgarden/siwa";
 import { createReceipt } from "@buildersgarden/siwa/receipt";
 import { siwaCors, siwaJsonParser } from "@buildersgarden/siwa/express";
@@ -665,9 +863,7 @@ router.post("/verify", async (req, res) => {
 
 export default router;`}</CollapsibleCodeBlock>
 
-            <CollapsibleCodeBlock title="Hono" language="typescript">{`// src/routes/siwa.ts
-import { Hono } from "hono";
-import { cors } from "hono/cors";
+            <CollapsibleCodeBlock title="Hono Verify Endpoint" language="typescript">{`// src/routes/siwa.ts (add to same app as nonce)
 import { verifySIWA } from "@buildersgarden/siwa";
 import { createReceipt } from "@buildersgarden/siwa/receipt";
 import { createPublicClient, http } from "viem";
@@ -724,8 +920,7 @@ app.post("/verify", async (c) => {
 
 export default app;`}</CollapsibleCodeBlock>
 
-            <CollapsibleCodeBlock title="Fastify" language="typescript">{`// src/routes/siwa.ts
-import { FastifyPluginAsync } from "fastify";
+            <CollapsibleCodeBlock title="Fastify Verify Endpoint" language="typescript">{`// src/routes/siwa.ts (add to same plugin as nonce)
 import { verifySIWA } from "@buildersgarden/siwa";
 import { createReceipt } from "@buildersgarden/siwa/receipt";
 import { createPublicClient, http } from "viem";
