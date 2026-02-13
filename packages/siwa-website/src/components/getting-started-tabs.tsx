@@ -155,7 +155,7 @@ const response = await fetch(signedRequest);`}</CodeBlock>
             <P>
               Add <InlineCode>/siwa/nonce</InlineCode> and <InlineCode>/siwa/verify</InlineCode> endpoints. The nonce endpoint issues challenges; the verify endpoint validates signatures and checks onchain ownership.
             </P>
-            <CodeBlock language="typescript">{`import { verifySIWA } from "@buildersgarden/siwa";
+            <CodeBlock language="typescript">{`import { verifySIWA, parseSIWAMessage } from "@buildersgarden/siwa";
 import { createReceipt } from "@buildersgarden/siwa/receipt";
 import { createPublicClient, http } from "viem";
 import { baseSepolia } from "viem/chains";
@@ -173,29 +173,30 @@ app.post("/siwa/nonce", (req, res) => {
 // POST /siwa/verify - Validate signature and onchain ownership
 app.post("/siwa/verify", async (req, res) => {
   const { message, signature } = req.body;
+  const fields = parseSIWAMessage(message);
 
-  const result = await verifySIWA(message, signature, {
+  const result = await verifySIWA(
+    message,
+    signature,
+    "api.example.com",
+    (nonce) => nonceStore.delete(nonce), // validate + consume
     client,
-    expectedDomain: "api.example.com",
-    expectedAgentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
-  });
+  );
 
-  if (!result.success) {
+  if (!result.valid) {
     return res.status(401).json({ error: result.error });
   }
 
-  // Consume nonce (one-time use)
-  nonceStore.delete(result.data.nonce);
-
   // Issue a receipt for authenticated requests
   const { receipt } = createReceipt({
-    address: result.data.address,
-    agentId: result.data.agentId,
-    agentRegistry: result.data.agentRegistry,
-    chainId: result.data.chainId,
-  }, { secret: process.env.RECEIPT_SECRET!, expiresInSeconds: 3600 });
+    address: result.address,
+    agentId: result.agentId,
+    agentRegistry: result.agentRegistry,
+    chainId: result.chainId,
+    verified: result.verified,
+  }, { secret: process.env.RECEIPT_SECRET! });
 
-  res.json({ receipt, agentId: result.data.agentId });
+  res.json({ receipt, agentId: result.agentId });
 });`}</CodeBlock>
           </Step>
 

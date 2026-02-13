@@ -363,16 +363,18 @@ const client = createPublicClient({
   transport: http(process.env.RPC_URL),
 });
 
-const result = await verifySIWA(message, signature, {
+const result = await verifySIWA(
+  message,
+  signature,
+  "api.example.com",
+  (nonce) => validateAndConsumeNonce(nonce),
   client,
-  expectedDomain: "api.example.com",
-  expectedAgentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
-  allowedSignerTypes: ['eoa', 'sca'],  // optional: restrict signer types
-});
+  { allowedSignerTypes: ['eoa', 'sca'] },  // optional criteria
+);
 
-if (result.success) {
-  console.log("Verified agent:", result.data.agentId);
-  console.log("Signer type:", result.data.signerType); // 'eoa' or 'sca'
+if (result.valid) {
+  console.log("Verified agent:", result.agentId);
+  console.log("Signer type:", result.signerType); // 'eoa' or 'sca'
 }
 ```
 
@@ -458,7 +460,7 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 | Export | Description |
 |--------|-------------|
 | `signSIWAMessage(fields, signer)` | Sign a SIWA authentication message |
-| `verifySIWA(message, signature, options)` | Verify SIWA signature + onchain registration. Options: `client`, `expectedDomain`, `expectedAgentRegistry`, `skipOnchainVerification`, `allowedSignerTypes`. Result includes `signerType`. |
+| `verifySIWA(message, signature, domain, nonceValid, client, criteria?)` | Verify SIWA signature + onchain registration. Criteria: `allowedSignerTypes`, `requiredServices`, `requiredTrust`, `minScore`, `custom`. Result includes `signerType`. |
 | `parseSIWAMessage(message)` | Parse SIWA message string to fields |
 | `buildSIWAMessage(fields)` | Build SIWA message from fields |
 
