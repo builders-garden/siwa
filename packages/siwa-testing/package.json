@@ -15,6 +15,7 @@
     "test:signers": "tsx agent/cli.ts test-signers",
     "test:viem": "tsx agent/cli.ts test-viem",
     "test:keyring": "tsx agent/cli.ts test-keyring",
+    "test:nonce": "tsx agent/cli.ts test-nonce",
     "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\""
   },
   "dependencies": {

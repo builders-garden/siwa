@@ -32,9 +32,15 @@ const sections: {
     id: "signing",
     children: [
       {
-        label: "Signers",
+        label: "Agentic Wallets",
         items: [
-          { title: "Agentic Wallets", id: "wallet-privy" },
+          { title: "Circle", id: "wallet-circle" },
+          { title: "Privy", id: "wallet-privy" },
+        ],
+      },
+      {
+        label: "Other Signers",
+        items: [
           { title: "Private Key", id: "wallet-privatekey" },
           { title: "Keyring Proxy", id: "wallet-keyring" },
           { title: "Smart Accounts", id: "smart-accounts" },
@@ -64,7 +70,15 @@ const sections: {
         label: "Auth State",
         items: [
           { title: "Receipts", id: "verify-receipts" },
-          { title: "Server Middleware", id: "verify-wrappers" },
+        ],
+      },
+      {
+        label: "Server Middleware",
+        items: [
+          { title: "Next.js", id: "verify-wrappers-next" },
+          { title: "Express", id: "verify-wrappers-express" },
+          { title: "Hono", id: "verify-wrappers-hono" },
+          { title: "Fastify", id: "verify-wrappers-fastify" },
         ],
       },
       {

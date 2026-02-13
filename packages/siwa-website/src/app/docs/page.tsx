@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { DocsSidebar } from "@/components/docs-sidebar";
 import { CopyableAddress } from "@/components/copyable-address";
-import { CodeBlock } from "@/components/code-block";
+import { CodeBlock, CollapsibleCodeBlock } from "@/components/code-block";
 import { ImageModal } from "@/components/image-modal";
 import { GettingStartedTabs } from "@/components/getting-started-tabs";
 
@@ -158,7 +158,7 @@ export default function DocsPage() {
             </li>
             <li className="flex gap-3">
               <span className="text-accent shrink-0">&#x2022;</span>
-              <span><strong className="text-foreground">Server-side:</strong> Verify signatures and check onchain registration</span>
+              <span><strong className="text-foreground">Server-side:</strong> Verify signatures and check onchain registration with multiple modular criteria</span>
             </li>
           </ul>
 
@@ -248,47 +248,131 @@ export default function DocsPage() {
             Everything an agent needs to authenticate: choose a signer, sign SIWA messages for initial sign-in, then sign subsequent API requests with ERC-8128. <br></br> SIWA supports both <strong className="text-foreground">EOA</strong> (Externally Owned Account) and <strong className="text-foreground">SCA</strong> (Smart Contract Account) signers — agents backed by smart wallets like Safe, Base Accounts, or ERC-6551 Token Bound Accounts work alongside traditional EOA-based agents.
           </P>
 
-          <SubSection id="wallet-privy" title="Agentic Wallets (Privy, Coinbase, Circle)">
+          <SubSection id="wallet-circle" title="Circle">
             <P>
-              For agentic wallet providers that give you a WalletClient or EIP-1193 provider:
+              Circle&apos;s developer-controlled wallets provide secure key management for AI agents. Install the Circle SDK alongside SIWA:
             </P>
-            <CodeBlock language="typescript">{`import { createWalletClientSigner } from "@buildersgarden/siwa/signer";
-import { createWalletClient, custom } from "viem";
-import { baseSepolia } from "viem/chains";
+            <CodeBlock language="bash">{`npm install @circle-fin/developer-controlled-wallets`}</CodeBlock>
+            <P>
+              Create a signer from your Circle wallet credentials:
+            </P>
+            <CollapsibleCodeBlock title="Circle Signer Example" language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
+import { createCircleSiwaSigner } from "@buildersgarden/siwa/signer";
 
-// Privy example
-const provider = await privyWallet.getEthereumProvider();
-const walletClient = createWalletClient({
-  chain: baseSepolia,
-  transport: custom(provider),
+// Create signer - wallet address is fetched automatically from Circle
+const signer = await createCircleSiwaSigner({
+  apiKey: process.env.CIRCLE_API_KEY!,
+  entitySecret: process.env.CIRCLE_ENTITY_SECRET!,
+  walletId: process.env.CIRCLE_WALLET_ID!,
 });
-const signer = createWalletClientSigner(walletClient);
 
-// Now use with SIWA
-const { message, signature } = await signSIWAMessage(fields, signer);`}</CodeBlock>
+// Sign SIWA message
+const { message, signature, address } = await signSIWAMessage({
+  domain: "api.example.com",
+  uri: "https://api.example.com/siwa",
+  agentId: 42,
+  agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  chainId: 84532,
+  nonce,
+  issuedAt: new Date().toISOString(),
+}, signer);`}</CollapsibleCodeBlock>
+            <P>
+              If you already have a Circle client instance, use <InlineCode>createCircleSiwaSignerFromClient</InlineCode>:
+            </P>
+            <CollapsibleCodeBlock title="From Existing Client" language="typescript">{`import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
+import { createCircleSiwaSignerFromClient } from "@buildersgarden/siwa/signer";
+
+const client = initiateDeveloperControlledWalletsClient({
+  apiKey: process.env.CIRCLE_API_KEY!,
+  entitySecret: process.env.CIRCLE_ENTITY_SECRET!,
+});
+
+const signer = await createCircleSiwaSignerFromClient({
+  client,
+  walletId: process.env.CIRCLE_WALLET_ID!,
+});`}</CollapsibleCodeBlock>
+          </SubSection>
+
+          <SubSection id="wallet-privy" title="Privy">
+            <P>
+              Privy&apos;s server wallets provide embedded wallet infrastructure for AI agents. Install the Privy Node SDK alongside SIWA:
+            </P>
+            <CodeBlock language="bash">{`npm install @privy-io/node`}</CodeBlock>
+            <P>
+              Create a signer from your Privy wallet:
+            </P>
+            <CollapsibleCodeBlock title="Privy Signer Example" language="typescript">{`import { PrivyClient } from "@privy-io/node";
+import { signSIWAMessage } from "@buildersgarden/siwa";
+import { createPrivySiwaSigner } from "@buildersgarden/siwa/signer";
+
+const privy = new PrivyClient({
+  appId: process.env.PRIVY_APP_ID!,
+  appSecret: process.env.PRIVY_APP_SECRET!,
+});
+
+const signer = createPrivySiwaSigner({
+  client: privy,
+  walletId: process.env.PRIVY_WALLET_ID!,
+  walletAddress: process.env.PRIVY_WALLET_ADDRESS! as \`0x\${string}\`,
+});
+
+// Sign SIWA message
+const { message, signature, address } = await signSIWAMessage({
+  domain: "api.example.com",
+  uri: "https://api.example.com/siwa",
+  agentId: 42,
+  agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  chainId: 84532,
+  nonce,
+  issuedAt: new Date().toISOString(),
+}, signer);`}</CollapsibleCodeBlock>
           </SubSection>
 
           <SubSection id="wallet-privatekey" title="Private Key (Backend Scripts)">
             <P>
               For server-side agents or scripts with direct private key access:
             </P>
-            <CodeBlock language="typescript">{`import { createLocalAccountSigner } from "@buildersgarden/siwa/signer";
+            <CollapsibleCodeBlock title="Private Key Signer Example" language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
+import { createLocalAccountSigner } from "@buildersgarden/siwa/signer";
 import { privateKeyToAccount } from "viem/accounts";
 
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as \`0x\${string}\`);
-const signer = createLocalAccountSigner(account);`}</CodeBlock>
+const signer = createLocalAccountSigner(account);
+
+// Sign SIWA message
+const { message, signature } = await signSIWAMessage({
+  domain: "api.example.com",
+  uri: "https://api.example.com/siwa",
+  agentId: 42,
+  agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  chainId: 84532,
+  nonce,
+  issuedAt: new Date().toISOString(),
+}, signer);`}</CollapsibleCodeBlock>
           </SubSection>
 
           <SubSection id="wallet-keyring" title="Keyring Proxy (Self-Hosted, Non-Custodial)">
             <P>
               For AI agents that need secure key isolation, we provide an optional <strong className="text-foreground">keyring proxy</strong> — a separate service that holds the encrypted private key and performs all signing. The agent never touches the key.
             </P>
-            <CodeBlock language="typescript">{`import { createKeyringProxySigner } from "@buildersgarden/siwa/signer";
+            <CollapsibleCodeBlock title="Keyring Proxy Example" language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
+import { createKeyringProxySigner } from "@buildersgarden/siwa/signer";
 
 const signer = createKeyringProxySigner({
   proxyUrl: process.env.KEYRING_PROXY_URL,
   proxySecret: process.env.KEYRING_PROXY_SECRET,
-});`}</CodeBlock>
+});
+
+// Sign SIWA message
+const { message, signature } = await signSIWAMessage({
+  domain: "api.example.com",
+  uri: "https://api.example.com/siwa",
+  agentId: 42,
+  agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  chainId: 84532,
+  nonce,
+  issuedAt: new Date().toISOString(),
+}, signer);`}</CollapsibleCodeBlock>
             <P>
               The keyring proxy is completely optional. It&apos;s useful when you want:
             </P>
@@ -322,7 +406,8 @@ const signer = createKeyringProxySigner({
             <P>
               Smart contract wallets (Safe, ZeroDev/Kernel, Coinbase Smart Wallet) work with the same <InlineCode>createWalletClientSigner</InlineCode> — their SDKs expose a standard WalletClient or EIP-1193 provider. The SDK detects the signer type automatically during verification via ERC-1271.
             </P>
-            <CodeBlock language="typescript">{`import { createWalletClientSigner } from "@buildersgarden/siwa/signer";
+            <CollapsibleCodeBlock title="Smart Account Example" language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
+import { createWalletClientSigner } from "@buildersgarden/siwa/signer";
 import { createWalletClient, custom } from "viem";
 import { baseSepolia } from "viem/chains";
 
@@ -336,11 +421,19 @@ const walletClient = createWalletClient({
 const signer = createWalletClientSigner(walletClient);
 
 // ZeroDev / Kernel example
-const walletClient = kernelClient.toWalletClient();
-const signer = createWalletClientSigner(walletClient);
+// const walletClient = kernelClient.toWalletClient();
+// const signer = createWalletClientSigner(walletClient);
 
-// Then use with SIWA — same as any other signer
-const { message, signature } = await signSIWAMessage(fields, signer);`}</CodeBlock>
+// Sign SIWA message — same as any other signer
+const { message, signature } = await signSIWAMessage({
+  domain: "api.example.com",
+  uri: "https://api.example.com/siwa",
+  agentId: 42,
+  agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  chainId: 84532,
+  nonce,
+  issuedAt: new Date().toISOString(),
+}, signer);`}</CollapsibleCodeBlock>
           </SubSection>
 
           <SubSection id="signing-siwa" title="SIWA Sign-In">
@@ -357,7 +450,7 @@ const { message, signature } = await signSIWAMessage(fields, signer);`}</CodeBlo
             <P>
               Import from <InlineCode>@buildersgarden/siwa</InlineCode>.
             </P>
-            <CodeBlock language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
+            <CollapsibleCodeBlock title="Sign-In Example" language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
 
 const { message, signature, address } = await signSIWAMessage({
   domain: "api.example.com",
@@ -367,7 +460,7 @@ const { message, signature, address } = await signSIWAMessage({
   chainId: 84532,
   nonce: nonceFromServer,
   issuedAt: new Date().toISOString(),
-}, signer);`}</CodeBlock>
+}, signer);`}</CollapsibleCodeBlock>
           </SubSection>
 
           <SubSection id="signing-erc8128" title="ERC-8128 Request Signing">
@@ -384,7 +477,7 @@ const { message, signature, address } = await signSIWAMessage({
             <P>
               Import from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode>.
             </P>
-            <CodeBlock language="typescript">{`import { signAuthenticatedRequest } from "@buildersgarden/siwa/erc8128";
+            <CollapsibleCodeBlock title="Request Signing Example" language="typescript">{`import { signAuthenticatedRequest } from "@buildersgarden/siwa/erc8128";
 
 const request = new Request("https://api.example.com/action", {
   method: "POST",
@@ -399,7 +492,7 @@ const signedRequest = await signAuthenticatedRequest(
   84532
 );
 
-const response = await fetch(signedRequest);`}</CodeBlock>
+const response = await fetch(signedRequest);`}</CollapsibleCodeBlock>
           </SubSection>
         </Section>
 
@@ -411,12 +504,12 @@ const response = await fetch(signedRequest);`}</CodeBlock>
 
           <SubSection id="verify-siwa" title="SIWA Verification">
             <P>
-              Verify a signed SIWA message and check onchain ownership.
+              Verify a signed SIWA message, check onchain ownership, and optionally validate ERC-8004 agent profile criteria.
             </P>
             <Table
               headers={["Function", "Returns", "Description"]}
               rows={[
-                ["verifySIWA(msg, sig, domain, nonceValid, client, criteria?)", "SIWAVerificationResult", "Verify signature + onchain ownership."],
+                ["verifySIWA(msg, sig, domain, nonceValid, client, criteria?)", "SIWAVerificationResult", "Verify signature + onchain ownership + criteria."],
                 ["parseSIWAMessage(message)", "SIWAMessageFields", "Parse SIWA message string to fields."],
               ]}
             />
@@ -431,13 +524,41 @@ const response = await fetch(signedRequest);`}</CodeBlock>
                 ["expectedDomain", "string", "Must match message domain."],
                 ["nonceValid", "function | object", <>Nonce validator: callback (nonce) =&gt; boolean, {"{ nonceToken, secret }"} for stateless, or {"{ nonceStore }"} for store-based replay protection. See <a href="#nonce-store" className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200">Nonce Store</a>.</>],
                 ["client", "PublicClient", "viem PublicClient for onchain verification."],
-                ["criteria?", "SIWAVerifyCriteria", "Optional: allowedSignerTypes, requiredServices, requiredTrust, minScore, custom."],
+                ["criteria?", "SIWAVerifyCriteria", "Optional criteria to filter agents (see below)."],
+              ]}
+            />
+
+            <div className="mt-4 mb-4">
+              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Criteria Options</h4>
+            </div>
+            <P>
+              Use criteria to enforce policies on which agents can authenticate. These are checked during sign-in and encoded into the receipt.
+            </P>
+            <Table
+              headers={["Criteria", "Type", "Description"]}
+              rows={[
+                ["allowedSignerTypes", "('eoa' | 'sca')[]", "Restrict to EOA-only or allow smart contract accounts."],
+                ["mustBeActive", "boolean", "Require agent metadata.active === true."],
+                ["requiredServices", "string[]", "Agent must support these services (e.g., 'llm', 'web3')."],
+                ["requiredTrust", "string[]", "Agent must support these trust models (e.g., 'tee', 'crypto-economic')."],
+                ["minScore", "number", "Minimum reputation score (requires reputationRegistryAddress)."],
+                ["minFeedbackCount", "number", "Minimum feedback count (requires reputationRegistryAddress)."],
+                ["reputationRegistryAddress", "string", "Reputation registry address for score/feedback checks."],
+                ["custom", "(agent) => Promise<boolean>", "Custom validation function with full agent profile."],
               ]}
             />
             <P>
-              The result includes a <InlineCode>signerType</InlineCode> field indicating whether the signer is an EOA or smart contract account.
+              The result includes <InlineCode>signerType</InlineCode> and optionally <InlineCode>agent</InlineCode> (full profile if criteria fetched metadata).
             </P>
-            <CodeBlock language="typescript">{`import { verifySIWA, parseSIWAMessage } from "@buildersgarden/siwa";
+
+            <div className="mt-6 mb-3">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Implementation Examples</h4>
+            </div>
+
+            <CollapsibleCodeBlock title="Next.js (App Router)" language="typescript">{`// app/api/siwa/verify/route.ts
+import { verifySIWA } from "@buildersgarden/siwa";
+import { createReceipt } from "@buildersgarden/siwa/receipt";
+import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
 import { createPublicClient, http } from "viem";
 import { baseSepolia } from "viem/chains";
 
@@ -446,19 +567,215 @@ const client = createPublicClient({
   transport: http(process.env.RPC_URL),
 });
 
-const result = await verifySIWA(
-  message,
-  signature,
-  "api.example.com",
-  (nonce) => validateAndConsumeNonce(nonce),
-  client,
-  { allowedSignerTypes: ['eoa', 'sca'] },  // optional criteria
-);
+// Simple in-memory nonce store (use Redis in production)
+const nonceStore = new Map<string, number>();
 
-if (result.valid) {
-  console.log("Verified agent:", result.agentId);
-  console.log("Signer type:", result.signerType); // 'eoa' or 'sca'
-}`}</CodeBlock>
+export async function POST(req: Request) {
+  const { message, signature } = await req.json();
+
+  const result = await verifySIWA(
+    message,
+    signature,
+    "api.example.com",
+    (nonce) => {
+      if (!nonceStore.has(nonce)) return false;
+      nonceStore.delete(nonce); // consume nonce
+      return true;
+    },
+    client,
+    {
+      allowedSignerTypes: ["eoa", "sca"],
+      mustBeActive: true,
+      requiredServices: ["llm"],
+    }
+  );
+
+  if (!result.valid) {
+    return corsJson({ error: result.error }, { status: 401 });
+  }
+
+  // Issue receipt for authenticated requests
+  const { receipt } = createReceipt({
+    address: result.address,
+    agentId: result.agentId,
+    agentRegistry: result.agentRegistry,
+    chainId: result.chainId,
+    signerType: result.signerType,
+  }, { secret: process.env.RECEIPT_SECRET! });
+
+  return corsJson({ receipt, agentId: result.agentId });
+}
+
+export { siwaOptions as OPTIONS };`}</CollapsibleCodeBlock>
+
+            <CollapsibleCodeBlock title="Express" language="typescript">{`// routes/siwa.ts
+import express from "express";
+import { verifySIWA } from "@buildersgarden/siwa";
+import { createReceipt } from "@buildersgarden/siwa/receipt";
+import { siwaCors, siwaJsonParser } from "@buildersgarden/siwa/express";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const router = express.Router();
+router.use(siwaJsonParser());
+router.use(siwaCors());
+
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+// Simple in-memory nonce store (use Redis in production)
+const nonceStore = new Map<string, number>();
+
+router.post("/verify", async (req, res) => {
+  const { message, signature } = req.body;
+
+  const result = await verifySIWA(
+    message,
+    signature,
+    "api.example.com",
+    (nonce) => {
+      if (!nonceStore.has(nonce)) return false;
+      nonceStore.delete(nonce);
+      return true;
+    },
+    client,
+    {
+      allowedSignerTypes: ["eoa", "sca"],
+      mustBeActive: true,
+      requiredServices: ["llm"],
+    }
+  );
+
+  if (!result.valid) {
+    return res.status(401).json({ error: result.error });
+  }
+
+  const { receipt } = createReceipt({
+    address: result.address,
+    agentId: result.agentId,
+    agentRegistry: result.agentRegistry,
+    chainId: result.chainId,
+    signerType: result.signerType,
+  }, { secret: process.env.RECEIPT_SECRET! });
+
+  res.json({ receipt, agentId: result.agentId });
+});
+
+export default router;`}</CollapsibleCodeBlock>
+
+            <CollapsibleCodeBlock title="Hono" language="typescript">{`// src/routes/siwa.ts
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { verifySIWA } from "@buildersgarden/siwa";
+import { createReceipt } from "@buildersgarden/siwa/receipt";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const app = new Hono();
+
+app.use("*", cors({
+  origin: "*",
+  allowHeaders: ["Content-Type", "X-SIWA-Receipt", "Signature", "Signature-Input", "Content-Digest"],
+}));
+
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+const nonceStore = new Map<string, number>();
+
+app.post("/verify", async (c) => {
+  const { message, signature } = await c.req.json();
+
+  const result = await verifySIWA(
+    message,
+    signature,
+    "api.example.com",
+    (nonce) => {
+      if (!nonceStore.has(nonce)) return false;
+      nonceStore.delete(nonce);
+      return true;
+    },
+    client,
+    {
+      allowedSignerTypes: ["eoa", "sca"],
+      mustBeActive: true,
+      requiredServices: ["llm"],
+    }
+  );
+
+  if (!result.valid) {
+    return c.json({ error: result.error }, 401);
+  }
+
+  const { receipt } = createReceipt({
+    address: result.address,
+    agentId: result.agentId,
+    agentRegistry: result.agentRegistry,
+    chainId: result.chainId,
+    signerType: result.signerType,
+  }, { secret: process.env.RECEIPT_SECRET! });
+
+  return c.json({ receipt, agentId: result.agentId });
+});
+
+export default app;`}</CollapsibleCodeBlock>
+
+            <CollapsibleCodeBlock title="Fastify" language="typescript">{`// src/routes/siwa.ts
+import { FastifyPluginAsync } from "fastify";
+import { verifySIWA } from "@buildersgarden/siwa";
+import { createReceipt } from "@buildersgarden/siwa/receipt";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const client = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+const nonceStore = new Map<string, number>();
+
+const siwaRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.post("/verify", async (req, reply) => {
+    const { message, signature } = req.body as { message: string; signature: string };
+
+    const result = await verifySIWA(
+      message,
+      signature,
+      "api.example.com",
+      (nonce) => {
+        if (!nonceStore.has(nonce)) return false;
+        nonceStore.delete(nonce);
+        return true;
+      },
+      client,
+      {
+        allowedSignerTypes: ["eoa", "sca"],
+        mustBeActive: true,
+        requiredServices: ["llm"],
+      }
+    );
+
+    if (!result.valid) {
+      return reply.status(401).send({ error: result.error });
+    }
+
+    const { receipt } = createReceipt({
+      address: result.address,
+      agentId: result.agentId,
+      agentRegistry: result.agentRegistry,
+      chainId: result.chainId,
+      signerType: result.signerType,
+    }, { secret: process.env.RECEIPT_SECRET! });
+
+    return { receipt, agentId: result.agentId };
+  });
+};
+
+export default siwaRoutes;`}</CollapsibleCodeBlock>
           </SubSection>
 
           <SubSection id="verify-erc8128" title="ERC-8128 Request Verification">
@@ -502,49 +819,215 @@ if (result.valid) {
 
           <SubSection id="verify-wrappers" title="Server Middleware">
             <P>
-              Drop-in middleware for Express and Next.js that handles ERC-8128 verification, receipt checking, and CORS automatically.
+              Drop-in middleware for popular frameworks. Each handles ERC-8128 verification, receipt checking, and CORS.
             </P>
 
-            <div id="verify-wrappers-next" className="scroll-mt-20 mt-6 mb-4">
-              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Next.js</h4>
+            <div className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 mb-6">
+              <p className="text-sm text-muted leading-relaxed">
+                <span className="font-mono font-semibold text-accent">Note:</span>{" "}
+                ERC-8004 criteria (reputation, services, trust models) are checked during SIWA sign-in via{" "}
+                <InlineCode>verifySIWA()</InlineCode>. The middleware below verifies ERC-8128 signatures on subsequent requests — it accepts{" "}
+                <InlineCode>allowedSignerTypes</InlineCode> and <InlineCode>verifyOnchain</InlineCode> options for per-request policy.
+              </p>
             </div>
+
             <Table
-              headers={["Export", "Description"]}
+              headers={["Option", "Type", "Description"]}
               rows={[
-                ["withSiwa(handler, options?)", "Wrap route handler with ERC-8128 auth."],
-                ["siwaOptions()", "Return 204 OPTIONS response with CORS."],
-                ["corsJson(data, init?)", "JSON Response with CORS headers."],
+                ["receiptSecret", "string", "HMAC secret for receipt verification. Defaults to RECEIPT_SECRET env."],
+                ["allowedSignerTypes", "('eoa' | 'sca')[]", "Restrict to EOA-only or SCA-only agents."],
+                ["verifyOnchain", "boolean", "Re-check ownerOf on every request (slower but more secure)."],
+                ["rpcUrl", "string", "RPC URL for onchain verification."],
+                ["publicClient", "PublicClient", "viem PublicClient for ERC-1271 smart account signatures."],
               ]}
             />
-            <CodeBlock language="typescript">{`import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
 
-export const POST = withSiwa(async (agent, req) => {
-  return { agent: { address: agent.address, agentId: agent.agentId } };
-});
-
-export { siwaOptions as OPTIONS };`}</CodeBlock>
-
-            <div id="verify-wrappers-express" className="scroll-mt-20 mt-6 mb-4">
-              <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Express</h4>
+            <div id="verify-wrappers-next" className="scroll-mt-20 mt-8 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Next.js (App Router)</h4>
+              <p className="text-xs text-dim mb-3">Import from <InlineCode>@buildersgarden/siwa/next</InlineCode> — exports: withSiwa, siwaOptions, corsJson</p>
             </div>
-            <Table
-              headers={["Export", "Description"]}
-              rows={[
-                ["siwaMiddleware(options?)", "Auth middleware for protected routes."],
-                ["siwaJsonParser()", "JSON parser with rawBody capture."],
-                ["siwaCors(options?)", "CORS middleware with SIWA headers."],
-              ]}
-            />
-            <CodeBlock language="typescript">{`import express from "express";
+            <CollapsibleCodeBlock title="Next.js Example" language="typescript">{`// app/api/protected/route.ts
+import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
+
+export const POST = withSiwa(
+  async (agent, req) => {
+    // agent.address, agent.agentId, agent.chainId, agent.signerType
+    const body = await req.json();
+    return { received: body, agent };
+  },
+  {
+    // Optional: restrict to EOA-only agents
+    allowedSignerTypes: ["eoa"],
+    // Optional: re-verify onchain ownership on every request
+    verifyOnchain: true,
+    rpcUrl: process.env.RPC_URL,
+  }
+);
+
+export { siwaOptions as OPTIONS };`}</CollapsibleCodeBlock>
+
+            <div id="verify-wrappers-express" className="scroll-mt-20 mt-8 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Express</h4>
+              <p className="text-xs text-dim mb-3">Import from <InlineCode>@buildersgarden/siwa/express</InlineCode> — exports: siwaMiddleware, siwaJsonParser, siwaCors</p>
+            </div>
+            <CollapsibleCodeBlock title="Express Example" language="typescript">{`import express from "express";
 import { siwaMiddleware, siwaJsonParser, siwaCors } from "@buildersgarden/siwa/express";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
 
 const app = express();
 app.use(siwaJsonParser());
 app.use(siwaCors());
 
-app.get("/api/protected", siwaMiddleware(), (req, res) => {
-  res.json({ agent: req.agent });
-});`}</CodeBlock>
+// Optional: create a public client for ERC-1271 smart account support
+const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+app.post(
+  "/api/protected",
+  siwaMiddleware({
+    // Optional: allow both EOA and smart contract accounts
+    allowedSignerTypes: ["eoa", "sca"],
+    // Optional: pass publicClient for ERC-1271 signature verification
+    publicClient,
+    // Optional: re-verify onchain on every request
+    verifyOnchain: false,
+  }),
+  (req, res) => {
+    // req.agent contains { address, agentId, chainId, agentRegistry, signerType }
+    res.json({ agent: req.agent });
+  }
+);`}</CollapsibleCodeBlock>
+
+            <div id="verify-wrappers-hono" className="scroll-mt-20 mt-8 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Hono</h4>
+              <p className="text-xs text-dim mb-3">Uses web standard Request/Response — import <InlineCode>verifyAuthenticatedRequest</InlineCode> from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode></p>
+            </div>
+            <CollapsibleCodeBlock title="Hono Example" language="typescript">{`import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { verifyAuthenticatedRequest, type VerifyOptions } from "@buildersgarden/siwa/erc8128";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const app = new Hono();
+
+// CORS with SIWA headers
+app.use("*", cors({
+  origin: "*",
+  allowHeaders: ["Content-Type", "X-SIWA-Receipt", "Signature", "Signature-Input", "Content-Digest"],
+}));
+
+// Optional: public client for ERC-1271 smart account support
+const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+// Configurable SIWA auth middleware factory
+function siwaAuth(options?: Partial<VerifyOptions>) {
+  return async (c, next) => {
+    const result = await verifyAuthenticatedRequest(c.req.raw, {
+      receiptSecret: process.env.RECEIPT_SECRET!,
+      ...options,
+    });
+
+    if (!result.valid) {
+      return c.json({ error: result.error }, 401);
+    }
+
+    c.set("agent", result.agent);
+    await next();
+  };
+}
+
+// Route with EOA-only policy
+app.post("/api/eoa-only", siwaAuth({ allowedSignerTypes: ["eoa"] }), (c) => {
+  return c.json({ agent: c.get("agent") });
+});
+
+// Route allowing smart accounts with ERC-1271 verification
+app.post("/api/with-sca", siwaAuth({ publicClient, allowedSignerTypes: ["eoa", "sca"] }), (c) => {
+  return c.json({ agent: c.get("agent") });
+});
+
+// Route with onchain re-verification on every request
+app.post("/api/high-security", siwaAuth({ verifyOnchain: true, rpcUrl: process.env.RPC_URL }), (c) => {
+  return c.json({ agent: c.get("agent") });
+});
+
+export default app;`}</CollapsibleCodeBlock>
+
+            <div id="verify-wrappers-fastify" className="scroll-mt-20 mt-8 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Fastify</h4>
+              <p className="text-xs text-dim mb-3">Uses preHandler hooks — import <InlineCode>verifyAuthenticatedRequest</InlineCode> from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode></p>
+            </div>
+            <CollapsibleCodeBlock title="Fastify Example" language="typescript">{`import Fastify from "fastify";
+import cors from "@fastify/cors";
+import { verifyAuthenticatedRequest, type VerifyOptions } from "@buildersgarden/siwa/erc8128";
+import { createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+
+const fastify = Fastify();
+
+await fastify.register(cors, {
+  origin: true,
+  allowedHeaders: ["Content-Type", "X-SIWA-Receipt", "Signature", "Signature-Input", "Content-Digest"],
+});
+
+// Optional: public client for ERC-1271 smart account support
+const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(process.env.RPC_URL),
+});
+
+// Convert Fastify request to Fetch Request
+function toFetchRequest(req) {
+  const url = \`\${req.protocol}://\${req.hostname}\${req.url}\`;
+  return new Request(url, {
+    method: req.method,
+    headers: req.headers as HeadersInit,
+    body: req.method !== "GET" && req.method !== "HEAD" ? JSON.stringify(req.body) : undefined,
+  });
+}
+
+// Configurable SIWA auth decorator
+function siwaAuth(options?: Partial<VerifyOptions>) {
+  return async (req, reply) => {
+    if (!req.headers["signature"] || !req.headers["x-siwa-receipt"]) {
+      return reply.status(401).send({ error: "Missing SIWA authentication headers" });
+    }
+
+    const result = await verifyAuthenticatedRequest(toFetchRequest(req), {
+      receiptSecret: process.env.RECEIPT_SECRET!,
+      ...options,
+    });
+
+    if (!result.valid) {
+      return reply.status(401).send({ error: result.error });
+    }
+
+    req.agent = result.agent;
+  };
+}
+
+// Route with EOA-only policy
+fastify.post("/api/eoa-only", { preHandler: siwaAuth({ allowedSignerTypes: ["eoa"] }) }, async (req) => {
+  return { agent: req.agent };
+});
+
+// Route allowing smart accounts
+fastify.post("/api/with-sca", { preHandler: siwaAuth({ publicClient }) }, async (req) => {
+  return { agent: req.agent };
+});
+
+// Route with onchain re-verification
+fastify.post("/api/high-security", { preHandler: siwaAuth({ verifyOnchain: true, rpcUrl: process.env.RPC_URL }) }, async (req) => {
+  return { agent: req.agent };
+});
+
+await fastify.listen({ port: 3000 });`}</CollapsibleCodeBlock>
           </SubSection>
 
           <SubSection id="nonce-store" title="Nonce Store">

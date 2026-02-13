@@ -9,8 +9,6 @@
  */
 
 import {
-  createPublicClient,
-  http,
   getAddress as checksumAddress,
   type PublicClient,
   type Hex,
@@ -18,7 +16,7 @@ import {
 } from 'viem';
 import * as crypto from 'crypto';
 import { AgentProfile, getAgent, getReputation, ServiceType, TrustModel } from './registry.js';
-import type { Signer, SignerType } from './signer.js';
+import type { Signer, SignerType } from './signer/index.js';
 import type { SIWANonceStore } from './nonce-store.js';
 
 // ─── Types ───────────────────────────────────────────────────────────
