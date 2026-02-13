@@ -1,16 +1,15 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
-import { createSIWANonce, SIWAErrorCode } from "@buildersgarden/siwa";
+import { createSIWANonce, createMemorySIWANonceStore, SIWAErrorCode } from "@buildersgarden/siwa";
 import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.id";
 const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";
-const SIWA_NONCE_SECRET =
-  process.env.SIWA_NONCE_SECRET ||
-  process.env.SIWA_SECRET ||
-  "siwa-demo-secret-change-in-production";
 
 const client = createPublicClient({ transport: http(RPC_URL) });
+
+/** Singleton nonce store — shared with the verify route via module import */
+export const nonceStore = createMemorySIWANonceStore();
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -23,7 +22,7 @@ export async function POST(req: NextRequest) {
   const result = await createSIWANonce(
     { address, agentId, agentRegistry },
     client,
-    { secret: SIWA_NONCE_SECRET },
+    { nonceStore },
   );
 
   if (result.status !== "nonce_issued") {
@@ -32,7 +31,6 @@ export async function POST(req: NextRequest) {
 
   return corsJson({
     nonce: result.nonce,
-    nonceToken: result.nonceToken,
     issuedAt: result.issuedAt,
     expirationTime: result.expirationTime,
     domain: SERVER_DOMAIN,

@@ -81,6 +81,16 @@ const sections: {
           { title: "Fastify", id: "verify-wrappers-fastify" },
         ],
       },
+      {
+        label: "Nonce Store",
+        items: [
+          { title: "Why Nonces", id: "nonce-why" },
+          { title: "Memory", id: "nonce-memory" },
+          { title: "Redis", id: "nonce-redis" },
+          { title: "Cloudflare KV", id: "nonce-kv" },
+          { title: "Database", id: "nonce-database" },
+        ],
+      },
     ],
   },
   {

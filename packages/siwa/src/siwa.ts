@@ -19,6 +19,7 @@ import {
 import * as crypto from 'crypto';
 import { AgentProfile, getAgent, getReputation, ServiceType, TrustModel } from './registry.js';
 import type { Signer, SignerType } from './signer/index.js';
+import type { SIWANonceStore } from './nonce-store.js';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -303,6 +304,7 @@ export interface SIWANonceParams {
 export interface SIWANonceOptions {
   expirationTTL?: number;  // milliseconds, defaults to 300_000 (5 min)
   secret?: string;         // HMAC secret for stateless nonce tokens (pass your SIWA_SECRET or any server secret)
+  nonceStore?: SIWANonceStore; // pluggable nonce store for replay protection
 }
 
 export type SIWANonceResult =
@@ -390,6 +392,11 @@ export async function createSIWANonce(
   const now = new Date();
   const expiresAt = new Date(now.getTime() + ttl);
   const nonce = generateNonce();
+
+  // Track nonce in the store (for replay protection)
+  if (options?.nonceStore) {
+    await options.nonceStore.issue(nonce, ttl);
+  }
 
   const result: SIWANonceResult & { status: 'nonce_issued' } = {
     status: 'nonce_issued',
@@ -493,7 +500,8 @@ export async function signSIWAMessage(
  */
 export type NonceValidator =
   | ((nonce: string) => boolean | Promise<boolean>)
-  | { nonceToken: string; secret: string };
+  | { nonceToken: string; secret: string }
+  | { nonceStore: SIWANonceStore };
 
 /**
  * Verify a SIWA message + signature.
@@ -561,6 +569,9 @@ export async function verifySIWA(
     let nonceOk: boolean;
     if (typeof nonceValid === 'function') {
       nonceOk = await nonceValid(fields.nonce);
+    } else if ('nonceStore' in nonceValid) {
+      // Store-based validation: atomic consume (check + delete)
+      nonceOk = await nonceValid.nonceStore.consume(fields.nonce);
     } else {
       // Stateless validation via HMAC token
       const payload = verifyNonceToken(nonceValid.nonceToken, nonceValid.secret);

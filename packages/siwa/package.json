@@ -1,6 +1,6 @@
 {
   "name": "@buildersgarden/siwa",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "type": "module",
   "exports": {
     ".": {
@@ -42,6 +42,10 @@
     "./erc8128": {
       "types": "./dist/erc8128.d.ts",
       "default": "./dist/erc8128.js"
+    },
+    "./nonce-store": {
+      "types": "./dist/nonce-store.d.ts",
+      "default": "./dist/nonce-store.js"
     },
     "./next": {
       "types": "./dist/server-side-wrappers/next.d.ts",
