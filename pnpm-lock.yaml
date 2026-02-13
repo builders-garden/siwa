@@ -62,8 +62,8 @@ importers:
   packages/keyring-proxy:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: ^0.0.12
-        version: 0.0.12(express@4.22.1)(typescript@5.9.3)(zod@4.3.6)
+        specifier: ^0.0.13
+        version: 0.0.13(express@4.22.1)(typescript@5.9.3)(zod@4.3.6)
       '@noble/ciphers':
         specifier: ^2.1.1
         version: 2.1.1
@@ -148,8 +148,8 @@ importers:
   packages/siwa-website:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: ^0.0.12
-        version: 0.0.12(express@4.22.1)(typescript@5.9.3)(zod@4.3.6)
+        specifier: ^0.0.13
+        version: 0.0.13(express@4.22.1)(typescript@5.9.3)(zod@4.3.6)
       next:
         specifier: 16.1.6
         version: 16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -267,8 +267,8 @@ packages:
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
 
-  '@buildersgarden/siwa@0.0.12':
-    resolution: {integrity: sha512-TflWi/RTSpMagy7UAc1f3IRb9CW67J2jgF4WJBwT/QBi5+/r+XLxeBdwju3NGyajT/mqGxGfHGyvSh/2VsUzBg==}
+  '@buildersgarden/siwa@0.0.13':
+    resolution: {integrity: sha512-pLMlU1ZI33vpS21QgwIevtnZ+FdB4/05gySRQH5seEfGJeCHcb+GRSwXm2rMVt6nyGREpFC14PaxQ7dNlJoL9Q==}
     peerDependencies:
       express: ^4.0.0 || ^5.0.0
     peerDependenciesMeta:
@@ -2738,7 +2738,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@buildersgarden/siwa@0.0.12(express@4.22.1)(typescript@5.9.3)(zod@4.3.6)':
+  '@buildersgarden/siwa@0.0.13(express@4.22.1)(typescript@5.9.3)(zod@4.3.6)':
     dependencies:
       '@slicekit/erc8128': 0.1.0
       viem: 2.45.1(typescript@5.9.3)(zod@4.3.6)
