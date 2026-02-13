@@ -9,8 +9,6 @@
  */
 
 import {
-  createPublicClient,
-  http,
   getAddress as checksumAddress,
   type PublicClient,
   type Hex,
