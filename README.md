@@ -29,7 +29,7 @@ const result = await verifySIWA(message, signature, domain, nonceValid, client);
 const response = buildSIWAResponse(result); // standard format to forward to agents
 ```
 
-For a full walkthrough, see the [documentation](https://siwa.builders.garden/docs).
+For a full walkthrough, see the [documentation](https://siwa.id/docs).
 
 ## Try It Locally
 
@@ -61,7 +61,7 @@ cd packages/siwa-testing && pnpm run dev
 4. The server returns a **verification receipt** (or a structured error with registration instructions)
 5. For subsequent API calls, the agent uses **ERC-8128 per-request signatures** with the receipt attached
 
-The agent's private key is kept in a separate keyring proxy process, so the agent never touches it directly. For details on the security architecture, deployment options, and the full protocol spec, see the [docs](https://siwa.builders.garden/docs).
+The agent's private key is kept in a separate keyring proxy process, so the agent never touches it directly. For details on the security architecture, deployment options, and the full protocol spec, see the [docs](https://siwa.id/docs).
 
 ## Docker
 
@@ -80,9 +80,9 @@ See [`packages/siwa-testing/README.md`](packages/siwa-testing/README.md) for mor
 
 ## Links
 
-- [Documentation](https://siwa.builders.garden/docs)
-- [API Endpoints](https://siwa.builders.garden/docs/endpoints)
-- [Deployment Guide](https://siwa.builders.garden/docs/deploy)
+- [Documentation](https://siwa.id/docs)
+- [API Endpoints](https://siwa.id/docs/endpoints)
+- [Deployment Guide](https://siwa.id/docs/deploy)
 - [ERC-8004 Standard](https://eips.ethereum.org/EIPS/eip-8004)
 - [Agent Explorer (8004scan)](https://www.8004scan.io/)
 

@@ -19,7 +19,7 @@ Hosting siwa-keyring-proxy involves deploying a single Docker container running 
 
 ### Deployment Dependencies
 
-- [SIWA documentation](https://siwa.builders.garden/docs) — SDK reference, protocol spec, and security model.
+- [SIWA documentation](https://siwa.id/docs) — SDK reference, protocol spec, and security model.
 - [ERC-8004 Trustless Agents standard](https://eips.ethereum.org/EIPS/eip-8004) — The onchain agent identity standard that SIWA implements.
 - [SIWA GitHub repository](https://github.com/builders-garden/siwa) — Source code for the keyring proxy, SDK, and reference server.
 

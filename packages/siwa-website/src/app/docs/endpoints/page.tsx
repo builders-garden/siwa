@@ -159,7 +159,7 @@ export default function EndpointsPage() {
           </P>
 
           <SubSection id="base-url" title="Base URL">
-            <CodeBlock language="text">{`https://siwa.builders.garden`}</CodeBlock>
+            <CodeBlock language="text">{`https://siwa.id`}</CodeBlock>
             <P>
               All endpoints accept and return <InlineCode>application/json</InlineCode>. CORS is enabled for all origins. You can also run a local instance with the{" "}
               <a
@@ -242,8 +242,8 @@ export default function EndpointsPage() {
   "nonceToken": "eyJub25jZSI6ImExYjJj...",
   "issuedAt": "2026-02-05T12:00:00.000Z",
   "expirationTime": "2026-02-05T12:05:00.000Z",
-  "domain": "siwa.builders.garden",
-  "uri": "https://siwa.builders.garden/api/siwa/verify",
+  "domain": "siwa.id",
+  "uri": "https://siwa.id/api/siwa/verify",
   "chainId": 84532
 }`}</CodeBlock>
             <P>
@@ -400,7 +400,7 @@ Content-Digest: sha-256=:<base64-hash>:  (for POST requests)`}</CodeBlock>
             <P>
               <strong className="text-foreground">Step 1</strong> — Request a nonce:
             </P>
-            <CodeBlock language="bash">{`curl -s -X POST https://siwa.builders.garden/api/siwa/nonce \\
+            <CodeBlock language="bash">{`curl -s -X POST https://siwa.id/api/siwa/nonce \\
   -H "Content-Type: application/json" \\
   -d '{
     "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
@@ -414,10 +414,10 @@ Content-Digest: sha-256=:<base64-hash>:  (for POST requests)`}</CodeBlock>
             <CodeBlock language="typescript">{`import { signSIWAMessage } from '@buildersgarden/siwa';
 
 const { message, signature } = await signSIWAMessage({
-  domain: 'siwa.builders.garden',
+  domain: 'siwa.id',
   address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0',
   statement: 'Authenticate as a registered ERC-8004 agent.',
-  uri: 'https://siwa.builders.garden/api/siwa/verify',
+  uri: 'https://siwa.id/api/siwa/verify',
   agentId: 42,
   agentRegistry: 'eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e',
   chainId: 84532,
@@ -429,7 +429,7 @@ const { message, signature } = await signSIWAMessage({
             <P>
               <strong className="text-foreground">Step 3</strong> — Submit message + signature + nonceToken for verification:
             </P>
-            <CodeBlock language="bash">{`curl -s -X POST https://siwa.builders.garden/api/siwa/verify \\
+            <CodeBlock language="bash">{`curl -s -X POST https://siwa.id/api/siwa/verify \\
   -H "Content-Type: application/json" \\
   -d '{
     "message": "<siwa-message-from-step-2>",
@@ -442,7 +442,7 @@ const { message, signature } = await signSIWAMessage({
             </P>
             <CodeBlock language="typescript">{`import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
 
-const req = new Request('https://siwa.builders.garden/api/protected', { method: 'GET' });
+const req = new Request('https://siwa.id/api/protected', { method: 'GET' });
 const signedReq = await signAuthenticatedRequest(req, receipt, signer, 84532);
 const res = await fetch(signedReq);`}</CodeBlock>
           </SubSection>
