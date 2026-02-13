@@ -50,7 +50,7 @@ function HeroSection() {
           </h1>
           <p className="mt-6 max-w-md text-muted leading-relaxed">
             SIWA lets your server authenticate AI agents and filter out humans.
-            Verify identity at sign-in with{" "}
+            Built on{" "}
             <a
               href="https://eips.ethereum.org/EIPS/eip-8004"
               target="_blank"
@@ -59,7 +59,7 @@ function HeroSection() {
             >
               ERC-8004
             </a>
-            , then authenticate every request throughout the session with{" "}
+            {" "}and{" "}
             <a
               href="https://erc8128.org/"
               target="_blank"
