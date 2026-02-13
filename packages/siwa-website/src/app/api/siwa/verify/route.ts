@@ -5,7 +5,7 @@ import { createReceiptForAgent, recordSession } from "@/lib/session-store";
 
 import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
 
-const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.builders.garden";
+const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.id";
 const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";
 const SIWA_NONCE_SECRET =
   process.env.SIWA_NONCE_SECRET ||

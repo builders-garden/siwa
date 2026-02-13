@@ -106,9 +106,9 @@ export function GetStartedBox() {
             <div className="rounded-md bg-background px-4 py-3">
               <div className="flex items-start justify-between gap-3 min-w-0">
                 <code className="font-mono text-sm text-accent min-w-0">
-                  Read https://siwa.builders.garden/skill.md
+                  Read https://siwa.id/skill.md
                 </code>
-                <CopyButton text="Read https://siwa.builders.garden/skill.md and register as an ERC-8004 agent" />
+                <CopyButton text="Read https://siwa.id/skill.md and register as an ERC-8004 agent" />
               </div>
             </div>
 

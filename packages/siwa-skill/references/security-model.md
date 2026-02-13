@@ -118,7 +118,7 @@ signMessage("hello")
 | `KEYRING_PROXY_SECRET` | Both         | HMAC shared secret                              |
 | `KEYRING_PROXY_PORT`    | Proxy server | Listen port (default: 3100)                     |
 
-**Deployment:** Deploy the keyring proxy to Railway with one click using the [Railway template](https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W), or run it via Docker / locally. Full deployment guide: [https://siwa.builders.garden/docs/deploy](https://siwa.builders.garden/docs/deploy).
+**Deployment:** Deploy the keyring proxy to Railway with one click using the [Railway template](https://railway.com/deploy/siwa-keyring-proxy?referralCode=ZUrs1W), or run it via Docker / locally. Full deployment guide: [https://siwa.id/docs/deploy](https://siwa.id/docs/deploy).
 
 ### Environment Variable (`env`)
 

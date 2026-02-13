@@ -17,7 +17,7 @@ KEYRING_PROXY_URL=https://your-keyring-proxy.up.railway.app
 KEYRING_PROXY_SECRET=<your-shared-secret>
 ```
 
-For full deployment instructions (Docker, local dev, OpenClaw gateway): [https://siwa.builders.garden/docs/deploy](https://siwa.builders.garden/docs/deploy)
+For full deployment instructions (Docker, local dev, OpenClaw gateway): [https://siwa.id/docs/deploy](https://siwa.id/docs/deploy)
 
 ## Prerequisites: Install the SDK
 

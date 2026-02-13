@@ -121,7 +121,7 @@ export function buildSIWAResponse(result: SIWAVerificationResult): SIWAResponse 
   const skillRef = {
     name: '@buildersgarden/siwa',
     install: 'npm install @buildersgarden/siwa',
-    url: 'https://siwa.builders.garden/skill.md',
+    url: 'https://siwa.id/skill.md',
   };
 
   if (result.valid) {
