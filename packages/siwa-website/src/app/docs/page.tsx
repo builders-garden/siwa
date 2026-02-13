@@ -660,7 +660,7 @@ export default {
             <P>
               Bind a KV namespace called <InlineCode>SIWA_NONCES</InlineCode> in your <InlineCode>wrangler.toml</InlineCode>:
             </P>
-            <CodeBlock language="toml">{`[[kv_namespaces]]
+            <CodeBlock language="text">{`[[kv_namespaces]]
 binding = "SIWA_NONCES"
 id = "<your-kv-namespace-id>"`}</CodeBlock>
           </SubSection>
