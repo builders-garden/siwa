@@ -40,15 +40,43 @@ const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
 const signer = createLocalAccountSigner(account);
 ```
 
-**Option B: Agentic Wallets (Privy, Coinbase, Circle)**
+**Option B: Circle Developer-Controlled Wallet**
+
+```typescript
+import { createCircleSiwaSigner } from "@buildersgarden/siwa/signer";
+
+const signer = await createCircleSiwaSigner({
+  apiKey: process.env.CIRCLE_API_KEY!,
+  entitySecret: process.env.CIRCLE_ENTITY_SECRET!,
+  walletId: process.env.CIRCLE_WALLET_ID!,
+});
+```
+
+**Option C: Privy Server Wallet**
+
+```typescript
+import { PrivyClient } from "@privy-io/node";
+import { createPrivySiwaSigner } from "@buildersgarden/siwa/signer";
+
+const privy = new PrivyClient({
+  appId: process.env.PRIVY_APP_ID!,
+  appSecret: process.env.PRIVY_APP_SECRET!,
+});
+
+const signer = createPrivySiwaSigner({
+  client: privy,
+  walletId: "your-wallet-id",
+  walletAddress: "0x...",
+});
+```
+
+**Option D: viem WalletClient (MetaMask, Coinbase, etc.)**
 
 ```typescript
 import { createWalletClientSigner } from "@buildersgarden/siwa/signer";
 import { createWalletClient, custom } from "viem";
 import { baseSepolia } from "viem/chains";
 
-// Privy example
-const provider = await privyWallet.getEthereumProvider();
 const walletClient = createWalletClient({
   chain: baseSepolia,
   transport: custom(provider),
@@ -56,7 +84,7 @@ const walletClient = createWalletClient({
 const signer = createWalletClientSigner(walletClient);
 ```
 
-**Option C: Smart Contract Wallets (Safe, ZeroDev/Kernel)**
+**Option E: Smart Contract Wallets (Safe, ZeroDev/Kernel)**
 
 ```typescript
 import { createWalletClientSigner } from "@buildersgarden/siwa/signer";
@@ -77,7 +105,7 @@ const walletClient = kernelClient.toWalletClient();
 const signer = createWalletClientSigner(walletClient);
 ```
 
-**Option D: Keyring Proxy (Self-Hosted)**
+**Option F: Keyring Proxy (Self-Hosted)**
 
 ```typescript
 import { createKeyringProxySigner } from "@buildersgarden/siwa/signer";
@@ -354,7 +382,8 @@ async function signIn(walletClient, agentId, agentRegistry, chainId) {
 ### Server-Side Verification
 
 ```typescript
-import { verifySIWA } from "@buildersgarden/siwa";
+import { createSIWANonce, verifySIWA } from "@buildersgarden/siwa";
+import { createMemorySIWANonceStore } from "@buildersgarden/siwa/nonce-store";
 import { createPublicClient, http } from "viem";
 import { baseSepolia } from "viem/chains";
 
@@ -362,12 +391,17 @@ const client = createPublicClient({
   chain: baseSepolia,
   transport: http(process.env.RPC_URL),
 });
+const nonceStore = createMemorySIWANonceStore();
 
+// Nonce endpoint — issue
+const nonce = await createSIWANonce(params, client, { nonceStore });
+
+// Verify endpoint — consume
 const result = await verifySIWA(
   message,
   signature,
   "api.example.com",
-  (nonce) => validateAndConsumeNonce(nonce),
+  { nonceStore },
   client,
   { allowedSignerTypes: ['eoa', 'sca'] },  // optional criteria
 );
@@ -440,6 +474,33 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 });
 ```
 
+### Fastify
+
+```typescript
+import Fastify from "fastify";
+import { siwaPlugin, siwaAuth } from "@buildersgarden/siwa/fastify";
+
+const fastify = Fastify();
+await fastify.register(siwaPlugin);
+
+fastify.post("/api/protected", { preHandler: siwaAuth() }, async (req) => {
+  return { agent: req.agent };
+});
+```
+
+### Hono
+
+```typescript
+import { Hono } from "hono";
+import { siwaMiddleware, siwaCors } from "@buildersgarden/siwa/hono";
+
+const app = new Hono();
+app.use("*", siwaCors());
+app.post("/api/protected", siwaMiddleware(), (c) => {
+  return c.json({ agent: c.get("agent") });
+});
+```
+
 ---
 
 ## SDK Reference
@@ -451,9 +512,13 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 | `SignerType` | Type: `'eoa' \| 'sca'` — detected during verification |
 | `Signer` | Interface for message signing |
 | `TransactionSigner` | Extended interface with transaction signing |
+| `KeyringProxyConfig` | Type: `{ proxyUrl, proxySecret }` |
 | `createLocalAccountSigner(account)` | Create signer from viem LocalAccount |
 | `createWalletClientSigner(client, account?)` | Create signer from viem WalletClient |
 | `createKeyringProxySigner(config)` | Create signer from keyring proxy server |
+| `createCircleSiwaSigner(config)` | Create signer from Circle developer-controlled wallet. Config: `{ apiKey, entitySecret, walletId, walletAddress? }` |
+| `createCircleSiwaSignerFromClient(config)` | Create signer from existing Circle client. Config: `{ client, walletId, walletAddress? }` |
+| `createPrivySiwaSigner(config)` | Create signer from Privy server wallet. Config: `{ client, walletId, walletAddress }` |
 
 ### Main Module (`@buildersgarden/siwa`)
 
@@ -484,8 +549,12 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 
 | Export | Description |
 |--------|-------------|
-| `createReceipt(payload, options)` | Create HMAC-signed receipt. Payload: `{ address, agentId, signerType? }` |
-| `verifyReceipt(receipt, secret)` | Verify and decode receipt. Returns payload with optional `signerType`. |
+| `createReceipt(payload, options)` | Create HMAC-signed receipt. Payload: `{ address, agentId, agentRegistry, chainId, verified, signerType? }`. Options: `{ secret, ttl? }` (ttl in ms, default 30min). Returns `{ receipt, expiresAt }`. |
+| `verifyReceipt(receipt, secret)` | Verify and decode receipt. Returns `ReceiptPayload` (address, agentId, agentRegistry, chainId, verified, signerType?, iat, exp) or `null`. |
+| `DEFAULT_RECEIPT_TTL` | Default receipt validity: 30 minutes (1800000 ms) |
+| `ReceiptPayload` | Type: `{ address, agentId, agentRegistry, chainId, verified, signerType?, iat, exp }` |
+| `ReceiptOptions` | Type: `{ secret, ttl? }` |
+| `ReceiptResult` | Type: `{ receipt, expiresAt }` |
 
 ### Token Bound Accounts Module (`@buildersgarden/siwa/tba`)
 
@@ -499,17 +568,49 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 
 | Export | Description |
 |--------|-------------|
-| `withSiwa(handler, options?)` | Wrap route handler with ERC-8128 auth. Options: `{ allowedSignerTypes }` |
-| `siwaOptions()` | Return 204 OPTIONS response with CORS |
-| `corsJson(data, init?)` | JSON Response with CORS headers |
+| `withSiwa(handler, options?)` | Wrap route handler with ERC-8128 auth. Handler: `(agent: SiwaAgent, req: Request) => object \| Response`. Options: `WithSiwaOptions`. |
+| `siwaOptions()` | Return 204 OPTIONS response with CORS headers. Use: `export { siwaOptions as OPTIONS }` |
+| `corsJson(data, init?)` | JSON Response with CORS headers. `init: { status?: number }` |
+| `corsHeaders()` | Returns CORS headers object for manual use |
+| `WithSiwaOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, allowedSignerTypes? }` |
+| `SiwaAgent` | Type: `{ address, agentId, agentRegistry, chainId, signerType? }` |
 
 ### Express Module (`@buildersgarden/siwa/express`)
 
 | Export | Description |
 |--------|-------------|
-| `siwaMiddleware(options?)` | Auth middleware. Options: `{ allowedSignerTypes }` |
-| `siwaJsonParser()` | JSON parser with rawBody capture |
-| `siwaCors(options?)` | CORS middleware with SIWA headers |
+| `siwaMiddleware(options?)` | Auth middleware. Sets `req.agent` on success. Options: `SiwaMiddlewareOptions`. |
+| `siwaJsonParser()` | JSON parser with rawBody capture for Content-Digest verification |
+| `siwaCors(options?)` | CORS middleware with SIWA headers. Options: `SiwaCorsOptions` |
+| `SiwaMiddlewareOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes? }` |
+
+### Fastify Module (`@buildersgarden/siwa/fastify`)
+
+| Export | Description |
+|--------|-------------|
+| `siwaPlugin` | Fastify plugin: sets up CORS with SIWA headers. Uses `@fastify/cors` if installed, manual fallback otherwise. |
+| `siwaAuth(options?)` | preHandler hook: verifies ERC-8128 signature + receipt. Sets `req.agent` on success. Options: `SiwaAuthOptions`. |
+| `SiwaAuthOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes? }` |
+| `SiwaPluginOptions` | Type: `{ origin?, allowedHeaders? }` |
+
+### Hono Module (`@buildersgarden/siwa/hono`)
+
+| Export | Description |
+|--------|-------------|
+| `siwaMiddleware(options?)` | Auth middleware: verifies ERC-8128 signature + receipt. Sets `c.set("agent", agent)` on success. Options: `SiwaMiddlewareOptions`. |
+| `siwaCors(options?)` | CORS middleware with SIWA headers. Handles OPTIONS preflight. Options: `SiwaCorsOptions`. |
+| `SiwaMiddlewareOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes? }` |
+
+### Nonce Store Module (`@buildersgarden/siwa/nonce-store`)
+
+| Export | Description |
+|--------|-------------|
+| `SIWANonceStore` | Interface: `{ issue(nonce, ttlMs): Promise<boolean>, consume(nonce): Promise<boolean> }` |
+| `createMemorySIWANonceStore()` | In-memory store with TTL expiry. Single-process only. |
+| `createRedisSIWANonceStore(redis, prefix?)` | Redis-backed store. Uses `SET ... PX ... NX` + `DEL`. Default prefix: `"siwa:nonce:"`. |
+| `createKVSIWANonceStore(kv, prefix?)` | Cloudflare Workers KV store. Uses `put` with `expirationTtl` + `get`/`delete`. |
+| `RedisLikeClient` | Interface: `{ set(...args): Promise<unknown>, del(...args): Promise<number> }` — satisfied by ioredis and node-redis. |
+| `KVNamespaceLike` | Interface: `{ put(key, value, options?), get(key), delete(key) }` — satisfied by Cloudflare KV bindings. |
 
 ### Identity Module (`@buildersgarden/siwa/identity`)
 
@@ -519,6 +620,42 @@ app.get("/api/protected", siwaMiddleware({ allowedSignerTypes: ['eoa'] }), (req,
 | `readIdentity(path)` | Parse SIWA_IDENTITY.md to typed object |
 | `writeIdentityField(key, value, path)` | Write a field to SIWA_IDENTITY.md |
 | `isRegistered({ identityPath, client? })` | Check registration status |
+
+---
+
+## Token Bound Accounts (TBA)
+
+If your agent uses an ERC-6551 Token Bound Account as its signer (instead of the wallet that owns the NFT), use the TBA utilities:
+
+```typescript
+import { computeTbaAddress, isTbaForAgent } from "@buildersgarden/siwa/tba";
+
+// Compute the deterministic TBA address for an agent NFT
+const tbaAddress = computeTbaAddress({
+  implementation: "0x...TBAImpl",
+  tokenContract: "0x...AgentRegistry",
+  tokenId: 42n,
+  chainId: 84532,
+});
+
+// Verify a signer is the expected TBA for an agent
+const valid = isTbaForAgent({
+  signerAddress: "0x...",
+  implementation: "0x...TBAImpl",
+  agentRegistry: "0x...AgentRegistry",
+  agentId: 42,
+  chainId: 84532,
+});
+```
+
+When signing with a TBA, pass `signerAddress` to ERC-8128 so the keyid identifies the TBA:
+
+```typescript
+const signed = await signAuthenticatedRequest(
+  request, receipt, signer, 84532,
+  { signerAddress: tbaAddress },
+);
+```
 
 ---
 

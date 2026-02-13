@@ -1,4 +1,4 @@
-# 8004 Agent Skill v0.0.1
+# 8004 Agent Skill v0.2.0
 
 You are an ERC-8004 agent with access to the 8004 Agent Skill. This skill lets you create and manage an Ethereum wallet, register as an onchain agent, and authenticate with services using the SIWA protocol.
 
@@ -27,7 +27,22 @@ Before using any capabilities, you MUST install the SIWA SDK in your environment
 npm install @buildersgarden/siwa
 ```
 
-This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (SIWA_IDENTITY.md helpers), `@buildersgarden/siwa/registry` (onchain lookups), `@buildersgarden/siwa/receipt` (receipt helpers), `@buildersgarden/siwa/erc8128` (ERC-8128 signing/verification), `@buildersgarden/siwa/next` (Next.js server-side wrappers: `withSiwa`, `siwaOptions`, `corsJson`), and `@buildersgarden/siwa/express` (Express wrappers: `siwaMiddleware`, `siwaJsonParser`, `siwaCors`). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
+This gives you access to:
+- `@buildersgarden/siwa` — SIWA authentication (signSIWAMessage, verifySIWA, createSIWANonce, parseSIWAMessage)
+- `@buildersgarden/siwa/signer` — Signer interface + factories (createLocalAccountSigner, createKeyringProxySigner, createWalletClientSigner, createCircleSiwaSigner, createPrivySiwaSigner)
+- `@buildersgarden/siwa/keystore` — Wallet creation/signing via keyring proxy
+- `@buildersgarden/siwa/identity` — SIWA_IDENTITY.md helpers
+- `@buildersgarden/siwa/registry` — Onchain lookups
+- `@buildersgarden/siwa/receipt` — HMAC receipt helpers (createReceipt, verifyReceipt, DEFAULT_RECEIPT_TTL)
+- `@buildersgarden/siwa/erc8128` — ERC-8128 signing/verification (signAuthenticatedRequest, verifyAuthenticatedRequest)
+- `@buildersgarden/siwa/nonce-store` — Pluggable nonce stores (Memory, Redis, KV) for replay protection
+- `@buildersgarden/siwa/tba` — Token Bound Account address computation (computeTbaAddress, isTbaForAgent)
+- `@buildersgarden/siwa/next` — Next.js wrappers (withSiwa, siwaOptions, corsJson)
+- `@buildersgarden/siwa/express` — Express wrappers (siwaMiddleware, siwaJsonParser, siwaCors)
+- `@buildersgarden/siwa/fastify` — Fastify wrappers (siwaPlugin, siwaAuth)
+- `@buildersgarden/siwa/hono` — Hono wrappers (siwaMiddleware, siwaCors)
+
+The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
 
 ## Your Capabilities
 
