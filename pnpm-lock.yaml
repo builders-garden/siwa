@@ -106,7 +106,7 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0
       '@fastify/cors':
-        specifier: ^10.0.0
+        specifier: ^10.1.0
         version: 10.1.0
       '@privy-io/node':
         specifier: ^0.8.0
@@ -118,7 +118,7 @@ importers:
         specifier: ^25.2.1
         version: 25.2.1
       fastify:
-        specifier: ^5.0.0
+        specifier: ^5.7.4
         version: 5.7.4
       hono:
         specifier: ^4.0.0

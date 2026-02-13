@@ -1,6 +1,6 @@
 {
   "name": "@buildersgarden/siwa",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "type": "module",
   "exports": {
     ".": {
@@ -87,11 +87,11 @@
   },
   "peerDependencies": {
     "@circle-fin/developer-controlled-wallets": ">=6.0.0",
+    "@fastify/cors": ">=9.0.0",
     "@privy-io/node": ">=1.0.0",
     "express": "^4.0.0 || ^5.0.0",
-    "hono": ">=4.0.0",
     "fastify": ">=4.0.0",
-    "@fastify/cors": ">=9.0.0"
+    "hono": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "express": {
@@ -115,11 +115,11 @@
   },
   "devDependencies": {
     "@circle-fin/developer-controlled-wallets": "^10.1.0",
-    "@fastify/cors": "^10.0.0",
+    "@fastify/cors": "^10.1.0",
     "@privy-io/node": "^0.8.0",
     "@types/express": "^4.17.0",
     "@types/node": "^25.2.1",
-    "fastify": "^5.0.0",
+    "fastify": "^5.7.4",
     "hono": "^4.0.0",
     "typescript": "^5.5.0"
   }
