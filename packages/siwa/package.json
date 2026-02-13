@@ -43,6 +43,10 @@
       "types": "./dist/erc8128.d.ts",
       "default": "./dist/erc8128.js"
     },
+    "./nonce-store": {
+      "types": "./dist/nonce-store.d.ts",
+      "default": "./dist/nonce-store.js"
+    },
     "./next": {
       "types": "./dist/next.d.ts",
       "default": "./dist/next.js"

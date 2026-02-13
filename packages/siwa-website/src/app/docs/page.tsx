@@ -66,7 +66,7 @@ function Table({
   rows,
 }: {
   headers: string[];
-  rows: string[][];
+  rows: React.ReactNode[][];
 }) {
   return (
     <div className="overflow-x-auto mb-4">
@@ -429,7 +429,7 @@ const response = await fetch(signedRequest);`}</CodeBlock>
                 ["message", "string", "The full SIWA message string."],
                 ["signature", "string", "EIP-191 signature hex string."],
                 ["expectedDomain", "string", "Must match message domain."],
-                ["nonceValid", "function | object", "Nonce validator: callback (nonce) => boolean, or { nonceToken, secret } for stateless."],
+                ["nonceValid", "function | object", <>Nonce validator: callback (nonce) =&gt; boolean, {"{ nonceToken, secret }"} for stateless, or {"{ nonceStore }"} for store-based replay protection. See <a href="#nonce-store" className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200">Nonce Store</a>.</>],
                 ["client", "PublicClient", "viem PublicClient for onchain verification."],
                 ["criteria?", "SIWAVerifyCriteria", "Optional: allowedSignerTypes, requiredServices, requiredTrust, minScore, custom."],
               ]}
@@ -545,6 +545,197 @@ app.use(siwaCors());
 app.get("/api/protected", siwaMiddleware(), (req, res) => {
   res.json({ agent: req.agent });
 });`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="nonce-store" title="Nonce Store">
+            <P>
+              Pluggable server-side nonce tracking for replay protection. The SDK ships built-in adapters for Memory, Redis, Cloudflare KV, and any SQL database — no extra dependencies, you bring your own client.
+            </P>
+          </SubSection>
+
+          <SubSection id="nonce-why" title="Why Nonces Matter">
+            <P>
+              A SIWA message is valid for its entire TTL window (default 5 minutes). Without server-side tracking, an attacker who intercepts a signed message can <strong className="text-foreground">replay</strong> it — submitting the same signature multiple times to authenticate as the agent.
+            </P>
+            <P>
+              A nonce store solves this by recording every issued nonce and consuming it on first use. Once consumed, the nonce is deleted and any replay attempt is rejected.
+            </P>
+            <P>
+              The SDK provides three nonce validation strategies:
+            </P>
+            <ul className="space-y-2 mb-6 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Callback</strong> — <InlineCode>{'(nonce) => boolean'}</InlineCode>: you manage nonce storage yourself</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Stateless token</strong> — <InlineCode>{'{ nonceToken, secret }'}</InlineCode>: HMAC-signed token, no server storage needed (but replayable within TTL)</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Nonce store</strong> — <InlineCode>{'{ nonceStore }'}</InlineCode>: server-side tracking with exactly-once consumption (recommended for production)</span>
+              </li>
+            </ul>
+            <P>
+              The <InlineCode>SIWANonceStore</InlineCode> interface:
+            </P>
+            <CodeBlock language="typescript">{`interface SIWANonceStore {
+  /** Store an issued nonce. Returns true on success, false if already exists. */
+  issue(nonce: string, ttlMs: number): Promise<boolean>;
+  /** Atomically check-and-delete a nonce. Returns true if it existed. */
+  consume(nonce: string): Promise<boolean>;
+}`}</CodeBlock>
+            <P>
+              Wire the store into both <InlineCode>createSIWANonce</InlineCode> (issue) and <InlineCode>verifySIWA</InlineCode> (consume):
+            </P>
+            <CodeBlock language="typescript">{`import { createSIWANonce, verifySIWA } from "@buildersgarden/siwa";
+import { createMemorySIWANonceStore } from "@buildersgarden/siwa/nonce-store";
+
+const nonceStore = createMemorySIWANonceStore();
+
+// Nonce endpoint — issue
+const result = await createSIWANonce(params, client, { nonceStore });
+
+// Verify endpoint — consume
+const verification = await verifySIWA(
+  message, signature, domain,
+  { nonceStore },
+  client,
+);`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="nonce-memory" title="Memory (Default)">
+            <P>
+              In-memory store using a <InlineCode>Map</InlineCode> with TTL-based expiry. Suitable for single-process servers. Nonces are lost on restart.
+            </P>
+            <CodeBlock language="typescript">{`import { createMemorySIWANonceStore } from "@buildersgarden/siwa/nonce-store";
+
+const nonceStore = createMemorySIWANonceStore();`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="nonce-redis" title="Redis">
+            <P>
+              Redis-backed store using <InlineCode>SET ... PX ttl NX</InlineCode> for atomic issue and <InlineCode>DEL</InlineCode> for atomic consume. Works with any Redis client that implements <InlineCode>set()</InlineCode> and <InlineCode>del()</InlineCode>.
+            </P>
+            <CodeBlock language="typescript">{`import { createRedisSIWANonceStore } from "@buildersgarden/siwa/nonce-store";
+
+// ioredis (works out of the box)
+import Redis from "ioredis";
+const redis = new Redis();
+const nonceStore = createRedisSIWANonceStore(redis);`}</CodeBlock>
+            <P>
+              For <strong className="text-foreground">node-redis v4</strong>, wrap with a small adapter since its <InlineCode>set()</InlineCode> signature differs:
+            </P>
+            <CodeBlock language="typescript">{`import { createClient } from "redis";
+import { createRedisSIWANonceStore } from "@buildersgarden/siwa/nonce-store";
+
+const client = createClient(); await client.connect();
+
+const nonceStore = createRedisSIWANonceStore({
+  set: (...args: unknown[]) =>
+    client
+      .set(args[0] as string, args[1] as string, {
+        PX: args[3] as number,
+        NX: true,
+      })
+      .then((r) => r ?? null),
+  del: (key: unknown) => client.del(key as string),
+});`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="nonce-kv" title="Cloudflare KV">
+            <P>
+              Cloudflare Workers KV-backed store. Uses <InlineCode>put</InlineCode> with <InlineCode>expirationTtl</InlineCode> for auto-expiry. The consume path does a <InlineCode>get</InlineCode> + <InlineCode>delete</InlineCode> — not fully atomic, but acceptable for random nonces.
+            </P>
+            <CodeBlock language="typescript">{`import { createKVSIWANonceStore } from "@buildersgarden/siwa/nonce-store";
+
+// In a Cloudflare Worker
+export default {
+  async fetch(request: Request, env: Env) {
+    const nonceStore = createKVSIWANonceStore(env.SIWA_NONCES);
+    // use with createSIWANonce / verifySIWA
+  },
+};`}</CodeBlock>
+            <P>
+              Bind a KV namespace called <InlineCode>SIWA_NONCES</InlineCode> in your <InlineCode>wrangler.toml</InlineCode>:
+            </P>
+            <CodeBlock language="toml">{`[[kv_namespaces]]
+binding = "SIWA_NONCES"
+id = "<your-kv-namespace-id>"`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="nonce-database" title="Database">
+            <P>
+              For databases, implement <InlineCode>SIWANonceStore</InlineCode> directly — it&apos;s just two methods. No factory needed.
+            </P>
+            <P>
+              <strong className="text-foreground">Schema</strong> — create a table with a unique nonce column and an expiry timestamp:
+            </P>
+            <CodeBlock language="sql">{`CREATE TABLE siwa_nonces (
+  nonce      VARCHAR(64) PRIMARY KEY,
+  expires_at TIMESTAMPTZ NOT NULL
+);
+-- Optional: periodic cleanup of expired rows
+-- DELETE FROM siwa_nonces WHERE expires_at < NOW();`}</CodeBlock>
+            <P>
+              <strong className="text-foreground">Prisma</strong>:
+            </P>
+            <CodeBlock language="typescript">{`import type { SIWANonceStore } from "@buildersgarden/siwa/nonce-store";
+
+const nonceStore: SIWANonceStore = {
+  async issue(nonce, ttlMs) {
+    try {
+      await prisma.siwaNonce.create({
+        data: { nonce, expiresAt: new Date(Date.now() + ttlMs) },
+      });
+      return true;
+    } catch (e: any) {
+      if (e.code === "P2002") return false; // unique constraint
+      throw e;
+    }
+  },
+  async consume(nonce) {
+    try {
+      await prisma.siwaNonce.delete({ where: { nonce } });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+};`}</CodeBlock>
+            <P>
+              <strong className="text-foreground">Drizzle</strong>:
+            </P>
+            <CodeBlock language="typescript">{`import type { SIWANonceStore } from "@buildersgarden/siwa/nonce-store";
+import { eq, and, gt } from "drizzle-orm";
+import { siwaNonces } from "./schema";
+
+const nonceStore: SIWANonceStore = {
+  async issue(nonce, ttlMs) {
+    try {
+      await db.insert(siwaNonces).values({
+        nonce,
+        expiresAt: new Date(Date.now() + ttlMs),
+      });
+      return true;
+    } catch (e: any) {
+      if (e.code === "23505") return false; // unique violation
+      throw e;
+    }
+  },
+  async consume(nonce) {
+    const result = await db
+      .delete(siwaNonces)
+      .where(
+        and(
+          eq(siwaNonces.nonce, nonce),
+          gt(siwaNonces.expiresAt, new Date()),
+        ),
+      );
+    return (result.rowCount ?? 0) > 0;
+  },
+};`}</CodeBlock>
           </SubSection>
         </Section>
 
