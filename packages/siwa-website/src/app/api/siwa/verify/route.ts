@@ -2,31 +2,21 @@ import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
 import { verifySIWA, buildSIWAResponse, SIWAErrorCode } from "@buildersgarden/siwa";
 import { createReceiptForAgent, recordSession } from "@/lib/session-store";
-
 import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
+import { nonceStore } from "../nonce/route";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.id";
 const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";
-const SIWA_NONCE_SECRET =
-  process.env.SIWA_NONCE_SECRET ||
-  process.env.SIWA_SECRET ||
-  "siwa-demo-secret-change-in-production";
 
 const client = createPublicClient({ transport: http(RPC_URL) });
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { message, signature, nonceToken } = body;
+  const { message, signature } = body;
 
   if (!message || !signature) {
     return corsJson(
       { status: "rejected", code: SIWAErrorCode.VERIFICATION_FAILED, error: "Missing message or signature" },
-      { status: 400 },
-    );
-  }
-  if (!nonceToken) {
-    return corsJson(
-      { status: "rejected", code: SIWAErrorCode.INVALID_NONCE, error: "Missing nonceToken" },
       { status: 400 },
     );
   }
@@ -35,7 +25,7 @@ export async function POST(req: NextRequest) {
     message,
     signature,
     SERVER_DOMAIN,
-    { nonceToken, secret: SIWA_NONCE_SECRET },
+    { nonceStore },
     client,
   );
 
