@@ -282,7 +282,7 @@ function ForAgentsSection() {
     {
       number: "1",
       title: "Get a wallet",
-      description: "Use any provider: Bankr, Privy, Coinbase, private key, keyring proxy, or others.",
+      description: "Use any provider: Bankr, Privy, Circle, private key, keyring proxy, or others.",
     },
     {
       number: "2",
