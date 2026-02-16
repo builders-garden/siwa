@@ -68,7 +68,7 @@ export interface SiwaMiddlewareOptions {
   publicClient?: VerifyOptions['publicClient'];
   /** Allowed signer types. Omit to accept all. */
   allowedSignerTypes?: SignerType[];
-  /** Optional x402 payment fallback. When set, unauthenticated requests get 402 instead of 401. */
+  /** Optional x402 payment gate. When set, both SIWA auth AND a valid payment are required. */
   x402?: X402Config;
 }
 
@@ -146,54 +146,56 @@ export function siwaJsonParser(): RequestHandler {
 
 /**
  * Express middleware that verifies ERC-8128 HTTP Message Signatures + SIWA receipt,
- * with optional composable x402 payment support.
+ * with optional x402 payment gate.
  *
- * SIWA and x402 are checked independently — a request can carry both, and
- * both `req.agent` and `req.payment` will be populated.
- *
- * **Without x402** (existing behavior):
+ * **Without x402** (SIWA only):
  *   - Valid SIWA headers → `req.agent` → `next()`
  *   - Missing/invalid → 401
  *
- * **With x402** (composable):
- *   - SIWA headers checked first → if valid, `req.agent` is set
- *   - Payment header checked next → if valid, `req.payment` is set
- *   - At least one must succeed to proceed; if neither → 402
- *   - Both can succeed on the same request (`req.agent` + `req.payment`)
+ * **With x402** (SIWA + payment):
+ *   - SIWA must succeed → otherwise 401
+ *   - Payment must also succeed → otherwise 402 with payment requirements
+ *   - Both succeed → `req.agent` + `req.payment` → `next()`
  */
 export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    // -----------------------------------------------------------------------
+    // Step 1: SIWA ERC-8128 authentication (always required)
+    // -----------------------------------------------------------------------
     const hasSiwaHeaders = req.headers['signature'] && req.headers['x-siwa-receipt'];
-    let siwaError: string | undefined;
 
-    // -----------------------------------------------------------------------
-    // Step 1: Try SIWA ERC-8128 authentication
-    // -----------------------------------------------------------------------
-    if (hasSiwaHeaders) {
-      try {
-        const secret = resolveReceiptSecret(options?.receiptSecret);
+    if (!hasSiwaHeaders) {
+      res.status(401).json({
+        error: 'Unauthorized — provide ERC-8128 Signature + X-SIWA-Receipt headers',
+      });
+      return;
+    }
 
-        const fetchReq = expressToFetchRequest(req as any);
-        const result = await verifyAuthenticatedRequest(fetchReq, {
-          receiptSecret: secret,
-          rpcUrl: options?.rpcUrl,
-          verifyOnchain: options?.verifyOnchain,
-          publicClient: options?.publicClient,
-          allowedSignerTypes: options?.allowedSignerTypes,
-        });
+    try {
+      const secret = resolveReceiptSecret(options?.receiptSecret);
 
-        if (result.valid) {
-          req.agent = result.agent;
-        } else {
-          siwaError = result.error;
-        }
-      } catch (err: any) {
-        siwaError = `ERC-8128 auth failed: ${err.message}`;
+      const fetchReq = expressToFetchRequest(req as any);
+      const result = await verifyAuthenticatedRequest(fetchReq, {
+        receiptSecret: secret,
+        rpcUrl: options?.rpcUrl,
+        verifyOnchain: options?.verifyOnchain,
+        publicClient: options?.publicClient,
+        allowedSignerTypes: options?.allowedSignerTypes,
+      });
+
+      if (!result.valid) {
+        res.status(401).json({ error: result.error });
+        return;
       }
+
+      req.agent = result.agent;
+    } catch (err: any) {
+      res.status(401).json({ error: `ERC-8128 auth failed: ${err.message}` });
+      return;
     }
 
     // -----------------------------------------------------------------------
-    // Step 2: Try x402 payment (if configured)
+    // Step 2: x402 payment (required only when x402 is configured)
     // -----------------------------------------------------------------------
     if (options?.x402) {
       const { x402 } = options;
@@ -201,63 +203,42 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
         | string
         | undefined;
 
-      if (paymentHeader) {
-        try {
-          const payload = decodeX402Header<PaymentPayload>(paymentHeader);
-          const result = await processX402Payment(payload, x402.accepts, x402.facilitator);
+      if (!paymentHeader) {
+        // No payment header — return 402 with requirements
+        const paymentRequired: PaymentRequired = {
+          accepts: x402.accepts,
+          resource: x402.resource,
+        };
+        res.setHeader(X402_HEADERS.PAYMENT_REQUIRED, encodeX402Header(paymentRequired));
+        res.status(402).json({
+          error: 'Payment required',
+          accepts: x402.accepts,
+          resource: x402.resource,
+        });
+        return;
+      }
 
-          if (result.valid) {
-            const responseHeader = encodeX402Header(result.payment);
-            res.setHeader(X402_HEADERS.PAYMENT_RESPONSE, responseHeader);
-            req.payment = result.payment;
-          } else {
-            // Payment header present but invalid — if SIWA already succeeded,
-            // we can still proceed; otherwise this error matters
-            if (!req.agent) {
-              res.status(402).json({ error: result.error });
-              return;
-            }
-          }
-        } catch (err: any) {
-          if (!req.agent) {
-            res.status(402).json({ error: `x402 payment processing failed: ${err.message}` });
-            return;
-          }
+      try {
+        const payload = decodeX402Header<PaymentPayload>(paymentHeader);
+        const result = await processX402Payment(payload, x402.accepts, x402.facilitator);
+
+        if (!result.valid) {
+          res.status(402).json({ error: result.error });
+          return;
         }
+
+        const responseHeader = encodeX402Header(result.payment);
+        res.setHeader(X402_HEADERS.PAYMENT_RESPONSE, responseHeader);
+        req.payment = result.payment;
+      } catch (err: any) {
+        res.status(402).json({ error: `x402 payment processing failed: ${err.message}` });
+        return;
       }
     }
 
     // -----------------------------------------------------------------------
-    // Step 3: Decide outcome
+    // Step 3: All checks passed
     // -----------------------------------------------------------------------
-
-    // At least one path succeeded → proceed
-    if (req.agent || req.payment) {
-      next();
-      return;
-    }
-
-    // Neither succeeded — respond with appropriate error
-    if (options?.x402) {
-      // x402 configured: return 402 with payment requirements
-      const paymentRequired: PaymentRequired = {
-        accepts: options.x402.accepts,
-        resource: options.x402.resource,
-      };
-
-      res.setHeader(X402_HEADERS.PAYMENT_REQUIRED, encodeX402Header(paymentRequired));
-      res.status(402).json({
-        error: 'Payment required',
-        ...(siwaError ? { siwaError } : {}),
-        accepts: options.x402.accepts,
-        resource: options.x402.resource,
-      });
-      return;
-    }
-
-    // No x402 → standard 401
-    res.status(401).json({
-      error: siwaError ?? 'Unauthorized — provide ERC-8128 Signature + X-SIWA-Receipt headers',
-    });
+    next();
   };
 }
