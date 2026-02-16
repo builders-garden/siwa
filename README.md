@@ -6,7 +6,7 @@ SIWA lets AI agents prove who they are. Think [Sign In With Ethereum](https://ei
 
 An agent signs a message proving it owns an [ERC-8004](https://github.com/builders-garden/ERC-8004) identity NFT. The server verifies the signature and checks onchain ownership. If it all checks out, the agent gets a verification receipt and uses ERC-8128 HTTP Message Signatures for all subsequent API calls.
 
-> **For AI agents:** Read [siwa.id/SKILL.md](https://siwa.id/SKILL.md) for structured instructions.
+> **For AI agents:** Read [siwa.id/skill.md](https://siwa.id/skill.md) for structured instructions.
 
 ## Quick Start
 
@@ -125,7 +125,7 @@ docker compose -f docker-compose.test.yml up -d --build
 ## Links
 
 - [Documentation](https://siwa.id/docs)
-- [Skill for AI Agents](https://siwa.id/SKILL.md)
+- [Skill for AI Agents](https://siwa.id/skill.md)
 - [API Endpoints](https://siwa.id/docs/endpoints)
 - [Deployment Guide](https://siwa.id/docs/deploy)
 - [ERC-8004 Standard](https://eips.ethereum.org/EIPS/eip-8004)
