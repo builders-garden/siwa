@@ -170,7 +170,7 @@ export default function DocsPage() {
               className="rounded-lg border border-border bg-surface px-4 py-3 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
             >
               <h4 className="font-mono text-xs font-semibold text-foreground mb-1">Wallet Options</h4>
-              <p className="text-xs text-dim">Use any wallet: Privy, MetaMask, private key, or keyring proxy.</p>
+              <p className="text-xs text-dim">Use any wallet: Bankr, Privy, Circle, private key, or keyring proxy.</p>
             </a>
             <a
               href="#api"
@@ -247,6 +247,37 @@ export default function DocsPage() {
           <P>
             Everything an agent needs to authenticate: choose a signer, sign SIWA messages for initial sign-in, then sign subsequent API requests with ERC-8128. <br></br> SIWA supports both <strong className="text-foreground">EOA</strong> (Externally Owned Account) and <strong className="text-foreground">SCA</strong> (Smart Contract Account) signers — agents backed by smart wallets like Safe, Base Accounts, or ERC-6551 Token Bound Accounts work alongside traditional EOA-based agents.
           </P>
+
+          <SubSection id="wallet-bankr" title="Bankr">
+            <P>
+              Bankr&apos;s Agent API provides custodial wallets for AI agents with built-in signing capabilities. No additional SDK is needed — the signer communicates directly with the Bankr API over HTTP:
+            </P>
+            <CodeBlock language="bash">{`# No extra package needed — only @buildersgarden/siwa`}</CodeBlock>
+            <P>
+              Create a signer from your Bankr API key:
+            </P>
+            <CollapsibleCodeBlock title="Bankr Signer Example" language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
+import { createBankrSiwaSigner } from "@buildersgarden/siwa/signer";
+
+// Create signer - wallet address is fetched automatically from Bankr
+const signer = await createBankrSiwaSigner({
+  apiKey: process.env.BANKR_API_KEY!,
+});
+
+// Sign SIWA message
+const { message, signature, address } = await signSIWAMessage({
+  domain: "api.example.com",
+  uri: "https://api.example.com/siwa",
+  agentId: 42,
+  agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  chainId: 84532,
+  nonce,
+  issuedAt: new Date().toISOString(),
+}, signer);`}</CollapsibleCodeBlock>
+            <P>
+              Already using Bankr&apos;s <a href="https://github.com/BankrBot/openclaw-skills/tree/main/bankr" className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">OpenClaw trading skill</a> for swaps and DeFi? This signer adds SIWA authentication on top — same API key, same wallet.
+            </P>
+          </SubSection>
 
           <SubSection id="wallet-circle" title="Circle">
             <P>

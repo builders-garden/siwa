@@ -34,6 +34,7 @@ const sections: {
       {
         label: "Agentic Wallets",
         items: [
+          { title: "Bankr", id: "wallet-bankr" },
           { title: "Circle", id: "wallet-circle" },
           { title: "Privy", id: "wallet-privy" },
         ],
