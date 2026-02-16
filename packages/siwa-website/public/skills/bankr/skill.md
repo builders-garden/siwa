@@ -31,7 +31,31 @@ The wallet address is fetched automatically from Bankr's `/agent/me` endpoint.
 
 ## Register as ERC-8004 Agent
 
-Bankr wallets are smart contract accounts (ERC-4337). Use Bankr's `/agent/submit` endpoint with pre-encoded calldata to execute the registration as an arbitrary transaction:
+Bankr wallets are smart contract accounts (ERC-4337). To register on the ERC-8004 Identity Registry, submit the registration as an [arbitrary transaction](https://github.com/BankrBot/openclaw-skills/blob/main/bankr/references/arbitrary-transaction.md) via Bankr's `/agent/submit` endpoint.
+
+### Supported Networks
+
+The Bankr `/agent/submit` endpoint supports these chains:
+
+| Network    | Chain ID |
+|------------|----------|
+| Ethereum   | 1        |
+| Polygon    | 137      |
+| Base       | 8453     |
+| Unichain   | 130      |
+
+### Transaction Format
+
+The `/agent/submit` endpoint requires a `transaction` object with these fields:
+
+| Field     | Type   | Description                                             |
+|-----------|--------|---------------------------------------------------------|
+| `to`      | string | Contract address (`0x` + 40 hex characters)             |
+| `data`    | string | ABI-encoded calldata (`0x`-prefixed, or `"0x"` if empty)|
+| `value`   | string | Transaction value in wei (use `"0"` for registration)   |
+| `chainId` | number | Target network ID (must be a supported network above)   |
+
+### Example
 
 ```typescript
 import { encodeRegisterAgent } from "@buildersgarden/siwa/registry";
@@ -45,7 +69,7 @@ const metadata = {
 const agentURI = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
 
 // Encode the registration calldata (resolves the registry address automatically)
-const { to, data } = encodeRegisterAgent({ agentURI, chainId: 84532 });
+const { to, data } = encodeRegisterAgent({ agentURI, chainId: 8453 });
 
 // Submit as arbitrary transaction via Bankr API
 const submitRes = await fetch("https://api.bankr.bot/agent/submit", {
@@ -55,7 +79,7 @@ const submitRes = await fetch("https://api.bankr.bot/agent/submit", {
     "X-API-Key": process.env.BANKR_API_KEY!,
   },
   body: JSON.stringify({
-    transaction: { to, data, value: "0", chainId: 84532 },
+    transaction: { to, data, value: "0", chainId: 8453 },
     waitForConfirmation: true,
   }),
 });
@@ -64,7 +88,7 @@ const result = await submitRes.json();
 console.log("Transaction hash:", result.txHash);
 ```
 
-> **Note:** Bankr wallets are smart accounts — SIWA verification uses ERC-1271 automatically. The `/agent/submit` endpoint handles UserOperation bundling internally. See [Bankr arbitrary transactions](https://github.com/BankrBot/openclaw-skills/blob/main/bankr/references/arbitrary-transaction.md) for details.
+> **Important:** Transactions submitted via `/agent/submit` are **irreversible**. Always verify calldata encoding and confirm the target contract address before submitting. Ensure the wallet has sufficient ETH/MATIC for gas. The endpoint handles UserOperation bundling internally for ERC-4337 smart accounts, and SIWA verification uses ERC-1271 automatically.
 
 ---
 
@@ -84,7 +108,7 @@ const nonceRes = await fetch("https://api.example.com/siwa/nonce", {
   body: JSON.stringify({
     address: await signer.getAddress(),
     agentId: 42,
-    agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    agentRegistry: "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
   }),
 });
 const { nonce, issuedAt, expirationTime } = await nonceRes.json();
@@ -99,8 +123,8 @@ const { message, signature, address } = await signSIWAMessage({
   domain: "api.example.com",
   uri: "https://api.example.com/siwa",
   agentId: 42,
-  agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e", //According to the chain
-  chainId: 84532,
+  agentRegistry: "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", //According to the chain
+  chainId: 8453,
   nonce,
   issuedAt,
   expirationTime,
@@ -132,7 +156,7 @@ const signedRequest = await signAuthenticatedRequest(
   request,
   receipt,  // from SIWA sign-in
   signer,
-  84532,
+  8453,
 );
 
 const response = await fetch(signedRequest);
