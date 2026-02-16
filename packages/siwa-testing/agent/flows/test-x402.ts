@@ -775,7 +775,7 @@ async function testSessionPaymentCreatesSession() {
     }
 
     // Verify session was stored
-    const session = await sessionStore.get(account.address.toLowerCase());
+    const session = await sessionStore.get(account.address.toLowerCase(), '/api/data');
     session && session.txHash === '0xsiwx'
       ? pass('SIWX: payment succeeds + session created with txHash')
       : fail('SIWX session created', `session=${JSON.stringify(session)}`);
@@ -969,6 +969,53 @@ async function testSessionNoSharingBetweenAgents() {
   }
 }
 
+async function testSessionNoSharingBetweenRoutes() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator({ txHash: '0xroute1' });
+
+    // Route 1: /api/cheap — agent pays here
+    const middleware1 = siwaMiddleware({
+      receiptSecret: TEST_SECRET,
+      x402: {
+        facilitator,
+        resource: { url: '/api/cheap', description: 'Cheap' },
+        accepts: MOCK_ACCEPTS,
+        session: { store: sessionStore, ttl: 60_000 },
+      },
+    });
+
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req1 = await createSignedMockReq({ paymentHeader, path: '/api/cheap' });
+    const res1 = createMockRes();
+    await (middleware1 as any)(req1, res1, () => {});
+
+    // Route 2: /api/expensive — same store, same agent, different resource
+    const middleware2 = siwaMiddleware({
+      receiptSecret: TEST_SECRET,
+      x402: {
+        facilitator,
+        resource: { url: '/api/expensive', description: 'Expensive' },
+        accepts: MOCK_ACCEPTS,
+        session: { store: sessionStore, ttl: 60_000 },
+      },
+    });
+
+    const req2 = await createSignedMockReq({ path: '/api/expensive' });
+    const res2 = createMockRes();
+    let nextCalled = false;
+
+    await (middleware2 as any)(req2, res2, () => { nextCalled = true; });
+
+    // Should get 402 — session for /api/cheap doesn't grant /api/expensive
+    res2.statusCode === 402 && !nextCalled
+      ? pass('SIWX: session for /api/cheap does not grant /api/expensive → 402')
+      : fail('SIWX route isolation', `status=${res2.statusCode}, next=${nextCalled}`);
+  } catch (err: any) {
+    fail('SIWX route isolation', err.message);
+  }
+}
+
 // ─── Entry point ────────────────────────────────────────────────────
 
 export async function testX402Flow(): Promise<boolean> {
@@ -1019,6 +1066,7 @@ export async function testX402Flow(): Promise<boolean> {
   await testSessionReqPaymentPresence();
   await testSessionExpiry();
   await testSessionNoSharingBetweenAgents();
+  await testSessionNoSharingBetweenRoutes();
 
   // ── Summary ──
   console.log('');

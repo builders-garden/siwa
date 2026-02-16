@@ -103,10 +103,10 @@ export interface X402Session {
   txHash?: string;
 }
 
-/** Pluggable session store (get/set with TTL) */
+/** Pluggable session store keyed by (address, resource) */
 export interface X402SessionStore {
-  get(address: string): Promise<X402Session | null>;
-  set(address: string, session: X402Session, ttlMs: number): Promise<void>;
+  get(address: string, resource: string): Promise<X402Session | null>;
+  set(address: string, resource: string, session: X402Session, ttlMs: number): Promise<void>;
 }
 
 /** Session configuration for SIWX pay-once mode */
@@ -221,20 +221,22 @@ export function createMemoryX402SessionStore(): X402SessionStore {
   }
 
   return {
-    async get(address: string): Promise<X402Session | null> {
+    async get(address: string, resource: string): Promise<X402Session | null> {
       cleanup();
-      const entry = sessions.get(address);
+      const key = `${address}:${resource}`;
+      const entry = sessions.get(key);
       if (!entry) return null;
       if (entry.expiry < Date.now()) {
-        sessions.delete(address);
+        sessions.delete(key);
         return null;
       }
       return entry.session;
     },
 
-    async set(address: string, session: X402Session, ttlMs: number): Promise<void> {
+    async set(address: string, resource: string, session: X402Session, ttlMs: number): Promise<void> {
       cleanup();
-      sessions.set(address, { session, expiry: Date.now() + ttlMs });
+      const key = `${address}:${resource}`;
+      sessions.set(key, { session, expiry: Date.now() + ttlMs });
     },
   };
 }

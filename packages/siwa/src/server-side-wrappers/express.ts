@@ -203,7 +203,7 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
 
       // Step 2a: Check session store (SIWX pay-once mode)
       if (x402.session) {
-        const existing = await x402.session.store.get(agentAddress);
+        const existing = await x402.session.store.get(agentAddress, x402.resource.url);
         if (existing) {
           // Active session — skip payment entirely
           next();
@@ -247,6 +247,7 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
         if (x402.session) {
           await x402.session.store.set(
             agentAddress,
+            x402.resource.url,
             { paidAt: Date.now(), txHash: result.payment.txHash },
             x402.session.ttl,
           );
