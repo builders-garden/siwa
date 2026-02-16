@@ -174,6 +174,22 @@ export default function EndpointsPage() {
             </P>
           </SubSection>
 
+          <SubSection id="networks" title="Networks">
+            <P>
+              The server supports both testnet and mainnet. Use the appropriate endpoint prefix for your target network:
+            </P>
+            <Table
+              headers={["Network", "Chain ID", "Endpoint Prefix"]}
+              rows={[
+                ["Base Sepolia (testnet)", "84532", "/api/siwa/*"],
+                ["Base (mainnet)", "8453", "/api/siwa/mainnet/*"],
+              ]}
+            />
+            <P>
+              For example, to authenticate on mainnet, use <InlineCode>/api/siwa/mainnet/nonce</InlineCode> and <InlineCode>/api/siwa/mainnet/verify</InlineCode>.
+            </P>
+          </SubSection>
+
           <SubSection id="auth-flow" title="Authentication Flow">
             <div className="rounded-lg border border-border bg-surface p-5 mb-4">
               <div className="space-y-4 font-mono text-sm">
@@ -222,8 +238,9 @@ export default function EndpointsPage() {
         <Section id="authentication" title="Authentication Endpoints">
           <SubSection id="post-siwa-nonce" title="Request Nonce">
             <EndpointHeader method="POST" path="/api/siwa/nonce" />
+            <EndpointHeader method="POST" path="/api/siwa/mainnet/nonce" />
             <P>
-              Request a cryptographic nonce to include in the SIWA message. Nonces are single-use and expire after 5 minutes.
+              Request a cryptographic nonce to include in the SIWA message. Nonces are single-use and expire after 5 minutes. Use <InlineCode>/api/siwa/nonce</InlineCode> for Base Sepolia (testnet) or <InlineCode>/api/siwa/mainnet/nonce</InlineCode> for Base (mainnet).
             </P>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Request Body</h4>
@@ -263,8 +280,9 @@ export default function EndpointsPage() {
 
           <SubSection id="post-siwa-verify" title="Verify Signature">
             <EndpointHeader method="POST" path="/api/siwa/verify" />
+            <EndpointHeader method="POST" path="/api/siwa/mainnet/verify" />
             <P>
-              Submit the signed SIWA message for verification. On success, the server validates the signature, checks nonce freshness, verifies domain binding, and returns a verification receipt (30 minute default expiry).
+              Submit the signed SIWA message for verification. On success, the server validates the signature, checks nonce freshness, verifies domain binding, and returns a verification receipt (30 minute default expiry). Use <InlineCode>/api/siwa/verify</InlineCode> for Base Sepolia (testnet) or <InlineCode>/api/siwa/mainnet/verify</InlineCode> for Base (mainnet).
             </P>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Request Body</h4>
