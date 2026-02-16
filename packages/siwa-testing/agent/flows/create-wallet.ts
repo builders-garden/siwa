@@ -1,6 +1,6 @@
 import chalk from 'chalk';
-import { createWallet, hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
-import { ensureIdentityExists, writeIdentityField } from '@buildersgarden/siwa/identity';
+import { createWallet, hasWallet, getAddress } from '@buildersgarden/siwa-ts/keystore';
+import { ensureIdentityExists, writeIdentityField } from '@buildersgarden/siwa-ts/identity';
 import { config, getKeystoreConfig } from '../config.js';
 
 export async function createWalletFlow(): Promise<void> {

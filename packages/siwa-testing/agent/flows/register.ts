@@ -6,11 +6,11 @@ import {
   formatEther,
   type Address,
 } from 'viem';
-import { hasWallet, getAddress } from '@buildersgarden/siwa/keystore';
+import { hasWallet, getAddress } from '@buildersgarden/siwa-ts/keystore';
 import {
   isRegistered, readIdentity, writeIdentityField,
-} from '@buildersgarden/siwa/identity';
-import { registerAgent } from '@buildersgarden/siwa/registry';
+} from '@buildersgarden/siwa-ts/identity';
+import { registerAgent } from '@buildersgarden/siwa-ts/registry';
 import {
   config, getKeystoreConfig, getSigner, isLiveMode, REGISTRY_ADDRESSES, RPC_ENDPOINTS, CHAIN_NAMES, FAUCETS, txUrl, addressUrl,
 } from '../config.js';

@@ -17,13 +17,13 @@
 import chalk from 'chalk';
 import { spawn, type ChildProcess } from 'child_process';
 import * as path from 'path';
-import { createReceipt, verifyReceipt } from '@buildersgarden/siwa/receipt';
+import { createReceipt, verifyReceipt } from '@buildersgarden/siwa-ts/receipt';
 import {
   signAuthenticatedRequest,
   verifyAuthenticatedRequest,
   createErc8128Signer,
-} from '@buildersgarden/siwa/erc8128';
-import { createLocalAccountSigner } from '@buildersgarden/siwa/signer';
+} from '@buildersgarden/siwa-ts/erc8128';
+import { createLocalAccountSigner } from '@buildersgarden/siwa-ts/signer';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { config, getSigner } from '../config.js';
 

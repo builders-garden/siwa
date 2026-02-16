@@ -19,7 +19,7 @@ import {
   type SIWANonceStore,
   type RedisLikeClient,
   type KVNamespaceLike,
-} from '@buildersgarden/siwa/nonce-store';
+} from '@buildersgarden/siwa-ts/nonce-store';
 
 let passed = 0;
 let failed = 0;

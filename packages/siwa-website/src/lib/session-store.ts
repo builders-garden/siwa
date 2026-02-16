@@ -1,4 +1,4 @@
-import { createReceipt, verifyReceipt, DEFAULT_RECEIPT_TTL, type ReceiptPayload } from "@buildersgarden/siwa";
+import { createReceipt, verifyReceipt, DEFAULT_RECEIPT_TTL, type ReceiptPayload } from "@buildersgarden/siwa-ts";
 
 const RECEIPT_SECRET =
   process.env.RECEIPT_SECRET || process.env.SIWA_SECRET || "siwa-demo-secret-change-in-production";

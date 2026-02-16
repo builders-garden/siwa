@@ -18,6 +18,20 @@ packages/keyring-proxy/data/
 dist/
 *.tsbuildinfo
 
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 # OS files
 .DS_Store
 Thumbs.db

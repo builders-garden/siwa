@@ -2,8 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import { createPublicClient, http } from 'viem';
 import { recordSession, getSessions, getSessionCount, createReceiptForAgent } from './session-store.js';
-import { verifySIWA, buildSIWAResponse, createSIWANonce, SIWAErrorCode } from '@buildersgarden/siwa';
-import { siwaMiddleware, siwaJsonParser, siwaCors } from '@buildersgarden/siwa/express';
+import { verifySIWA, buildSIWAResponse, createSIWANonce, SIWAErrorCode } from '@buildersgarden/siwa-ts';
+import { siwaMiddleware, siwaJsonParser, siwaCors } from '@buildersgarden/siwa-ts/express';
 import { renderDashboard } from './dashboard.js';
 
 const app = express();

@@ -1,4 +1,4 @@
-import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
+import { withSiwa, siwaOptions } from "@buildersgarden/siwa-ts/next";
 
 export const POST = withSiwa(async (agent, req) => {
   const body = await req.json();

@@ -26,7 +26,7 @@ import fs from "fs";
 import path from "path";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
-import { verifyHmac } from "@buildersgarden/siwa/proxy-auth";
+import { verifyHmac } from "@buildersgarden/siwa-ts/proxy-auth";
 import {
   privateKeyToAccount,
   generatePrivateKey,
@@ -436,7 +436,7 @@ function hmacAuth(req: Request, res: Response, next: NextFunction) {
         "X-Keyring-Signature":
           "<HMAC-SHA256 hex of METHOD\\nPATH\\nTIMESTAMP\\nBODY>",
       },
-      hint: "Use the SDK: import { computeHmac } from '@buildersgarden/siwa/proxy-auth'",
+      hint: "Use the SDK: import { computeHmac } from '@buildersgarden/siwa-ts/proxy-auth'",
     });
     return;
   }
@@ -457,7 +457,7 @@ function hmacAuth(req: Request, res: Response, next: NextFunction) {
     res.status(401).json({
       error: result.error,
       payload_format: "METHOD\\nPATH\\nTIMESTAMP\\nBODY",
-      hint: "Use the SDK: import { computeHmac } from '@buildersgarden/siwa/proxy-auth'",
+      hint: "Use the SDK: import { computeHmac } from '@buildersgarden/siwa-ts/proxy-auth'",
     });
     return;
   }

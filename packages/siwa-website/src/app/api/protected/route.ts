@@ -1,4 +1,4 @@
-import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
+import { withSiwa, siwaOptions } from "@buildersgarden/siwa-ts/next";
 
 export const GET = withSiwa(async (agent) => {
   return {

@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
-import { verifySIWA, buildSIWAResponse, SIWAErrorCode } from "@buildersgarden/siwa";
+import { verifySIWA, buildSIWAResponse, SIWAErrorCode } from "@buildersgarden/siwa-ts";
 import { createReceiptForAgent, recordSession } from "@/lib/session-store";
-import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
+import { corsJson, siwaOptions } from "@buildersgarden/siwa-ts/next";
 import { nonceStore } from "../nonce/route";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.id";

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(done)",
+      "Bash(git mv:*)",
+      "Bash(find:*)",
+      "Bash(pnpm install)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm run test:viem:*)",
+      "Bash(pnpm run test:nonce:*)",
+      "Bash(python3:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(git rm:*)"
+    ]
+  }
+}

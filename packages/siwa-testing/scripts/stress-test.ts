@@ -22,13 +22,13 @@ import { isAddress, verifyMessage, type Hex, type Address } from 'viem';
 import {
   createWallet, hasWallet, getAddress, signAuthorization,
   type KeystoreConfig,
-} from '@buildersgarden/siwa/keystore';
-import { createKeyringProxySigner, type TransactionSigner } from '@buildersgarden/siwa/signer';
+} from '@buildersgarden/siwa-ts/keystore';
+import { createKeyringProxySigner, type TransactionSigner } from '@buildersgarden/siwa-ts/signer';
 import {
   ensureIdentityExists, readIdentity, writeIdentityField, hasWalletRecord, isRegistered,
-} from '@buildersgarden/siwa/identity';
-import { signSIWAMessage, buildSIWAMessage, parseSIWAMessage } from '@buildersgarden/siwa';
-import { computeHmac } from '@buildersgarden/siwa/proxy-auth';
+} from '@buildersgarden/siwa-ts/identity';
+import { signSIWAMessage, buildSIWAMessage, parseSIWAMessage } from '@buildersgarden/siwa-ts';
+import { computeHmac } from '@buildersgarden/siwa-ts/proxy-auth';
 
 const projectRoot = path.resolve(import.meta.dirname || __dirname, '..');
 const identityPath = path.resolve(projectRoot, 'IDENTITY.stress-test.md');

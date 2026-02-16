@@ -23,14 +23,14 @@ import {
   generateNonce,
   verifySIWA,
   SIWAErrorCode,
-} from '@buildersgarden/siwa';
+} from '@buildersgarden/siwa-ts';
 import {
   createKeyringProxySigner,
   createLocalAccountSigner,
   type Signer,
-} from '@buildersgarden/siwa/signer';
-import { createReceipt, verifyReceipt } from '@buildersgarden/siwa/receipt';
-import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
+} from '@buildersgarden/siwa-ts/signer';
+import { createReceipt, verifyReceipt } from '@buildersgarden/siwa-ts/receipt';
+import { signAuthenticatedRequest } from '@buildersgarden/siwa-ts/erc8128';
 import { config, getSigner } from '../config.js';
 
 let passed = 0;
@@ -378,6 +378,10 @@ function createMockPublicClient(ownerOfResult: Address | 'throw'): PublicClient 
     verifyMessage: async ({ address, message, signature }: { address: Address; message: string; signature: Hex }) => {
       // Use viem's verifyMessage utility for EOA verification
       return verifyMessage({ address, message, signature });
+    },
+    // Return empty code for EOA (no contract code)
+    getCode: async ({ address }: { address: Address }) => {
+      return '0x';
     },
   } as unknown as PublicClient;
 }

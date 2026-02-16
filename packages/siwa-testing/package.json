@@ -19,7 +19,7 @@
     "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\""
   },
   "dependencies": {
-    "@buildersgarden/siwa": "workspace:*",
+    "@buildersgarden/siwa-ts": "workspace:*",
     "chalk": "^5.3.0",
     "concurrently": "^9.0.0",
     "dotenv": "^17.2.3",

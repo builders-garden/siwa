@@ -22,7 +22,7 @@ export interface VerifyRequest {
   nonceToken?: string;
 }
 
-export type { SIWAErrorCode, SIWAAction } from '@buildersgarden/siwa';
+export type { SIWAErrorCode, SIWAAction } from '@buildersgarden/siwa-ts';
 
 export interface VerifyResponse {
   status: 'authenticated' | 'not_registered' | 'rejected';
@@ -31,9 +31,9 @@ export interface VerifyResponse {
   agentRegistry?: string;
   chainId?: number;
   verified?: 'offline' | 'onchain';
-  code?: import('@buildersgarden/siwa').SIWAErrorCode;
+  code?: import('@buildersgarden/siwa-ts').SIWAErrorCode;
   error?: string;
-  action?: import('@buildersgarden/siwa').SIWAAction;
+  action?: import('@buildersgarden/siwa-ts').SIWAAction;
   skill?: { name: string; install: string; url: string };
   // On authenticated
   receipt?: string;

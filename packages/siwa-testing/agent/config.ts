@@ -5,8 +5,8 @@ import {
   CHAIN_NAMES,
   FAUCETS,
   BLOCK_EXPLORERS,
-} from "@buildersgarden/siwa/addresses";
-import { createKeyringProxySigner, type TransactionSigner } from "@buildersgarden/siwa/signer";
+} from "@buildersgarden/siwa-ts/addresses";
+import { createKeyringProxySigner, type TransactionSigner } from "@buildersgarden/siwa-ts/signer";
 import * as path from "path";
 
 const projectRoot = path.resolve(import.meta.dirname || __dirname, "..");

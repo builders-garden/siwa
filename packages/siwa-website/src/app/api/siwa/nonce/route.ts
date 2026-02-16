@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
-import { createSIWANonce, createMemorySIWANonceStore, SIWAErrorCode } from "@buildersgarden/siwa";
-import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
+import { createSIWANonce, createMemorySIWANonceStore, SIWAErrorCode } from "@buildersgarden/siwa-ts";
+import { corsJson, siwaOptions } from "@buildersgarden/siwa-ts/next";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.id";
 const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";

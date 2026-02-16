@@ -7,9 +7,9 @@ import { testProxyFlow } from './flows/test-proxy.js';
 import { testErc8128Flow } from './flows/test-erc8128.js';
 import { testSignersFlow, testViemSignerFlow, testKeyringSignerFlow } from './flows/test-signers.js';
 import { testNonceStoreFlow } from './flows/test-nonce-store.js';
-import { hasWallet } from '@buildersgarden/siwa/keystore';
-import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
-import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
+import { hasWallet } from '@buildersgarden/siwa-ts/keystore';
+import { isRegistered, readIdentity } from '@buildersgarden/siwa-ts/identity';
+import { signAuthenticatedRequest } from '@buildersgarden/siwa-ts/erc8128';
 import { config, getSigner, getKeystoreConfig } from './config.js';
 
 const command = process.argv[2];

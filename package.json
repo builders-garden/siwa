@@ -4,8 +4,8 @@
   "packageManager": "pnpm@10.28.0",
   "type": "module",
   "scripts": {
-    "build": "pnpm --filter siwa build",
-    "clean": "pnpm --filter siwa run clean"
+    "build": "pnpm --filter siwa-ts build",
+    "clean": "pnpm --filter siwa-ts run clean"
   },
   "devDependencies": {
     "typescript": "^5.5.0"

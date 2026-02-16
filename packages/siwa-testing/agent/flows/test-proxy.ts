@@ -2,9 +2,9 @@ import chalk from 'chalk';
 import { isAddress, verifyMessage, parseTransaction, type Hex, type Address } from 'viem';
 import {
   hasWallet, getAddress, createWallet, signAuthorization,
-} from '@buildersgarden/siwa/keystore';
-import { createKeyringProxySigner } from '@buildersgarden/siwa/signer';
-import { computeHmac } from '@buildersgarden/siwa/proxy-auth';
+} from '@buildersgarden/siwa-ts/keystore';
+import { createKeyringProxySigner } from '@buildersgarden/siwa-ts/signer';
+import { computeHmac } from '@buildersgarden/siwa-ts/proxy-auth';
 import { config, getKeystoreConfig } from '../config.js';
 
 let passed = 0;

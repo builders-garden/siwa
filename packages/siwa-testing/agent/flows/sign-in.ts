@@ -1,7 +1,7 @@
 import chalk from 'chalk';
-import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
-import { signSIWAMessage } from '@buildersgarden/siwa';
-import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
+import { isRegistered, readIdentity } from '@buildersgarden/siwa-ts/identity';
+import { signSIWAMessage } from '@buildersgarden/siwa-ts';
+import { signAuthenticatedRequest } from '@buildersgarden/siwa-ts/erc8128';
 import { config, getSigner } from '../config.js';
 import type { NonceResponse, VerifyResponse } from '../../shared/types.js';
 
