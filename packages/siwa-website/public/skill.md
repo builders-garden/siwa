@@ -21,6 +21,7 @@ npm install @buildersgarden/siwa
 
 Choose based on your wallet provider:
 
+- [Bankr](https://siwa.id/skills/bankr/skill.md) — Bankr Agent API wallets
 - [Circle](https://siwa.id/skills/circle/skill.md) — Circle developer-controlled wallets
 - [Privy](https://siwa.id/skills/privy/skill.md) — Privy server wallets
 - [Private Key](https://siwa.id/skills/private-key/skill.md) — Raw private key (viem LocalAccount)

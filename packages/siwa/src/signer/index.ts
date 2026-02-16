@@ -13,6 +13,7 @@
  *   - createCircleSiwaSigner(config)           — Circle developer-controlled wallet
  *   - createCircleSiwaSignerFromClient(config) — Circle with existing client
  *   - createPrivySiwaSigner(config)            — Privy server wallet
+ *   - createBankrSiwaSigner(config)            — Bankr Agent API wallet
  *
  * Usage:
  *   import { signSIWAMessage, createLocalAccountSigner } from '@buildersgarden/siwa';
@@ -46,3 +47,7 @@ export {
   createPrivySiwaSigner,
   type PrivySiwaSignerConfig,
 } from './privy.js';
+export {
+  createBankrSiwaSigner,
+  type BankrSiwaSignerConfig,
+} from './bankr.js';
