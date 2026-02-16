@@ -31,9 +31,11 @@ The wallet address is fetched automatically from Bankr's `/agent/me` endpoint.
 
 ## Register as ERC-8004 Agent
 
-Bankr wallets are smart contract accounts (ERC-4337). Use Bankr's prompt endpoint to execute the registration — it handles UserOperation bundling and gas sponsorship automatically:
+Bankr wallets are smart contract accounts (ERC-4337). Use Bankr's `/agent/submit` endpoint with pre-encoded calldata to execute the registration as an arbitrary transaction:
 
 ```typescript
+import { encodeFunctionData } from "viem";
+
 const IDENTITY_REGISTRY_ADDRESS = "0x8004A818BFB912233c491871b3d84c89A494BD9e"; //According to the chain
 
 // Prepare agent metadata
@@ -44,34 +46,45 @@ const metadata = {
 };
 const agentURI = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
 
-// Use Bankr's prompt endpoint to execute the registration
-const promptRes = await fetch("https://api.bankr.bot/agent/prompt", {
+const IDENTITY_REGISTRY_ABI = [
+  {
+    name: "register",
+    type: "function",
+    inputs: [{ name: "agentURI", type: "string" }],
+    outputs: [{ name: "agentId", type: "uint256" }],
+  },
+] as const;
+
+// Encode the register function call
+const data = encodeFunctionData({
+  abi: IDENTITY_REGISTRY_ABI,
+  functionName: "register",
+  args: [agentURI],
+});
+
+// Submit as arbitrary transaction via Bankr API
+const submitRes = await fetch("https://api.bankr.bot/agent/submit", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
     "X-API-Key": process.env.BANKR_API_KEY!,
   },
   body: JSON.stringify({
-    prompt: `Call the register function on contract ${IDENTITY_REGISTRY_ADDRESS} on Base Sepolia with argument: "${agentURI}"`,
+    transaction: {
+      to: IDENTITY_REGISTRY_ADDRESS,
+      data: data,
+      value: "0",
+      chainId: 84532,
+    },
+    waitForConfirmation: true,
   }),
 });
 
-const { jobId } = await promptRes.json();
-
-// Poll for completion
-let result;
-do {
-  await new Promise((r) => setTimeout(r, 2000));
-  const jobRes = await fetch(`https://api.bankr.bot/agent/job/${jobId}`, {
-    headers: { "X-API-Key": process.env.BANKR_API_KEY! },
-  });
-  result = await jobRes.json();
-} while (result.status === "pending" || result.status === "processing");
-
-console.log("Registration result:", result);
+const result = await submitRes.json();
+console.log("Transaction hash:", result.txHash);
 ```
 
-> **Note:** Bankr wallets are smart accounts, so SIWA verification uses ERC-1271 automatically — no extra configuration needed on the server side.
+> **Note:** Bankr wallets are smart accounts — SIWA verification uses ERC-1271 automatically. The `/agent/submit` endpoint handles UserOperation bundling internally. See [Bankr arbitrary transactions](https://github.com/BankrBot/openclaw-skills/blob/main/bankr/references/arbitrary-transaction.md) for details.
 
 ---
 
