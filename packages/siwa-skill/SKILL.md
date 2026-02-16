@@ -105,7 +105,19 @@ const walletClient = kernelClient.toWalletClient();
 const signer = createWalletClientSigner(walletClient);
 ```
 
-**Option F: Keyring Proxy (Self-Hosted)**
+**Option F: Bankr Agent API**
+
+```typescript
+import { createBankrSiwaSigner } from "@buildersgarden/siwa/signer";
+
+const signer = await createBankrSiwaSigner({
+  apiKey: process.env.BANKR_API_KEY!,
+});
+```
+
+> Bankr wallets are ERC-4337 smart accounts — signatures are verified via ERC-1271 automatically. No extra SDK needed.
+
+**Option G: Keyring Proxy (Self-Hosted)**
 
 ```typescript
 import { createKeyringProxySigner } from "@buildersgarden/siwa/signer";
@@ -519,6 +531,7 @@ app.post("/api/protected", siwaMiddleware(), (c) => {
 | `createCircleSiwaSigner(config)` | Create signer from Circle developer-controlled wallet. Config: `{ apiKey, entitySecret, walletId, walletAddress? }` |
 | `createCircleSiwaSignerFromClient(config)` | Create signer from existing Circle client. Config: `{ client, walletId, walletAddress? }` |
 | `createPrivySiwaSigner(config)` | Create signer from Privy server wallet. Config: `{ client, walletId, walletAddress }` |
+| `createBankrSiwaSigner(config)` | Create signer from Bankr Agent API (ERC-4337 smart account). Config: `{ apiKey?, baseUrl? }`. Reads `BANKR_API_KEY` env var if apiKey omitted. |
 
 ### Main Module (`@buildersgarden/siwa`)
 
