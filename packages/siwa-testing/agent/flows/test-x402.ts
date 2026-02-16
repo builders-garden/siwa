@@ -4,6 +4,9 @@
  * Tests:
  *   1. x402 core — encode/decode, processX402Payment with mock facilitator
  *   2. Express middleware — SIWA gate (always required), x402 payment gate, CORS
+ *   3. Next.js wrapper — x402 payment gate via withSiwa()
+ *   4. Hono middleware — x402 payment gate via siwaMiddleware()
+ *   5. Fastify preHandler — x402 payment gate via siwaAuth()
  *
  * Uses a local viem account for real SIWA signatures (no server needed).
  */
@@ -27,6 +30,16 @@ import {
   siwaMiddleware,
   siwaCors,
 } from '@buildersgarden/siwa/express';
+import { withSiwa } from '@buildersgarden/siwa/next';
+import { Hono } from 'hono';
+import {
+  siwaMiddleware as honoSiwaMiddleware,
+  siwaCors as honoSiwaCors,
+} from '@buildersgarden/siwa/hono';
+import Fastify from 'fastify';
+import {
+  siwaAuth as fastifySiwaAuth,
+} from '@buildersgarden/siwa/fastify';
 
 let passed = 0;
 let failed = 0;
@@ -1016,6 +1029,434 @@ async function testSessionNoSharingBetweenRoutes() {
   }
 }
 
+// ─── Helper: create signed web-standard Request ─────────────────────
+
+async function createSignedFetchRequest(options?: {
+  paymentHeader?: string;
+  method?: string;
+  path?: string;
+  body?: string;
+}): Promise<Request> {
+  const method = options?.method ?? 'GET';
+  const path = options?.path ?? '/api/data';
+  const url = `http://localhost:3000${path}`;
+
+  const { receipt } = createReceipt(
+    {
+      address: account.address,
+      agentId: 1,
+      agentRegistry: TEST_REGISTRY,
+      chainId: TEST_CHAIN_ID,
+      verified: 'offline',
+    },
+    { secret: TEST_SECRET },
+  );
+
+  const init: RequestInit = { method };
+  if (options?.body) {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = options.body;
+  }
+
+  const request = new Request(url, init);
+  const signed = await signAuthenticatedRequest(request, receipt, signer, TEST_CHAIN_ID);
+
+  // If payment header requested, clone with extra header
+  if (options?.paymentHeader) {
+    const headers = new Headers(signed.headers);
+    headers.set(X402_HEADERS.PAYMENT_SIGNATURE.toLowerCase(), options.paymentHeader);
+    return new Request(signed.url, {
+      method: signed.method,
+      headers,
+      body: signed.method !== 'GET' && signed.method !== 'HEAD' ? await signed.clone().text() : undefined,
+    });
+  }
+
+  return signed;
+}
+
+// ─── Next.js x402 Tests ─────────────────────────────────────────────
+
+async function testNextSiwaOkNoPayment402() {
+  try {
+    const facilitator = createMockFacilitator();
+    const handler = withSiwa(
+      (agent) => ({ ok: true, address: agent.address }),
+      {
+        receiptSecret: TEST_SECRET,
+        x402: {
+          facilitator,
+          resource: { url: '/api/data', description: 'Premium' },
+          accepts: MOCK_ACCEPTS,
+        },
+      },
+    );
+
+    const req = await createSignedFetchRequest();
+    const res = await handler(req);
+
+    if (res.status !== 402) {
+      fail('Next.js: valid SIWA + no payment → 402', `status=${res.status}`);
+      return;
+    }
+
+    const prHeader = res.headers.get(X402_HEADERS.PAYMENT_REQUIRED);
+    prHeader
+      ? pass('Next.js: valid SIWA + no payment → 402 + Payment-Required header')
+      : fail('Next.js: 402 missing Payment-Required header');
+  } catch (err: any) {
+    fail('Next.js: no payment 402', err.message);
+  }
+}
+
+async function testNextSiwaOkValidPaymentSuccess() {
+  try {
+    const facilitator = createMockFacilitator({ txHash: '0xnext' });
+    let receivedPayment: any = undefined;
+
+    const handler = withSiwa(
+      (agent, _req, payment) => {
+        receivedPayment = payment;
+        return { ok: true, address: agent.address };
+      },
+      {
+        receiptSecret: TEST_SECRET,
+        x402: {
+          facilitator,
+          resource: { url: '/api/data', description: 'Premium' },
+          accepts: MOCK_ACCEPTS,
+        },
+      },
+    );
+
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req = await createSignedFetchRequest({ paymentHeader });
+    const res = await handler(req);
+
+    if (res.status !== 200) {
+      fail('Next.js: valid SIWA + valid payment → 200', `status=${res.status}`);
+      return;
+    }
+
+    const hasPaymentResponse = res.headers.get(X402_HEADERS.PAYMENT_RESPONSE);
+    receivedPayment?.txHash === '0xnext' && hasPaymentResponse
+      ? pass('Next.js: valid SIWA + valid payment → handler receives payment + Payment-Response header')
+      : fail('Next.js: payment success', `payment=${JSON.stringify(receivedPayment)}`);
+  } catch (err: any) {
+    fail('Next.js: payment success', err.message);
+  }
+}
+
+async function testNextSessionPayThenSkip() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator({ txHash: '0xnextsess' });
+
+    const handler = withSiwa(
+      (agent) => ({ ok: true, address: agent.address }),
+      {
+        receiptSecret: TEST_SECRET,
+        x402: {
+          facilitator,
+          resource: { url: '/api/data', description: 'Premium' },
+          accepts: MOCK_ACCEPTS,
+          session: { store: sessionStore, ttl: 60_000 },
+        },
+      },
+    );
+
+    // First: pay
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req1 = await createSignedFetchRequest({ paymentHeader });
+    const res1 = await handler(req1);
+
+    if (res1.status !== 200) {
+      fail('Next.js: session pay-then-skip', `first status=${res1.status}`);
+      return;
+    }
+
+    // Second: no payment, session should grant access
+    const req2 = await createSignedFetchRequest();
+    const res2 = await handler(req2);
+
+    res2.status === 200
+      ? pass('Next.js: session — second request passes without payment')
+      : fail('Next.js: session skip', `second status=${res2.status}`);
+  } catch (err: any) {
+    fail('Next.js: session', err.message);
+  }
+}
+
+// ─── Hono x402 Tests ────────────────────────────────────────────────
+
+async function testHonoSiwaOkNoPayment402() {
+  try {
+    const facilitator = createMockFacilitator();
+    const app = new Hono();
+    app.use('*', honoSiwaCors({ x402: true }));
+    app.get(
+      '/api/data',
+      honoSiwaMiddleware({
+        receiptSecret: TEST_SECRET,
+        x402: {
+          facilitator,
+          resource: { url: '/api/data', description: 'Premium' },
+          accepts: MOCK_ACCEPTS,
+        },
+      }),
+      (c) => c.json({ ok: true }),
+    );
+
+    const req = await createSignedFetchRequest();
+    const res = await app.request(req);
+
+    if (res.status !== 402) {
+      fail('Hono: valid SIWA + no payment → 402', `status=${res.status}`);
+      return;
+    }
+
+    const prHeader = res.headers.get(X402_HEADERS.PAYMENT_REQUIRED);
+    prHeader
+      ? pass('Hono: valid SIWA + no payment → 402 + Payment-Required header')
+      : fail('Hono: 402 missing Payment-Required header');
+  } catch (err: any) {
+    fail('Hono: no payment 402', err.message);
+  }
+}
+
+async function testHonoSiwaOkValidPaymentSuccess() {
+  try {
+    const facilitator = createMockFacilitator({ txHash: '0xhono' });
+    let paymentFromCtx: any = undefined;
+
+    const app = new Hono();
+    app.get(
+      '/api/data',
+      honoSiwaMiddleware({
+        receiptSecret: TEST_SECRET,
+        x402: {
+          facilitator,
+          resource: { url: '/api/data', description: 'Premium' },
+          accepts: MOCK_ACCEPTS,
+        },
+      }),
+      (c) => {
+        paymentFromCtx = c.get('payment');
+        return c.json({ ok: true });
+      },
+    );
+
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req = await createSignedFetchRequest({ paymentHeader });
+    const res = await app.request(req);
+
+    if (res.status !== 200) {
+      fail('Hono: valid SIWA + valid payment → 200', `status=${res.status}`);
+      return;
+    }
+
+    const hasPaymentResponse = res.headers.get(X402_HEADERS.PAYMENT_RESPONSE);
+    paymentFromCtx?.txHash === '0xhono' && hasPaymentResponse
+      ? pass('Hono: valid SIWA + valid payment → c.get("payment") has payment + Payment-Response header')
+      : fail('Hono: payment success', `payment=${JSON.stringify(paymentFromCtx)}`);
+  } catch (err: any) {
+    fail('Hono: payment success', err.message);
+  }
+}
+
+async function testHonoSessionPayThenSkip() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator({ txHash: '0xhonosess' });
+
+    const app = new Hono();
+    app.get(
+      '/api/data',
+      honoSiwaMiddleware({
+        receiptSecret: TEST_SECRET,
+        x402: {
+          facilitator,
+          resource: { url: '/api/data', description: 'Premium' },
+          accepts: MOCK_ACCEPTS,
+          session: { store: sessionStore, ttl: 60_000 },
+        },
+      }),
+      (c) => c.json({ ok: true }),
+    );
+
+    // First: pay
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req1 = await createSignedFetchRequest({ paymentHeader });
+    const res1 = await app.request(req1);
+
+    if (res1.status !== 200) {
+      fail('Hono: session pay-then-skip', `first status=${res1.status}`);
+      return;
+    }
+
+    // Second: no payment, session should grant access
+    const req2 = await createSignedFetchRequest();
+    const res2 = await app.request(req2);
+
+    res2.status === 200
+      ? pass('Hono: session — second request passes without payment')
+      : fail('Hono: session skip', `second status=${res2.status}`);
+  } catch (err: any) {
+    fail('Hono: session', err.message);
+  }
+}
+
+// ─── Fastify x402 Tests ─────────────────────────────────────────────
+
+/** Extract headers from a signed fetch Request into a plain object for Fastify inject. */
+function headersForInject(signed: Request): Record<string, string> {
+  const headers: Record<string, string> = {};
+  signed.headers.forEach((v, k) => { headers[k] = v; });
+  // Ensure host is set so Fastify reconstructs the correct URL for verification
+  headers['host'] = 'localhost:3000';
+  return headers;
+}
+
+async function testFastifySiwaOkNoPayment402() {
+  try {
+    const facilitator = createMockFacilitator();
+    const app = Fastify();
+    app.get(
+      '/api/data',
+      {
+        preHandler: fastifySiwaAuth({
+          receiptSecret: TEST_SECRET,
+          x402: {
+            facilitator,
+            resource: { url: '/api/data', description: 'Premium' },
+            accepts: MOCK_ACCEPTS,
+          },
+        }),
+      },
+      async (req) => ({ ok: true }),
+    );
+
+    const signed = await createSignedFetchRequest();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/data',
+      headers: headersForInject(signed),
+    });
+
+    await app.close();
+
+    if (res.statusCode !== 402) {
+      fail('Fastify: valid SIWA + no payment → 402', `status=${res.statusCode}`);
+      return;
+    }
+
+    const prHeader = res.headers[X402_HEADERS.PAYMENT_REQUIRED.toLowerCase()];
+    prHeader
+      ? pass('Fastify: valid SIWA + no payment → 402 + Payment-Required header')
+      : fail('Fastify: 402 missing Payment-Required header');
+  } catch (err: any) {
+    fail('Fastify: no payment 402', err.message);
+  }
+}
+
+async function testFastifySiwaOkValidPaymentSuccess() {
+  try {
+    const facilitator = createMockFacilitator({ txHash: '0xfastify' });
+    let reqPayment: any = undefined;
+
+    const app = Fastify();
+    app.get(
+      '/api/data',
+      {
+        preHandler: fastifySiwaAuth({
+          receiptSecret: TEST_SECRET,
+          x402: {
+            facilitator,
+            resource: { url: '/api/data', description: 'Premium' },
+            accepts: MOCK_ACCEPTS,
+          },
+        }),
+      },
+      async (req) => {
+        reqPayment = req.payment;
+        return { ok: true };
+      },
+    );
+
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const signed = await createSignedFetchRequest({ paymentHeader });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/data',
+      headers: headersForInject(signed),
+    });
+
+    await app.close();
+
+    if (res.statusCode !== 200) {
+      fail('Fastify: valid SIWA + valid payment → 200', `status=${res.statusCode}, body=${res.body}`);
+      return;
+    }
+
+    const responseHeader = res.headers[X402_HEADERS.PAYMENT_RESPONSE.toLowerCase()];
+    reqPayment?.txHash === '0xfastify' && responseHeader
+      ? pass('Fastify: valid SIWA + valid payment → req.payment set + Payment-Response header')
+      : fail('Fastify: payment success', `payment=${JSON.stringify(reqPayment)}`);
+  } catch (err: any) {
+    fail('Fastify: payment success', err.message);
+  }
+}
+
+async function testFastifySessionPayThenSkip() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator({ txHash: '0xfastsess' });
+
+    const app = Fastify();
+    app.get(
+      '/api/data',
+      {
+        preHandler: fastifySiwaAuth({
+          receiptSecret: TEST_SECRET,
+          x402: {
+            facilitator,
+            resource: { url: '/api/data', description: 'Premium' },
+            accepts: MOCK_ACCEPTS,
+            session: { store: sessionStore, ttl: 60_000 },
+          },
+        }),
+      },
+      async () => ({ ok: true }),
+    );
+
+    // First: pay
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const signed1 = await createSignedFetchRequest({ paymentHeader });
+
+    const res1 = await app.inject({ method: 'GET', url: '/api/data', headers: headersForInject(signed1) });
+
+    if (res1.statusCode !== 200) {
+      fail('Fastify: session pay-then-skip', `first status=${res1.statusCode}`);
+      await app.close();
+      return;
+    }
+
+    // Second: no payment, session should grant access
+    const signed2 = await createSignedFetchRequest();
+
+    const res2 = await app.inject({ method: 'GET', url: '/api/data', headers: headersForInject(signed2) });
+
+    await app.close();
+
+    res2.statusCode === 200
+      ? pass('Fastify: session — second request passes without payment')
+      : fail('Fastify: session skip', `second status=${res2.statusCode}`);
+  } catch (err: any) {
+    fail('Fastify: session', err.message);
+  }
+}
+
 // ─── Entry point ────────────────────────────────────────────────────
 
 export async function testX402Flow(): Promise<boolean> {
@@ -1067,6 +1508,24 @@ export async function testX402Flow(): Promise<boolean> {
   await testSessionExpiry();
   await testSessionNoSharingBetweenAgents();
   await testSessionNoSharingBetweenRoutes();
+
+  // ── Next.js x402 ──
+  console.log(chalk.cyan('\n  Next.js: x402'));
+  await testNextSiwaOkNoPayment402();
+  await testNextSiwaOkValidPaymentSuccess();
+  await testNextSessionPayThenSkip();
+
+  // ── Hono x402 ──
+  console.log(chalk.cyan('\n  Hono: x402'));
+  await testHonoSiwaOkNoPayment402();
+  await testHonoSiwaOkValidPaymentSuccess();
+  await testHonoSessionPayThenSkip();
+
+  // ── Fastify x402 ──
+  console.log(chalk.cyan('\n  Fastify: x402'));
+  await testFastifySiwaOkNoPayment402();
+  await testFastifySiwaOkValidPaymentSuccess();
+  await testFastifySessionPayThenSkip();
 
   // ── Summary ──
   console.log('');

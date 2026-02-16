@@ -1129,21 +1129,17 @@ app.post(
 
             <div id="verify-wrappers-hono" className="scroll-mt-20 mt-8 mb-2">
               <h4 className="font-mono text-sm font-semibold text-foreground">Hono</h4>
-              <p className="text-xs text-dim mb-3">Uses web standard Request/Response — import <InlineCode>verifyAuthenticatedRequest</InlineCode> from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode></p>
+              <p className="text-xs text-dim mb-3">Import from <InlineCode>@buildersgarden/siwa/hono</InlineCode> — exports: siwaMiddleware, siwaCors</p>
             </div>
             <CollapsibleCodeBlock title="Hono Example" language="typescript">{`import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { verifyAuthenticatedRequest, type VerifyOptions } from "@buildersgarden/siwa/erc8128";
+import { siwaMiddleware, siwaCors } from "@buildersgarden/siwa/hono";
 import { createPublicClient, http } from "viem";
 import { baseSepolia } from "viem/chains";
 
 const app = new Hono();
 
-// CORS with SIWA headers
-app.use("*", cors({
-  origin: "*",
-  allowHeaders: ["Content-Type", "X-SIWA-Receipt", "Signature", "Signature-Input", "Content-Digest"],
-}));
+// CORS with SIWA headers (handles preflight automatically)
+app.use("*", siwaCors());
 
 // Optional: public client for ERC-1271 smart account support
 const publicClient = createPublicClient({
@@ -1151,56 +1147,42 @@ const publicClient = createPublicClient({
   transport: http(process.env.RPC_URL),
 });
 
-// Configurable SIWA auth middleware factory
-function siwaAuth(options?: Partial<VerifyOptions>) {
-  return async (c, next) => {
-    const result = await verifyAuthenticatedRequest(c.req.raw, {
-      receiptSecret: process.env.RECEIPT_SECRET!,
-      ...options,
-    });
-
-    if (!result.valid) {
-      return c.json({ error: result.error }, 401);
-    }
-
-    c.set("agent", result.agent);
-    await next();
-  };
-}
-
 // Route with EOA-only policy
-app.post("/api/eoa-only", siwaAuth({ allowedSignerTypes: ["eoa"] }), (c) => {
-  return c.json({ agent: c.get("agent") });
-});
+app.post(
+  "/api/eoa-only",
+  siwaMiddleware({ allowedSignerTypes: ["eoa"] }),
+  (c) => c.json({ agent: c.get("agent") }),
+);
 
 // Route allowing smart accounts with ERC-1271 verification
-app.post("/api/with-sca", siwaAuth({ publicClient, allowedSignerTypes: ["eoa", "sca"] }), (c) => {
-  return c.json({ agent: c.get("agent") });
-});
+app.post(
+  "/api/with-sca",
+  siwaMiddleware({ publicClient, allowedSignerTypes: ["eoa", "sca"] }),
+  (c) => c.json({ agent: c.get("agent") }),
+);
 
 // Route with onchain re-verification on every request
-app.post("/api/high-security", siwaAuth({ verifyOnchain: true, rpcUrl: process.env.RPC_URL }), (c) => {
-  return c.json({ agent: c.get("agent") });
-});
+app.post(
+  "/api/high-security",
+  siwaMiddleware({ verifyOnchain: true, rpcUrl: process.env.RPC_URL }),
+  (c) => c.json({ agent: c.get("agent") }),
+);
 
 export default app;`}</CollapsibleCodeBlock>
 
             <div id="verify-wrappers-fastify" className="scroll-mt-20 mt-8 mb-2">
               <h4 className="font-mono text-sm font-semibold text-foreground">Fastify</h4>
-              <p className="text-xs text-dim mb-3">Uses preHandler hooks — import <InlineCode>verifyAuthenticatedRequest</InlineCode> from <InlineCode>@buildersgarden/siwa/erc8128</InlineCode></p>
+              <p className="text-xs text-dim mb-3">Import from <InlineCode>@buildersgarden/siwa/fastify</InlineCode> — exports: siwaPlugin, siwaAuth</p>
             </div>
             <CollapsibleCodeBlock title="Fastify Example" language="typescript">{`import Fastify from "fastify";
-import cors from "@fastify/cors";
-import { verifyAuthenticatedRequest, type VerifyOptions } from "@buildersgarden/siwa/erc8128";
+import { siwaPlugin, siwaAuth } from "@buildersgarden/siwa/fastify";
 import { createPublicClient, http } from "viem";
 import { baseSepolia } from "viem/chains";
 
 const fastify = Fastify();
 
-await fastify.register(cors, {
-  origin: true,
-  allowedHeaders: ["Content-Type", "X-SIWA-Receipt", "Signature", "Signature-Input", "Content-Digest"],
-});
+// Register CORS plugin with SIWA headers (handles preflight automatically)
+await fastify.register(siwaPlugin);
 
 // Optional: public client for ERC-1271 smart account support
 const publicClient = createPublicClient({
@@ -1208,50 +1190,26 @@ const publicClient = createPublicClient({
   transport: http(process.env.RPC_URL),
 });
 
-// Convert Fastify request to Fetch Request
-function toFetchRequest(req) {
-  const url = \`\${req.protocol}://\${req.hostname}\${req.url}\`;
-  return new Request(url, {
-    method: req.method,
-    headers: req.headers as HeadersInit,
-    body: req.method !== "GET" && req.method !== "HEAD" ? JSON.stringify(req.body) : undefined,
-  });
-}
-
-// Configurable SIWA auth decorator
-function siwaAuth(options?: Partial<VerifyOptions>) {
-  return async (req, reply) => {
-    if (!req.headers["signature"] || !req.headers["x-siwa-receipt"]) {
-      return reply.status(401).send({ error: "Missing SIWA authentication headers" });
-    }
-
-    const result = await verifyAuthenticatedRequest(toFetchRequest(req), {
-      receiptSecret: process.env.RECEIPT_SECRET!,
-      ...options,
-    });
-
-    if (!result.valid) {
-      return reply.status(401).send({ error: result.error });
-    }
-
-    req.agent = result.agent;
-  };
-}
-
 // Route with EOA-only policy
-fastify.post("/api/eoa-only", { preHandler: siwaAuth({ allowedSignerTypes: ["eoa"] }) }, async (req) => {
-  return { agent: req.agent };
-});
+fastify.post(
+  "/api/eoa-only",
+  { preHandler: siwaAuth({ allowedSignerTypes: ["eoa"] }) },
+  async (req) => ({ agent: req.agent }),
+);
 
 // Route allowing smart accounts
-fastify.post("/api/with-sca", { preHandler: siwaAuth({ publicClient }) }, async (req) => {
-  return { agent: req.agent };
-});
+fastify.post(
+  "/api/with-sca",
+  { preHandler: siwaAuth({ publicClient, allowedSignerTypes: ["eoa", "sca"] }) },
+  async (req) => ({ agent: req.agent }),
+);
 
 // Route with onchain re-verification
-fastify.post("/api/high-security", { preHandler: siwaAuth({ verifyOnchain: true, rpcUrl: process.env.RPC_URL }) }, async (req) => {
-  return { agent: req.agent };
-});
+fastify.post(
+  "/api/high-security",
+  { preHandler: siwaAuth({ verifyOnchain: true, rpcUrl: process.env.RPC_URL }) },
+  async (req) => ({ agent: req.agent }),
+);
 
 await fastify.listen({ port: 3000 });`}</CollapsibleCodeBlock>
           </SubSection>
@@ -1642,6 +1600,429 @@ Examples:
               >
                 8004scan.io
               </a>
+            </P>
+          </SubSection>
+        </Section>
+
+        {/* x402 Payments */}
+        <Section id="x402" title="x402 Payments">
+          <SubSection id="x402-overview" title="Overview">
+            <P>
+              The <a href="https://www.x402.org/" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200">x402 protocol</a> adds pay-per-request monetization to any SIWA-protected endpoint. When a route requires payment, the middleware enforces a two-gate flow: <strong className="text-foreground">SIWA authentication first</strong>, then <strong className="text-foreground">payment verification</strong>. Both must pass before the handler runs.
+            </P>
+            <ol className="space-y-3 mb-6 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">1.</span>
+                <span>Agent sends a request with <strong className="text-foreground">ERC-8128 SIWA headers</strong> (always required).</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">2.</span>
+                <span>Middleware verifies SIWA identity. If invalid, returns <strong className="text-foreground">401</strong>.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">3.</span>
+                <span>If no <InlineCode>Payment-Signature</InlineCode> header is present, returns <strong className="text-foreground">402</strong> with a <InlineCode>Payment-Required</InlineCode> header containing accepted payment options.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">4.</span>
+                <span>Agent constructs a payment, encodes it as a <InlineCode>Payment-Signature</InlineCode> header, and retries.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">5.</span>
+                <span>Middleware sends the payment to a <strong className="text-foreground">facilitator</strong> for verification and on-chain settlement.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">6.</span>
+                <span>On success, the handler runs and the response includes a <InlineCode>Payment-Response</InlineCode> header with the transaction hash.</span>
+              </li>
+            </ol>
+
+            <Table
+              headers={["Header", "Direction", "Description"]}
+              rows={[
+                [<InlineCode>Payment-Required</InlineCode>, "Server to Agent", "Base64-encoded JSON with accepted payment options. Sent with 402 responses."],
+                [<InlineCode>Payment-Signature</InlineCode>, "Agent to Server", "Base64-encoded signed payment payload from the agent."],
+                [<InlineCode>Payment-Response</InlineCode>, "Server to Agent", "Base64-encoded settlement result with transaction hash."],
+              ]}
+            />
+          </SubSection>
+
+          <SubSection id="x402-server" title="Server Setup">
+            <P>
+              Three things are needed to enable x402 on a route: a <strong className="text-foreground">facilitator client</strong> (verifies and settles payments), a <strong className="text-foreground">resource description</strong>, and an <strong className="text-foreground">accepts array</strong> listing payment options.
+            </P>
+            <CodeBlock language="typescript">{`import {
+  createFacilitatorClient,
+  type X402Config,
+} from "@buildersgarden/siwa/x402";
+
+// 1. Create facilitator client
+const facilitator = createFacilitatorClient({
+  url: "https://x402-facilitator.example.com",
+});
+
+// 2. Define x402 config
+const x402: X402Config = {
+  facilitator,
+  resource: {
+    url: "/api/premium",
+    description: "Premium data access",
+  },
+  accepts: [
+    {
+      scheme: "exact",
+      network: "eip155:84532",      // Base Sepolia
+      amount: "1000000",             // 1 USDC (6 decimals)
+      asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      payTo: "0xYourAddress",
+      maxTimeoutSeconds: 60,
+    },
+  ],
+};`}</CodeBlock>
+            <P>
+              Pass the <InlineCode>x402</InlineCode> config to any framework middleware. Routes without <InlineCode>x402</InlineCode> remain SIWA-only (free).
+            </P>
+          </SubSection>
+
+          <div id="x402-middleware" className="scroll-mt-20 mt-8">
+            <h3 className="font-mono text-base font-semibold text-foreground mb-4">
+              Middleware
+            </h3>
+            <P>
+              Each framework wrapper accepts an optional <InlineCode>x402</InlineCode> field. When set, both SIWA authentication <strong className="text-foreground">and</strong> a valid payment are required. The verified payment is available in the handler.
+            </P>
+
+            <div id="x402-express" className="scroll-mt-20 mt-8 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Express</h4>
+              <p className="text-xs text-dim mb-3">Import from <InlineCode>@buildersgarden/siwa/express</InlineCode>. Payment is available on <InlineCode>req.payment</InlineCode>.</p>
+            </div>
+            <CollapsibleCodeBlock title="Express x402 Example" language="typescript">{`import express from "express";
+import { siwaMiddleware, siwaJsonParser, siwaCors } from "@buildersgarden/siwa/express";
+import { createFacilitatorClient } from "@buildersgarden/siwa/x402";
+
+const app = express();
+app.use(siwaJsonParser());
+app.use(siwaCors({ x402: true }));  // expose x402 headers in CORS
+
+const facilitator = createFacilitatorClient({
+  url: process.env.X402_FACILITATOR_URL!,
+});
+
+app.post(
+  "/api/premium",
+  siwaMiddleware({
+    x402: {
+      facilitator,
+      resource: { url: "/api/premium", description: "Premium endpoint" },
+      accepts: [
+        {
+          scheme: "exact",
+          network: "eip155:84532",
+          amount: "1000000",
+          asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+          payTo: "0xYourAddress",
+        },
+      ],
+    },
+  }),
+  (req, res) => {
+    // req.agent — verified SIWA identity
+    // req.payment — { scheme, network, amount, asset, payTo, txHash }
+    res.json({ agent: req.agent, txHash: req.payment?.txHash });
+  },
+);`}</CollapsibleCodeBlock>
+
+            <div id="x402-next" className="scroll-mt-20 mt-8 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Next.js</h4>
+              <p className="text-xs text-dim mb-3">Import from <InlineCode>@buildersgarden/siwa/next</InlineCode>. Payment is the 3rd argument to the handler.</p>
+            </div>
+            <CollapsibleCodeBlock title="Next.js x402 Example" language="typescript">{`// app/api/premium/route.ts
+import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
+import { createFacilitatorClient } from "@buildersgarden/siwa/x402";
+
+const facilitator = createFacilitatorClient({
+  url: process.env.X402_FACILITATOR_URL!,
+});
+
+export const POST = withSiwa(
+  async (agent, req, payment) => {
+    // agent — verified SIWA identity
+    // payment — { scheme, network, amount, asset, payTo, txHash } or undefined
+    return { agent, txHash: payment?.txHash };
+  },
+  {
+    x402: {
+      facilitator,
+      resource: { url: "/api/premium", description: "Premium endpoint" },
+      accepts: [
+        {
+          scheme: "exact",
+          network: "eip155:84532",
+          amount: "1000000",
+          asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+          payTo: "0xYourAddress",
+        },
+      ],
+    },
+  },
+);
+
+// OPTIONS handler with x402 CORS headers
+export const OPTIONS = () => siwaOptions({ x402: true });`}</CollapsibleCodeBlock>
+
+            <div id="x402-hono" className="scroll-mt-20 mt-8 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Hono</h4>
+              <p className="text-xs text-dim mb-3">Import from <InlineCode>@buildersgarden/siwa/hono</InlineCode>. Payment is available via <InlineCode>c.get(&quot;payment&quot;)</InlineCode>.</p>
+            </div>
+            <CollapsibleCodeBlock title="Hono x402 Example" language="typescript">{`import { Hono } from "hono";
+import { siwaMiddleware, siwaCors } from "@buildersgarden/siwa/hono";
+import { createFacilitatorClient } from "@buildersgarden/siwa/x402";
+
+const app = new Hono();
+app.use("*", siwaCors({ x402: true }));
+
+const facilitator = createFacilitatorClient({
+  url: process.env.X402_FACILITATOR_URL!,
+});
+
+app.post(
+  "/api/premium",
+  siwaMiddleware({
+    x402: {
+      facilitator,
+      resource: { url: "/api/premium", description: "Premium endpoint" },
+      accepts: [
+        {
+          scheme: "exact",
+          network: "eip155:84532",
+          amount: "1000000",
+          asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+          payTo: "0xYourAddress",
+        },
+      ],
+    },
+  }),
+  (c) => {
+    const agent = c.get("agent");
+    const payment = c.get("payment");
+    return c.json({ agent, txHash: payment?.txHash });
+  },
+);`}</CollapsibleCodeBlock>
+
+            <div id="x402-fastify" className="scroll-mt-20 mt-8 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">Fastify</h4>
+              <p className="text-xs text-dim mb-3">Import from <InlineCode>@buildersgarden/siwa/fastify</InlineCode>. Payment is available on <InlineCode>req.payment</InlineCode>.</p>
+            </div>
+            <CollapsibleCodeBlock title="Fastify x402 Example" language="typescript">{`import Fastify from "fastify";
+import { siwaPlugin, siwaAuth } from "@buildersgarden/siwa/fastify";
+import { createFacilitatorClient } from "@buildersgarden/siwa/x402";
+
+const fastify = Fastify();
+await fastify.register(siwaPlugin, { x402: true });
+
+const facilitator = createFacilitatorClient({
+  url: process.env.X402_FACILITATOR_URL!,
+});
+
+fastify.post(
+  "/api/premium",
+  {
+    preHandler: siwaAuth({
+      x402: {
+        facilitator,
+        resource: { url: "/api/premium", description: "Premium endpoint" },
+        accepts: [
+          {
+            scheme: "exact",
+            network: "eip155:84532",
+            amount: "1000000",
+            asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+            payTo: "0xYourAddress",
+          },
+        ],
+      },
+    }),
+  },
+  async (req) => {
+    // req.agent — verified SIWA identity
+    // req.payment — { scheme, network, amount, asset, payTo, txHash }
+    return { agent: req.agent, txHash: req.payment?.txHash };
+  },
+);`}</CollapsibleCodeBlock>
+          </div>
+
+          <SubSection id="x402-sessions" title="Sessions (Pay-Once)">
+            <P>
+              By default, every request requires a new payment. Add <InlineCode>session</InlineCode> to the x402 config to enable <strong className="text-foreground">pay-once mode</strong>: the agent pays on the first request and subsequent requests within the TTL window pass through without payment.
+            </P>
+            <P>
+              Sessions are keyed by <InlineCode>(address, resource.url)</InlineCode> — different agents and different routes are isolated from each other.
+            </P>
+            <CodeBlock language="typescript">{`import {
+  createFacilitatorClient,
+  createMemoryX402SessionStore,
+} from "@buildersgarden/siwa/x402";
+
+const facilitator = createFacilitatorClient({
+  url: process.env.X402_FACILITATOR_URL!,
+});
+
+// In-memory store (use Redis/DB in production)
+const sessionStore = createMemoryX402SessionStore();
+
+// Pass to any middleware
+const x402Config = {
+  facilitator,
+  resource: { url: "/api/premium", description: "Premium access" },
+  accepts: [/* ... */],
+  session: {
+    store: sessionStore,
+    ttl: 3600_000,  // 1 hour
+  },
+};`}</CodeBlock>
+            <P>
+              On the first request, the agent pays and the middleware stores a session. On subsequent requests from the same agent to the same resource, the session is found and payment is skipped. After TTL expiry, payment is required again.
+            </P>
+            <P>
+              For production, implement the <InlineCode>X402SessionStore</InlineCode> interface with a shared store:
+            </P>
+            <CodeBlock language="typescript">{`interface X402SessionStore {
+  get(address: string, resource: string): Promise<X402Session | null>;
+  set(address: string, resource: string, session: X402Session, ttlMs: number): Promise<void>;
+}
+
+interface X402Session {
+  paidAt: number;
+  txHash?: string;
+}`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="x402-agent" title="Agent-Side">
+            <P>
+              When an agent receives a <strong className="text-foreground">402</strong> response, it should:
+            </P>
+            <ol className="space-y-2 mb-4 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">1.</span>
+                <span>Read the <InlineCode>Payment-Required</InlineCode> header and decode the payment options.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">2.</span>
+                <span>Construct a <InlineCode>PaymentPayload</InlineCode> with the signed payment.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono font-semibold text-accent shrink-0">3.</span>
+                <span>Encode it as a <InlineCode>Payment-Signature</InlineCode> header and retry the request.</span>
+              </li>
+            </ol>
+            <CollapsibleCodeBlock title="Agent Payment Flow" language="typescript">{`import {
+  encodeX402Header,
+  decodeX402Header,
+  type PaymentRequired,
+  type PaymentPayload,
+} from "@buildersgarden/siwa/x402";
+import { signAuthenticatedRequest } from "@buildersgarden/siwa/erc8128";
+
+// 1. Make initial request (will get 402)
+const signedRequest = await signAuthenticatedRequest(
+  new Request("https://api.example.com/premium", { method: "POST" }),
+  receipt,
+  signer,
+  84532,
+);
+
+const res = await fetch(signedRequest);
+
+if (res.status === 402) {
+  // 2. Decode payment requirements
+  const header = res.headers.get("Payment-Required");
+  const { accepts, resource } = decodeX402Header<PaymentRequired>(header!);
+
+  // 3. Pick a payment option and construct payload
+  const option = accepts[0];
+  const payload: PaymentPayload = {
+    signature: "0x...",  // sign the payment with your wallet
+    payment: {
+      scheme: option.scheme,
+      network: option.network,
+      amount: option.amount,
+      asset: option.asset,
+      payTo: option.payTo,
+    },
+    resource,
+  };
+
+  // 4. Retry with payment header
+  const retryRequest = await signAuthenticatedRequest(
+    new Request("https://api.example.com/premium", {
+      method: "POST",
+      headers: {
+        "Payment-Signature": encodeX402Header(payload),
+      },
+    }),
+    receipt,
+    signer,
+    84532,
+  );
+
+  const paidRes = await fetch(retryRequest);
+  // paidRes.headers.get("Payment-Response") contains { txHash, ... }
+}`}</CollapsibleCodeBlock>
+          </SubSection>
+
+          <SubSection id="x402-config" title="Config Reference">
+            <Table
+              headers={["Field", "Type", "Description"]}
+              rows={[
+                [<InlineCode>facilitator</InlineCode>, "FacilitatorClient", "Client for payment verification and settlement."],
+                [<InlineCode>resource</InlineCode>, "ResourceInfo", "The resource being paid for: { url, description? }."],
+                [<InlineCode>accepts</InlineCode>, "PaymentRequirements[]", "Array of accepted payment options."],
+                [<InlineCode>session?</InlineCode>, "X402SessionConfig", "Optional pay-once session: { store, ttl }."],
+              ]}
+            />
+
+            <div className="mt-6 mb-3">
+              <h4 className="font-mono text-sm font-semibold text-foreground">PaymentRequirements</h4>
+            </div>
+            <Table
+              headers={["Field", "Type", "Description"]}
+              rows={[
+                [<InlineCode>scheme</InlineCode>, "string", <>Payment scheme (e.g. <InlineCode>&quot;exact&quot;</InlineCode>).</>],
+                [<InlineCode>network</InlineCode>, "string", <>Chain identifier (e.g. <InlineCode>&quot;eip155:84532&quot;</InlineCode>).</>],
+                [<InlineCode>amount</InlineCode>, "string", "Payment amount in smallest unit (e.g. wei, USDC base units)."],
+                [<InlineCode>asset</InlineCode>, "string", "Token contract address."],
+                [<InlineCode>payTo</InlineCode>, "string", "Recipient address."],
+                [<InlineCode>maxTimeoutSeconds?</InlineCode>, "number", "Maximum time for settlement."],
+              ]}
+            />
+
+            <div className="mt-6 mb-3">
+              <h4 className="font-mono text-sm font-semibold text-foreground">X402Payment (verified payment on request)</h4>
+            </div>
+            <Table
+              headers={["Field", "Type", "Description"]}
+              rows={[
+                [<InlineCode>scheme</InlineCode>, "string", "Payment scheme."],
+                [<InlineCode>network</InlineCode>, "string", "Chain identifier."],
+                [<InlineCode>amount</InlineCode>, "string", "Amount paid."],
+                [<InlineCode>asset</InlineCode>, "string", "Token address."],
+                [<InlineCode>payTo</InlineCode>, "string", "Recipient address."],
+                [<InlineCode>txHash?</InlineCode>, "string", "On-chain transaction hash from settlement."],
+              ]}
+            />
+
+            <div className="mt-6 mb-3">
+              <h4 className="font-mono text-sm font-semibold text-foreground">FacilitatorClient</h4>
+            </div>
+            <Table
+              headers={["Method", "Returns", "Description"]}
+              rows={[
+                [<InlineCode>verify(payload, requirements)</InlineCode>, "VerifyResponse", "Validate a payment signature."],
+                [<InlineCode>settle(payload, requirements)</InlineCode>, "SettleResponse", "Execute on-chain settlement. Returns txHash on success."],
+              ]}
+            />
+            <P>
+              Use <InlineCode>createFacilitatorClient({'{ url }'})</InlineCode> to create a client that POSTs to <InlineCode>/verify</InlineCode> and <InlineCode>/settle</InlineCode> endpoints on the facilitator. Import from <InlineCode>@buildersgarden/siwa/x402</InlineCode>.
             </P>
           </SubSection>
         </Section>

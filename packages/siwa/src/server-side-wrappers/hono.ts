@@ -25,8 +25,18 @@ import {
   type VerifyOptions,
 } from '../erc8128.js';
 import type { SignerType } from '../signer/index.js';
+import {
+  X402_HEADERS,
+  encodeX402Header,
+  decodeX402Header,
+  processX402Payment,
+  type X402Config,
+  type X402Payment,
+  type PaymentPayload,
+  type PaymentRequired,
+} from '../x402.js';
 
-export type { SiwaAgent };
+export type { SiwaAgent, X402Payment };
 
 // ---------------------------------------------------------------------------
 // Options
@@ -43,6 +53,8 @@ export interface SiwaMiddlewareOptions {
   publicClient?: VerifyOptions['publicClient'];
   /** Allowed signer types. Omit to accept all. */
   allowedSignerTypes?: SignerType[];
+  /** Optional x402 payment gate. When set, both SIWA auth AND a valid payment are required. */
+  x402?: X402Config;
 }
 
 export interface SiwaCorsOptions {
@@ -52,6 +64,8 @@ export interface SiwaCorsOptions {
   methods?: string[];
   /** Allowed headers. */
   headers?: string[];
+  /** Include x402 payment headers in CORS. */
+  x402?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +80,16 @@ const DEFAULT_SIWA_HEADERS = [
   'Content-Digest',
 ];
 
+const X402_CORS_ALLOW = [
+  X402_HEADERS.PAYMENT_SIGNATURE,
+  X402_HEADERS.PAYMENT_REQUIRED,
+];
+
+const X402_EXPOSE = [
+  X402_HEADERS.PAYMENT_REQUIRED,
+  X402_HEADERS.PAYMENT_RESPONSE,
+];
+
 /**
  * CORS middleware pre-configured with SIWA-specific headers.
  * Handles OPTIONS preflight automatically.
@@ -73,12 +97,19 @@ const DEFAULT_SIWA_HEADERS = [
 export function siwaCors(options?: SiwaCorsOptions): MiddlewareHandler {
   const origin = options?.origin ?? '*';
   const methods = options?.methods ?? ['GET', 'POST', 'OPTIONS'];
-  const headers = options?.headers ?? DEFAULT_SIWA_HEADERS;
+  let headers = options?.headers ?? DEFAULT_SIWA_HEADERS;
+  if (options?.x402) {
+    headers = [...headers, ...X402_CORS_ALLOW];
+  }
 
   return async (c: Context, next) => {
     c.header('Access-Control-Allow-Origin', origin);
     c.header('Access-Control-Allow-Methods', methods.join(', '));
     c.header('Access-Control-Allow-Headers', headers.join(', '));
+
+    if (options?.x402) {
+      c.header('Access-Control-Expose-Headers', X402_EXPOSE.join(', '));
+    }
 
     if (c.req.method === 'OPTIONS') {
       return c.body(null, 204);
@@ -96,7 +127,8 @@ export function siwaCors(options?: SiwaCorsOptions): MiddlewareHandler {
  * Hono middleware that verifies ERC-8128 HTTP Message Signatures + SIWA receipt.
  *
  * On success, sets `c.set("agent", agent)` with the verified agent identity.
- * On failure, responds with 401.
+ * When x402 is configured and payment succeeds, also sets `c.set("payment", payment)`.
+ * On failure, responds with 401 (auth) or 402 (payment).
  */
 export function siwaMiddleware(options?: SiwaMiddlewareOptions): MiddlewareHandler {
   return async (c: Context, next) => {
@@ -110,6 +142,7 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): MiddlewareHandl
       );
     }
 
+    let agent: SiwaAgent;
     try {
       const secret = resolveReceiptSecret(options?.receiptSecret);
 
@@ -125,10 +158,70 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): MiddlewareHandl
         return c.json({ error: result.error }, 401);
       }
 
-      c.set('agent', result.agent);
-      await next();
+      agent = result.agent;
+      c.set('agent', agent);
     } catch (err: any) {
       return c.json({ error: `ERC-8128 auth failed: ${err.message}` }, 401);
     }
+
+    // -----------------------------------------------------------------
+    // x402 payment gate
+    // -----------------------------------------------------------------
+    if (options?.x402) {
+      const { x402 } = options;
+      const agentAddress = agent.address.toLowerCase();
+
+      // Session check
+      if (x402.session) {
+        const existing = await x402.session.store.get(agentAddress, x402.resource.url);
+        if (existing) {
+          // Active session — skip payment
+          await next();
+          return;
+        }
+      }
+
+      // Payment header
+      const paymentHeader = c.req.header(X402_HEADERS.PAYMENT_SIGNATURE.toLowerCase())
+        ?? c.req.header(X402_HEADERS.PAYMENT_SIGNATURE);
+      if (!paymentHeader) {
+        const paymentRequired: PaymentRequired = {
+          accepts: x402.accepts,
+          resource: x402.resource,
+        };
+        c.header(X402_HEADERS.PAYMENT_REQUIRED, encodeX402Header(paymentRequired));
+        return c.json(
+          { error: 'Payment required', accepts: x402.accepts, resource: x402.resource },
+          402,
+        );
+      }
+
+      // Process payment
+      try {
+        const payload = decodeX402Header<PaymentPayload>(paymentHeader);
+        const payResult = await processX402Payment(payload, x402.accepts, x402.facilitator);
+
+        if (!payResult.valid) {
+          return c.json({ error: payResult.error }, 402);
+        }
+
+        c.header(X402_HEADERS.PAYMENT_RESPONSE, encodeX402Header(payResult.payment));
+        c.set('payment', payResult.payment);
+
+        // Store session after successful payment
+        if (x402.session) {
+          await x402.session.store.set(
+            agentAddress,
+            x402.resource.url,
+            { paidAt: Date.now(), txHash: payResult.payment.txHash },
+            x402.session.ttl,
+          );
+        }
+      } catch (err: any) {
+        return c.json({ error: `x402 payment processing failed: ${err.message}` }, 402);
+      }
+    }
+
+    await next();
   };
 }
