@@ -199,6 +199,18 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
     // -----------------------------------------------------------------------
     if (options?.x402) {
       const { x402 } = options;
+      const agentAddress = req.agent!.address.toLowerCase();
+
+      // Step 2a: Check session store (SIWX pay-once mode)
+      if (x402.session) {
+        const existing = await x402.session.store.get(agentAddress);
+        if (existing) {
+          // Active session — skip payment entirely
+          next();
+          return;
+        }
+      }
+
       const paymentHeader = req.headers[X402_HEADERS.PAYMENT_SIGNATURE.toLowerCase()] as
         | string
         | undefined;
@@ -230,6 +242,15 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
         const responseHeader = encodeX402Header(result.payment);
         res.setHeader(X402_HEADERS.PAYMENT_RESPONSE, responseHeader);
         req.payment = result.payment;
+
+        // Step 2b: Store session after successful payment (SIWX)
+        if (x402.session) {
+          await x402.session.store.set(
+            agentAddress,
+            { paidAt: Date.now(), txHash: result.payment.txHash },
+            x402.session.ttl,
+          );
+        }
       } catch (err: any) {
         res.status(402).json({ error: `x402 payment processing failed: ${err.message}` });
         return;

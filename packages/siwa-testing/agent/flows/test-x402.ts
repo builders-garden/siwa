@@ -18,6 +18,7 @@ import {
   encodeX402Header,
   decodeX402Header,
   processX402Payment,
+  createMemoryX402SessionStore,
   type PaymentPayload,
   type PaymentRequirements,
   type FacilitatorClient,
@@ -715,6 +716,259 @@ async function testCorsOptionsPreflight() {
   }
 }
 
+// ─── Middleware: SIWX Sessions ───────────────────────────────────────
+
+async function testSessionFirstRequestNoPayment402() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator();
+    const middleware = siwaMiddleware({
+      receiptSecret: TEST_SECRET,
+      x402: {
+        facilitator,
+        resource: { url: '/api/data', description: 'Premium' },
+        accepts: MOCK_ACCEPTS,
+        session: { store: sessionStore, ttl: 60_000 },
+      },
+    });
+
+    // Valid SIWA but no payment, no session yet → 402
+    const req = await createSignedMockReq();
+    const res = createMockRes();
+    let nextCalled = false;
+
+    await (middleware as any)(req, res, () => { nextCalled = true; });
+
+    res.statusCode === 402 && !nextCalled
+      ? pass('SIWX: first request without payment → 402')
+      : fail('SIWX first 402', `status=${res.statusCode}, next=${nextCalled}`);
+  } catch (err: any) {
+    fail('SIWX first 402', err.message);
+  }
+}
+
+async function testSessionPaymentCreatesSession() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator({ txHash: '0xsiwx' });
+    const middleware = siwaMiddleware({
+      receiptSecret: TEST_SECRET,
+      x402: {
+        facilitator,
+        resource: { url: '/api/data', description: 'Premium' },
+        accepts: MOCK_ACCEPTS,
+        session: { store: sessionStore, ttl: 60_000 },
+      },
+    });
+
+    // First request with payment → should succeed + create session
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req = await createSignedMockReq({ paymentHeader });
+    const res = createMockRes();
+    let nextCalled = false;
+
+    await (middleware as any)(req, res, () => { nextCalled = true; });
+
+    if (!nextCalled) {
+      fail('SIWX: payment creates session', `status=${res.statusCode}, body=${JSON.stringify(res.body)}`);
+      return;
+    }
+
+    // Verify session was stored
+    const session = await sessionStore.get(account.address.toLowerCase());
+    session && session.txHash === '0xsiwx'
+      ? pass('SIWX: payment succeeds + session created with txHash')
+      : fail('SIWX session created', `session=${JSON.stringify(session)}`);
+  } catch (err: any) {
+    fail('SIWX session created', err.message);
+  }
+}
+
+async function testSessionSecondRequestSkipsPayment() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator({ txHash: '0xsiwx2' });
+    const middleware = siwaMiddleware({
+      receiptSecret: TEST_SECRET,
+      x402: {
+        facilitator,
+        resource: { url: '/api/data', description: 'Premium' },
+        accepts: MOCK_ACCEPTS,
+        session: { store: sessionStore, ttl: 60_000 },
+      },
+    });
+
+    // First request: pay
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req1 = await createSignedMockReq({ paymentHeader });
+    const res1 = createMockRes();
+    await (middleware as any)(req1, res1, () => {});
+
+    // Second request: SIWA only (no payment header) → should pass via session
+    const req2 = await createSignedMockReq();
+    const res2 = createMockRes();
+    let nextCalled = false;
+
+    await (middleware as any)(req2, res2, () => { nextCalled = true; });
+
+    nextCalled && !res2.headersSent
+      ? pass('SIWX: second request (session active) → next() without payment')
+      : fail('SIWX session skip', `status=${res2.statusCode}, next=${nextCalled}`);
+  } catch (err: any) {
+    fail('SIWX session skip', err.message);
+  }
+}
+
+async function testSessionReqPaymentPresence() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator({ txHash: '0xpay' });
+    const middleware = siwaMiddleware({
+      receiptSecret: TEST_SECRET,
+      x402: {
+        facilitator,
+        resource: { url: '/api/data', description: 'Premium' },
+        accepts: MOCK_ACCEPTS,
+        session: { store: sessionStore, ttl: 60_000 },
+      },
+    });
+
+    // First request with payment → req.payment should be set
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req1 = await createSignedMockReq({ paymentHeader });
+    const res1 = createMockRes();
+    await (middleware as any)(req1, res1, () => {});
+    const firstHasPayment = !!req1.payment;
+
+    // Second request via session → req.payment should NOT be set
+    const req2 = await createSignedMockReq();
+    const res2 = createMockRes();
+    await (middleware as any)(req2, res2, () => {});
+    const secondHasPayment = !!req2.payment;
+
+    firstHasPayment && !secondHasPayment
+      ? pass('SIWX: req.payment set on first request, absent on session request')
+      : fail('SIWX req.payment', `first=${firstHasPayment}, second=${secondHasPayment}`);
+  } catch (err: any) {
+    fail('SIWX req.payment', err.message);
+  }
+}
+
+async function testSessionExpiry() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator({ txHash: '0xexp' });
+    // TTL of 1ms — will expire almost instantly
+    const middleware = siwaMiddleware({
+      receiptSecret: TEST_SECRET,
+      x402: {
+        facilitator,
+        resource: { url: '/api/data', description: 'Premium' },
+        accepts: MOCK_ACCEPTS,
+        session: { store: sessionStore, ttl: 1 },
+      },
+    });
+
+    // First request: pay
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req1 = await createSignedMockReq({ paymentHeader });
+    const res1 = createMockRes();
+    await (middleware as any)(req1, res1, () => {});
+
+    // Wait for TTL to expire
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Second request: session expired → 402
+    const req2 = await createSignedMockReq();
+    const res2 = createMockRes();
+    let nextCalled = false;
+
+    await (middleware as any)(req2, res2, () => { nextCalled = true; });
+
+    res2.statusCode === 402 && !nextCalled
+      ? pass('SIWX: expired session → 402 (payment required again)')
+      : fail('SIWX expiry', `status=${res2.statusCode}, next=${nextCalled}`);
+  } catch (err: any) {
+    fail('SIWX expiry', err.message);
+  }
+}
+
+async function testSessionNoSharingBetweenAgents() {
+  try {
+    const sessionStore = createMemoryX402SessionStore();
+    const facilitator = createMockFacilitator({ txHash: '0xagent1' });
+    const middleware = siwaMiddleware({
+      receiptSecret: TEST_SECRET,
+      x402: {
+        facilitator,
+        resource: { url: '/api/data', description: 'Premium' },
+        accepts: MOCK_ACCEPTS,
+        session: { store: sessionStore, ttl: 60_000 },
+      },
+    });
+
+    // Agent 1 pays
+    const paymentHeader = encodeX402Header(MOCK_PAYLOAD);
+    const req1 = await createSignedMockReq({ paymentHeader });
+    const res1 = createMockRes();
+    await (middleware as any)(req1, res1, () => {});
+
+    // Agent 2 (different key) — create a different signer
+    const { privateKeyToAccount: pk2a } = await import('viem/accounts');
+    const { createLocalAccountSigner: cls2 } = await import('@buildersgarden/siwa/signer');
+    const { signAuthenticatedRequest: sar2 } = await import('@buildersgarden/siwa/erc8128');
+    const { createReceipt: cr2 } = await import('@buildersgarden/siwa/receipt');
+
+    // Hardhat account #1
+    const otherKey = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+    const otherAccount = pk2a(otherKey as `0x${string}`);
+    const otherSigner = cls2(otherAccount);
+
+    const { receipt: otherReceipt } = cr2(
+      {
+        address: otherAccount.address,
+        agentId: 2,
+        agentRegistry: TEST_REGISTRY,
+        chainId: TEST_CHAIN_ID,
+        verified: 'offline',
+      },
+      { secret: TEST_SECRET },
+    );
+
+    const otherRequest = new Request('http://localhost:3000/api/data', { method: 'GET' });
+    const signedOther = await sar2(otherRequest, otherReceipt, otherSigner, TEST_CHAIN_ID);
+
+    const otherHeaders: Record<string, string> = {};
+    signedOther.headers.forEach((value, key) => { otherHeaders[key] = value; });
+    otherHeaders['host'] = 'localhost:3000';
+
+    const req2: any = {
+      method: 'GET',
+      protocol: 'http',
+      originalUrl: '/api/data',
+      headers: otherHeaders,
+      get(name: string) {
+        const lower = name.toLowerCase();
+        for (const [k, v] of Object.entries(otherHeaders)) {
+          if (k.toLowerCase() === lower) return v;
+        }
+        return undefined;
+      },
+    };
+    const res2 = createMockRes();
+    let nextCalled = false;
+
+    await (middleware as any)(req2, res2, () => { nextCalled = true; });
+
+    // Agent 2 should get 402 — no session sharing
+    res2.statusCode === 402 && !nextCalled
+      ? pass('SIWX: different agent address → no session sharing → 402')
+      : fail('SIWX no sharing', `status=${res2.statusCode}, next=${nextCalled}`);
+  } catch (err: any) {
+    fail('SIWX no sharing', err.message);
+  }
+}
+
 // ─── Entry point ────────────────────────────────────────────────────
 
 export async function testX402Flow(): Promise<boolean> {
@@ -756,6 +1010,15 @@ export async function testX402Flow(): Promise<boolean> {
   await testCorsWithoutX402();
   await testCorsWithX402();
   await testCorsOptionsPreflight();
+
+  // ── SIWX Sessions ──
+  console.log(chalk.cyan('\n  Middleware: SIWX Sessions'));
+  await testSessionFirstRequestNoPayment402();
+  await testSessionPaymentCreatesSession();
+  await testSessionSecondRequestSkipsPayment();
+  await testSessionReqPaymentPresence();
+  await testSessionExpiry();
+  await testSessionNoSharingBetweenAgents();
 
   // ── Summary ──
   console.log('');

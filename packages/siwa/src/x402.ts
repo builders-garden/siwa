@@ -97,11 +97,32 @@ export interface FacilitatorClient {
   settle(payload: PaymentPayload, requirements: PaymentRequirements[]): Promise<SettleResponse>;
 }
 
+/** Stored session data for a paid agent */
+export interface X402Session {
+  paidAt: number;
+  txHash?: string;
+}
+
+/** Pluggable session store (get/set with TTL) */
+export interface X402SessionStore {
+  get(address: string): Promise<X402Session | null>;
+  set(address: string, session: X402Session, ttlMs: number): Promise<void>;
+}
+
+/** Session configuration for SIWX pay-once mode */
+export interface X402SessionConfig {
+  store: X402SessionStore;
+  /** Session TTL in milliseconds */
+  ttl: number;
+}
+
 /** x402 configuration for middleware */
 export interface X402Config {
   facilitator: FacilitatorClient;
   resource: ResourceInfo;
   accepts: PaymentRequirements[];
+  /** Enable SIWX pay-once sessions. When set, payment is only required on first request. */
+  session?: X402SessionConfig;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +196,45 @@ export function createFacilitatorClient(options: { url: string }): FacilitatorCl
       }
 
       return res.json() as Promise<SettleResponse>;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Session store — in-memory
+// ---------------------------------------------------------------------------
+
+/**
+ * In-memory X402 session store with TTL-based expiry.
+ *
+ * Suitable for single-process servers. For multi-instance deployments,
+ * implement X402SessionStore with a shared store (Redis, database, etc.).
+ */
+export function createMemoryX402SessionStore(): X402SessionStore {
+  const sessions = new Map<string, { session: X402Session; expiry: number }>();
+
+  function cleanup() {
+    const now = Date.now();
+    for (const [k, v] of sessions) {
+      if (v.expiry < now) sessions.delete(k);
+    }
+  }
+
+  return {
+    async get(address: string): Promise<X402Session | null> {
+      cleanup();
+      const entry = sessions.get(address);
+      if (!entry) return null;
+      if (entry.expiry < Date.now()) {
+        sessions.delete(address);
+        return null;
+      }
+      return entry.session;
+    },
+
+    async set(address: string, session: X402Session, ttlMs: number): Promise<void> {
+      cleanup();
+      sessions.set(address, { session, expiry: Date.now() + ttlMs });
     },
   };
 }
