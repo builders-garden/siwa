@@ -250,7 +250,7 @@ export default function DocsPage() {
 
           <SubSection id="wallet-bankr" title="Bankr">
             <P>
-              Bankr&apos;s Agent API provides custodial wallets for AI agents with built-in signing capabilities. No additional SDK is needed — the signer communicates directly with the Bankr API over HTTP:
+              Bankr&apos;s Agent API provides smart contract wallets (ERC-4337) for AI agents with built-in signing capabilities. No additional SDK is needed — the signer communicates directly with the Bankr API over HTTP. Signatures are verified via ERC-1271 automatically.
             </P>
             <CodeBlock language="bash">{`# No extra package needed — only @buildersgarden/siwa`}</CodeBlock>
             <P>
