@@ -9,18 +9,19 @@ import { renderDashboard } from './dashboard.js';
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000');
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || 'localhost:3000';
-const RPC_URL = process.env.RPC_URL;
 const SIWA_NONCE_SECRET = process.env.SIWA_NONCE_SECRET || process.env.SIWA_SECRET || 'test-secret-change-in-production';
 const RECEIPT_SECRET = process.env.RECEIPT_SECRET || process.env.SIWA_SECRET || 'test-secret-change-in-production';
 const ERC8128_VERIFY_ONCHAIN = process.env.ERC8128_VERIFY_ONCHAIN === 'true';
-const ERC8128_RPC_URL = process.env.ERC8128_RPC_URL || RPC_URL;
 
-if (!RPC_URL) {
-  console.error('RPC_URL is required. Set it in your environment or .env file.');
-  process.exit(1);
-}
+// Testnet: Base Sepolia (chain ID 84532)
+const TESTNET_RPC = 'https://sepolia.base.org';
+const TESTNET_CHAIN_ID = 84532;
+const testnetClient = createPublicClient({ transport: http(TESTNET_RPC) });
 
-const client = createPublicClient({ transport: http(RPC_URL) });
+// Mainnet: Base (chain ID 8453)
+const MAINNET_RPC = 'https://mainnet.base.org';
+const MAINNET_CHAIN_ID = 8453;
+const mainnetClient = createPublicClient({ transport: http(MAINNET_RPC) });
 
 // Middleware — SIWA SDK wrappers handle JSON parsing (with rawBody), CORS, and OPTIONS
 app.use(siwaJsonParser());
@@ -43,7 +44,9 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// Request nonce (validates registration before issuing)
+// ─── Testnet Routes (Base Sepolia) ────────────────────────────────────
+
+// Request nonce (testnet)
 app.post('/siwa/nonce', async (req, res) => {
   const { address, agentId, agentRegistry } = req.body;
   if (!address) {
@@ -53,19 +56,18 @@ app.post('/siwa/nonce', async (req, res) => {
 
   const result = await createSIWANonce(
     { address, agentId, agentRegistry },
-    client,
+    testnetClient,
     { secret: SIWA_NONCE_SECRET },
   );
 
   if (result.status !== 'nonce_issued') {
-    // Forward the SIWAResponse directly to the agent
-    console.log(`\u{274C} Nonce rejected for ${address.slice(0, 6)}...${address.slice(-4)}: ${result.error}`);
+    console.log(`❌ [testnet] Nonce rejected for ${address.slice(0, 6)}...${address.slice(-4)}: ${result.error}`);
     res.status(403).json(result);
     return;
   }
 
   const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
-  console.log(`\u{1F4E8} Nonce issued to ${truncated}`);
+  console.log(`📨 [testnet] Nonce issued to ${truncated}`);
 
   res.json({
     nonce: result.nonce,
@@ -74,11 +76,11 @@ app.post('/siwa/nonce', async (req, res) => {
     expirationTime: result.expirationTime,
     domain: SERVER_DOMAIN,
     uri: `http://${SERVER_DOMAIN}/siwa/verify`,
-    chainId: parseInt(agentRegistry?.split(':')[1] || '84532'),
+    chainId: TESTNET_CHAIN_ID,
   });
 });
 
-// Verify SIWA signature
+// Verify SIWA signature (testnet)
 app.post('/siwa/verify', async (req, res) => {
   const { message, signature, nonceToken } = req.body;
   if (!message || !signature) {
@@ -95,13 +97,13 @@ app.post('/siwa/verify', async (req, res) => {
     signature,
     SERVER_DOMAIN,
     { nonceToken, secret: SIWA_NONCE_SECRET },
-    client,
+    testnetClient,
   );
 
   const response = buildSIWAResponse(result);
 
   if (!result.valid) {
-    console.log(`\u{274C} SIWA verification failed: ${result.error}`);
+    console.log(`❌ [testnet] SIWA verification failed: ${result.error}`);
     const statusCode = result.code === SIWAErrorCode.NOT_REGISTERED ? 403 : 401;
     res.status(statusCode).json(response);
     return;
@@ -118,7 +120,92 @@ app.post('/siwa/verify', async (req, res) => {
   recordSession(verificationResult, result.verified, receiptResult.expiresAt);
 
   const truncated = `${result.address.slice(0, 6)}...${result.address.slice(-4)}`;
-  console.log(`\u{2705} Agent #${result.agentId} (${truncated}) signed in [${result.verified}]`);
+  console.log(`✅ [testnet] Agent #${result.agentId} (${truncated}) signed in [${result.verified}]`);
+
+  res.json({
+    ...response,
+    receipt: receiptResult.receipt,
+    receiptExpiresAt: receiptResult.expiresAt,
+  });
+});
+
+// ─── Mainnet Routes (Base) ────────────────────────────────────────────
+
+// Request nonce (mainnet)
+app.post('/siwa/mainnet/nonce', async (req, res) => {
+  const { address, agentId, agentRegistry } = req.body;
+  if (!address) {
+    res.status(400).json({ status: 'rejected', code: SIWAErrorCode.VERIFICATION_FAILED, error: 'Missing address' });
+    return;
+  }
+
+  const result = await createSIWANonce(
+    { address, agentId, agentRegistry },
+    mainnetClient,
+    { secret: SIWA_NONCE_SECRET },
+  );
+
+  if (result.status !== 'nonce_issued') {
+    console.log(`❌ [mainnet] Nonce rejected for ${address.slice(0, 6)}...${address.slice(-4)}: ${result.error}`);
+    res.status(403).json(result);
+    return;
+  }
+
+  const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
+  console.log(`📨 [mainnet] Nonce issued to ${truncated}`);
+
+  res.json({
+    nonce: result.nonce,
+    nonceToken: result.nonceToken,
+    issuedAt: result.issuedAt,
+    expirationTime: result.expirationTime,
+    domain: SERVER_DOMAIN,
+    uri: `http://${SERVER_DOMAIN}/siwa/mainnet/verify`,
+    chainId: MAINNET_CHAIN_ID,
+  });
+});
+
+// Verify SIWA signature (mainnet)
+app.post('/siwa/mainnet/verify', async (req, res) => {
+  const { message, signature, nonceToken } = req.body;
+  if (!message || !signature) {
+    res.status(400).json({ status: 'rejected', code: SIWAErrorCode.VERIFICATION_FAILED, error: 'Missing message or signature' });
+    return;
+  }
+  if (!nonceToken) {
+    res.status(400).json({ status: 'rejected', code: SIWAErrorCode.INVALID_NONCE, error: 'Missing nonceToken' });
+    return;
+  }
+
+  const result = await verifySIWA(
+    message,
+    signature,
+    SERVER_DOMAIN,
+    { nonceToken, secret: SIWA_NONCE_SECRET },
+    mainnetClient,
+  );
+
+  const response = buildSIWAResponse(result);
+
+  if (!result.valid) {
+    console.log(`❌ [mainnet] SIWA verification failed: ${result.error}`);
+    const statusCode = result.code === SIWAErrorCode.NOT_REGISTERED ? 403 : 401;
+    res.status(statusCode).json(response);
+    return;
+  }
+
+  const verificationResult = {
+    address: result.address,
+    agentId: result.agentId,
+    agentRegistry: result.agentRegistry,
+    chainId: result.chainId,
+  };
+
+  const receiptResult = createReceiptForAgent({ ...verificationResult, verified: result.verified });
+  recordSession(verificationResult, result.verified, receiptResult.expiresAt);
+
+  const truncated = `${result.address.slice(0, 6)}...${result.address.slice(-4)}`;
+  console.log(`✅ [mainnet] Agent #${result.agentId} (${truncated}) signed in [${result.verified}]`);
 
   res.json({
     ...response,
@@ -140,9 +227,7 @@ app.get('/siwa/sessions', (_req, res) => {
 // Auth middleware — SIWA SDK wrapper for ERC-8128 + Receipt verification
 const requireAuth = siwaMiddleware({
   receiptSecret: RECEIPT_SECRET,
-  rpcUrl: ERC8128_RPC_URL,
-  verifyOnchain: ERC8128_VERIFY_ONCHAIN,
-  publicClient: ERC8128_VERIFY_ONCHAIN ? client : undefined,
+  verifyOnchain: false,
 });
 
 // Protected endpoint
@@ -170,7 +255,8 @@ app.post('/api/agent-action', requireAuth, (req, res) => {
 // ─── Start ────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
-  console.log(`\u{1F310} SIWA Server running at http://localhost:${PORT}`);
-  console.log(`\u{1F4CB} Dashboard: http://localhost:${PORT}`);
-  console.log(`\u{1F511} RPC: ${RPC_URL}`);
+  console.log(`🌐 SIWA Server running at http://localhost:${PORT}`);
+  console.log(`📋 Dashboard: http://localhost:${PORT}`);
+  console.log(`🔗 Testnet (Base Sepolia): /siwa/nonce, /siwa/verify`);
+  console.log(`🔗 Mainnet (Base): /siwa/mainnet/nonce, /siwa/mainnet/verify`);
 });
