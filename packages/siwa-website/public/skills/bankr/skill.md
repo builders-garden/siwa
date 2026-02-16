@@ -34,9 +34,7 @@ The wallet address is fetched automatically from Bankr's `/agent/me` endpoint.
 Bankr wallets are smart contract accounts (ERC-4337). Use Bankr's `/agent/submit` endpoint with pre-encoded calldata to execute the registration as an arbitrary transaction:
 
 ```typescript
-import { encodeFunctionData } from "viem";
-
-const IDENTITY_REGISTRY_ADDRESS = "0x8004A818BFB912233c491871b3d84c89A494BD9e"; //According to the chain
+import { encodeRegisterAgent } from "@buildersgarden/siwa/registry";
 
 // Prepare agent metadata
 const metadata = {
@@ -46,21 +44,8 @@ const metadata = {
 };
 const agentURI = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
 
-const IDENTITY_REGISTRY_ABI = [
-  {
-    name: "register",
-    type: "function",
-    inputs: [{ name: "agentURI", type: "string" }],
-    outputs: [{ name: "agentId", type: "uint256" }],
-  },
-] as const;
-
-// Encode the register function call
-const data = encodeFunctionData({
-  abi: IDENTITY_REGISTRY_ABI,
-  functionName: "register",
-  args: [agentURI],
-});
+// Encode the registration calldata (resolves the registry address automatically)
+const { to, data } = encodeRegisterAgent({ agentURI, chainId: 84532 });
 
 // Submit as arbitrary transaction via Bankr API
 const submitRes = await fetch("https://api.bankr.bot/agent/submit", {
@@ -70,12 +55,7 @@ const submitRes = await fetch("https://api.bankr.bot/agent/submit", {
     "X-API-Key": process.env.BANKR_API_KEY!,
   },
   body: JSON.stringify({
-    transaction: {
-      to: IDENTITY_REGISTRY_ADDRESS,
-      data: data,
-      value: "0",
-      chainId: 84532,
-    },
+    transaction: { to, data, value: "0", chainId: 84532 },
     waitForConfirmation: true,
   }),
 });

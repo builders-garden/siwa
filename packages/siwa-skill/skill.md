@@ -546,7 +546,8 @@ app.post("/api/protected", siwaMiddleware(), (c) => {
 
 | Export | Description |
 |--------|-------------|
-| `registerAgent(options)` | Register as ERC-8004 agent onchain |
+| `registerAgent(options)` | Register as ERC-8004 agent onchain (requires `TransactionSigner`) |
+| `encodeRegisterAgent(options)` | Encode registration calldata without sending. Returns `{ to, data }`. Use with external submission (e.g. Bankr, ERC-4337 bundlers). Options: `{ agentURI, chainId }` |
 | `getAgent(id, registry, client)` | Read agent profile from registry |
 | `getReputation(id, registry, client)` | Read agent reputation |
 
