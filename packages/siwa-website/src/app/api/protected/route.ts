@@ -9,4 +9,4 @@ export const GET = withSiwa(async (agent) => {
   };
 });
 
-export { siwaOptions as OPTIONS };
+export const OPTIONS = () => siwaOptions();
