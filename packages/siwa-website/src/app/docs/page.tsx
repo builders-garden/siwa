@@ -1509,13 +1509,13 @@ Issued At: {issuedAt}
               headers={["Field", "Required", "Description"]}
               rows={[
                 ["domain", "Yes", "Origin domain requesting authentication."],
-                ["address", "Yes", "EIP-55 checksummed Ethereum address."],
+                ["address", "Yes", "Agent wallet address. Must be EIP-55 checksummed (mixed-case encoding)."],
                 ["statement", "No", "Human-readable purpose string."],
                 ["uri", "Yes", "RFC 3986 URI of the resource."],
                 ["version", "Yes", "Must be \"1\"."],
-                ["agentId", "Yes", "ERC-721 tokenId in the Identity Registry."],
-                ["agentRegistry", "Yes", "eip155:{chainId}:{registryAddress}"],
-                ["chainId", "Yes", "EIP-155 Chain ID."],
+                ["agentId", "Yes", "ERC-721 tokenId in the Identity Registry (numeric)."],
+                ["agentRegistry", "Yes", "CAIP-10 reference: eip155:{chainId}:{registryAddress}. See Address Formatting."],
+                ["chainId", "Yes", "EIP-155 chain ID (numeric). Must match the chain in agentRegistry."],
                 ["nonce", "Yes", "Server-generated, >= 8 alphanumeric chars."],
                 ["issuedAt", "Yes", "RFC 3339 datetime."],
                 ["expirationTime", "No", "RFC 3339 datetime."],
@@ -1523,6 +1523,9 @@ Issued At: {issuedAt}
                 ["requestId", "No", "Opaque request identifier."],
               ]}
             />
+            <P>
+              See <a href="#contracts-format" className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200">Address Formatting Standards</a> for details on CAIP-10, EIP-55, and EIP-155.
+            </P>
           </SubSection>
 
           <SubSection id="protocol-vs-siwe" title="SIWA vs SIWE">
@@ -1607,12 +1610,65 @@ Issued At: {issuedAt}
             </div>
           </SubSection>
 
-          <SubSection id="contracts-format" title="Agent Registry String Format">
-            <CodeBlock language="text">{`{namespace}:{chainId}:{identityRegistryAddress}
+          <SubSection id="contracts-format" title="Address Formatting Standards">
+            <P>
+              SIWA uses standardized address formats from the blockchain ecosystem:
+            </P>
+
+            <div className="mt-4 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">CAIP-10: Agent Registry Reference</h4>
+              <p className="text-xs text-dim mt-1 mb-3">
+                <a href="https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-10.md" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">CAIP-10</a> (Chain Agnostic Improvement Proposal) defines a standard way to reference blockchain accounts across different networks.
+              </p>
+            </div>
+            <P>
+              The <InlineCode>agentRegistry</InlineCode> field uses CAIP-10 format to uniquely identify the ERC-8004 Identity Registry contract on a specific chain:
+            </P>
+            <CodeBlock language="text">{`{namespace}:{chainId}:{contractAddress}
+
+Format breakdown:
+  namespace       = "eip155" (EVM-compatible chains per EIP-155)
+  chainId         = numeric chain identifier (e.g., 8453 for Base)
+  contractAddress = EIP-55 checksummed contract address
 
 Examples:
-  eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432    (Base)
-  eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e   (Base Sepolia)`}</CodeBlock>
+  eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432    (Base mainnet)
+  eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e   (Base Sepolia)
+  eip155:1:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432      (Ethereum mainnet)`}</CodeBlock>
+
+            <div className="mt-6 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">EIP-55: Checksummed Addresses</h4>
+              <p className="text-xs text-dim mt-1 mb-3">
+                <a href="https://eips.ethereum.org/EIPS/eip-55" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">EIP-55</a> defines mixed-case checksum encoding for Ethereum addresses.
+              </p>
+            </div>
+            <P>
+              All wallet addresses (<InlineCode>address</InlineCode> field) must be EIP-55 checksummed. This provides error detection for typos:
+            </P>
+            <CodeBlock language="text">{`Correct (checksummed):   0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0
+Incorrect (lowercase):   0x742d35cc6634c0532925a3b844bc9e7595f0beb0`}</CodeBlock>
+            <P>
+              Most libraries (viem, ethers.js) automatically return checksummed addresses. You can use <InlineCode>getAddress()</InlineCode> from viem to ensure proper formatting.
+            </P>
+
+            <div className="mt-6 mb-2">
+              <h4 className="font-mono text-sm font-semibold text-foreground">EIP-155: Chain IDs</h4>
+              <p className="text-xs text-dim mt-1 mb-3">
+                <a href="https://eips.ethereum.org/EIPS/eip-155" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">EIP-155</a> introduced chain IDs to prevent replay attacks across different networks.
+              </p>
+            </div>
+            <P>
+              The <InlineCode>chainId</InlineCode> field identifies which blockchain network the agent is registered on. Common chain IDs:
+            </P>
+            <Table
+              headers={["Network", "Chain ID", "Type"]}
+              rows={[
+                ["Ethereum", "1", "Mainnet"],
+                ["Base", "8453", "Mainnet"],
+                ["Base Sepolia", "84532", "Testnet"],
+                ["Ethereum Sepolia", "11155111", "Testnet"],
+              ]}
+            />
           </SubSection>
 
           <SubSection id="contracts-rpc" title="Public RPC Endpoints">
