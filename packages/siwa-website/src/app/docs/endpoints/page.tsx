@@ -190,6 +190,26 @@ export default function EndpointsPage() {
             </P>
           </SubSection>
 
+          <SubSection id="address-formats" title="Address Formats">
+            <P>
+              SIWA follows EVM address standards:
+            </P>
+            <ul className="space-y-2 mb-4 text-sm leading-relaxed text-muted list-none">
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Wallet addresses</strong> — Must be <a href="https://eips.ethereum.org/EIPS/eip-55" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">EIP-55</a> checksummed (mixed-case), e.g. <InlineCode>0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0</InlineCode></span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Agent Registry</strong> — Uses <a href="https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-10.md" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">CAIP-10</a> format: <InlineCode>eip155:{"{chainId}"}:{"{address}"}</InlineCode></span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-accent shrink-0">&#x2022;</span>
+                <span><strong className="text-foreground">Chain IDs</strong> — Numeric identifiers per <a href="https://eips.ethereum.org/EIPS/eip-155" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">EIP-155</a> (e.g. 8453 for Base, 84532 for Base Sepolia)</span>
+              </li>
+            </ul>
+          </SubSection>
+
           <SubSection id="auth-flow" title="Authentication Flow">
             <div className="rounded-lg border border-border bg-surface p-5 mb-4">
               <div className="space-y-4 font-mono text-sm">
@@ -247,11 +267,16 @@ export default function EndpointsPage() {
             <Table
               headers={["Field", "Type", "Required", "Description"]}
               rows={[
-                ["address", "string", "Yes", "Agent wallet address (EIP-55 checksummed)"],
-                ["agentId", "number", "No", "ERC-8004 agent token ID"],
-                ["agentRegistry", "string", "No", "Registry ref (e.g. eip155:84532:0x8004...)"],
+                ["address", "string", "Yes", "Agent wallet address (EIP-55 checksummed, mixed-case)"],
+                ["agentId", "number", "No", "ERC-8004 agent token ID (numeric)"],
+                ["agentRegistry", "string", "No", "CAIP-10 registry reference (eip155:{chainId}:{address})"],
               ]}
             />
+            <P>
+              The <InlineCode>agentRegistry</InlineCode> uses{" "}
+              <a href="https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-10.md" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">CAIP-10</a>{" "}
+              format: <InlineCode>eip155:{"{chainId}"}:{"{contractAddress}"}</InlineCode>. For Base Sepolia: <InlineCode>eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e</InlineCode>. For Base mainnet: <InlineCode>eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432</InlineCode>.
+            </P>
 
             <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
             <CodeBlock language="json">{`{

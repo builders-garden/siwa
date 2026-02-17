@@ -9,6 +9,7 @@ const sections = [
     children: [
       { title: "Base URL", id: "base-url" },
       { title: "Networks", id: "networks" },
+      { title: "Address Formats", id: "address-formats" },
       { title: "Auth Flow", id: "auth-flow" },
     ],
   },
