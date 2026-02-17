@@ -19,6 +19,64 @@ interface CodeBlockProps {
   language?: Language;
 }
 
+interface CollapsibleCodeBlockProps extends CodeBlockProps {
+  title: string;
+  defaultOpen?: boolean;
+}
+
+export function CollapsibleCodeBlock({
+  children,
+  language = "typescript",
+  title,
+  defaultOpen = false,
+}: CollapsibleCodeBlockProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const code = children.trim();
+
+  // Get first 3 lines for preview
+  const previewLines = code.split('\n').slice(0, 3).join('\n');
+  const hasMore = code.split('\n').length > 3;
+
+  return (
+    <div className="rounded-lg border border-border bg-surface overflow-hidden mb-4">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-background/50 transition-colors duration-200 cursor-pointer"
+      >
+        <span className="font-mono text-sm font-medium text-foreground">{title}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-dim">{isOpen ? "collapse" : "expand"}</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`text-dim transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </button>
+      {!isOpen && (
+        <div className="border-t border-border px-4 py-3 bg-background/30">
+          <pre className="font-mono text-xs text-dim leading-relaxed overflow-hidden">
+            <code>{previewLines}{hasMore && '\n...'}</code>
+          </pre>
+        </div>
+      )}
+      {isOpen && (
+        <div className="border-t border-border">
+          <CodeBlock language={language}>{children}</CodeBlock>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CodeBlock({ children, language = "typescript" }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   // Trim trailing whitespace/newlines

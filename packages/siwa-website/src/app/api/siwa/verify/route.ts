@@ -56,4 +56,4 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export { siwaOptions as OPTIONS };
+export const OPTIONS = () => siwaOptions();

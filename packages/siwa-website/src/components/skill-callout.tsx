@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const SKILL_COMMAND = "Read https://siwa.builders.garden/skill.md";
+const SKILL_COMMAND = "Read https://siwa.id/skill.md";
 
 export function SkillCallout() {
   const [copied, setCopied] = useState(false);

@@ -16,7 +16,7 @@
  */
 
 import * as crypto from 'crypto';
-import type { SignerType } from './signer.js';
+import type { SignerType } from './signer/index.js';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -18,7 +18,7 @@ import {
   type VerifyResult,
   type NonceStore,
 } from '@slicekit/erc8128';
-import type { Signer, SignerType } from './signer.js';
+import type { Signer, SignerType } from './signer/index.js';
 import { verifyReceipt, type ReceiptPayload } from './receipt.js';
 import {
   createCaptchaChallenge,

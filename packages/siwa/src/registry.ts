@@ -20,7 +20,7 @@ import {
 } from 'viem';
 
 import { getRegistryAddress, getAgentRegistryString, RPC_ENDPOINTS } from './addresses.js';
-import type { TransactionSigner } from './signer.js';
+import type { TransactionSigner } from './signer/index.js';
 
 // ─── ERC-8004 Value Types ────────────────────────────────────────────
 
@@ -280,6 +280,63 @@ export async function getReputation(
   const score = Number(rawValue) / 10 ** decimals;
 
   return { count: Number(count), score, rawValue, decimals };
+}
+
+// ─── Encode Registration Calldata ────────────────────────────────────
+
+export interface EncodeRegisterAgentOptions {
+  /** The agent metadata URI (IPFS, HTTP, or data URL) */
+  agentURI: string;
+  /** The chain ID to register on */
+  chainId: number;
+}
+
+export interface EncodeRegisterAgentResult {
+  /** The registry contract address */
+  to: Address;
+  /** The ABI-encoded calldata for `register(agentURI)` */
+  data: Hex;
+}
+
+/**
+ * Encode the calldata for an ERC-8004 agent registration without sending it.
+ *
+ * Use this when your wallet provider handles transaction submission separately
+ * (e.g. Bankr's `/agent/submit`, or any ERC-4337 bundler).
+ *
+ * @example
+ * ```typescript
+ * import { encodeRegisterAgent } from '@buildersgarden/siwa/registry';
+ *
+ * const { to, data } = encodeRegisterAgent({
+ *   agentURI: 'data:application/json;base64,...',
+ *   chainId: 84532,
+ * });
+ *
+ * // Submit via your provider (e.g. Bankr)
+ * await fetch('https://api.bankr.bot/agent/submit', {
+ *   method: 'POST',
+ *   headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+ *   body: JSON.stringify({
+ *     transaction: { to, data, value: '0', chainId: 84532 },
+ *     waitForConfirmation: true,
+ *   }),
+ * });
+ * ```
+ */
+export function encodeRegisterAgent(
+  options: EncodeRegisterAgentOptions
+): EncodeRegisterAgentResult {
+  const { agentURI, chainId } = options;
+  const registryAddress = getRegistryAddress(chainId) as Address;
+
+  const data = encodeFunctionData({
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'register',
+    args: [agentURI],
+  });
+
+  return { to: registryAddress, data };
 }
 
 // ─── Agent Registration ─────────────────────────────────────────────

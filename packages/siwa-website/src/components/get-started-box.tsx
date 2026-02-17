@@ -132,7 +132,7 @@ export function GetStartedBox() {
             </ol>
 
             <a
-              href="/skill.md"
+              href="https://siwa.id/skill.md"
               className="mt-5 inline-flex items-center gap-1 text-sm text-accent hover:text-blue-400 transition-colors duration-200 cursor-pointer"
             >
               View skill.md

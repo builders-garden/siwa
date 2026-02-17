@@ -1,4 +1,4 @@
-export * from './signer.js';
+export * from './signer/index.js';
 export * from './keystore.js';
 export * from './siwa.js';
 export * from './identity.js';
@@ -10,3 +10,4 @@ export * from './erc8128.js';
 export * from './nonce-store.js';
 export * from './tba.js';
 export * from './captcha.js';
+export * from './x402.js';

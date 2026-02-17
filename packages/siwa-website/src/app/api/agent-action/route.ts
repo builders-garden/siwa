@@ -11,4 +11,4 @@ export const POST = withSiwa(async (agent, req) => {
   };
 });
 
-export { siwaOptions as OPTIONS };
+export const OPTIONS = () => siwaOptions();

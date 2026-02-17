@@ -16,6 +16,8 @@
     "test:viem": "tsx agent/cli.ts test-viem",
     "test:keyring": "tsx agent/cli.ts test-keyring",
     "test:captcha": "tsx agent/cli.ts test-captcha",
+    "test:nonce": "tsx agent/cli.ts test-nonce",
+    "test:x402": "tsx agent/cli.ts test-x402",
     "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\""
   },
   "dependencies": {
@@ -24,6 +26,8 @@
     "concurrently": "^9.0.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.0",
+    "fastify": "^5.7.4",
+    "hono": "^4.11.9",
     "tsx": "^4.0.0",
     "viem": "^2.21.0"
   },

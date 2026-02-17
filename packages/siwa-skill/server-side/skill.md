@@ -445,26 +445,139 @@ app.get("/api/protected/data", (req, res) => {
 
 ```typescript
 import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
 
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
-
-const options = siwaOptions({
+// Handler receives (agent, req) — agent is the verified SiwaAgent
+export const POST = withSiwa(async (agent, req) => {
+  const body = await req.json();
+  return { agent: { address: agent.address, agentId: agent.agentId }, received: body };
+}, {
   receiptSecret: process.env.SIWA_SECRET!,
-  client,
+  allowedSignerTypes: ['eoa', 'sca'],
 });
 
-// Wrap your handler
-export const GET = withSiwa(async (req, { siwa }) => {
-  return Response.json({
-    message: `Hello Agent #${siwa.agentId}!`,
-    address: siwa.address,
-  });
-}, options);
+// OPTIONS handler for CORS preflight
+export { siwaOptions as OPTIONS };
+```
+
+### Fastify
+
+```typescript
+import Fastify from "fastify";
+import { siwaPlugin, siwaAuth } from "@buildersgarden/siwa/fastify";
+
+const fastify = Fastify();
+await fastify.register(siwaPlugin);  // sets up CORS
+
+fastify.post("/api/protected", {
+  preHandler: siwaAuth({
+    receiptSecret: process.env.SIWA_SECRET!,
+    allowedSignerTypes: ['eoa'],
+  }),
+}, async (req) => {
+  return { agent: req.agent };
+});
+
+await fastify.listen({ port: 3000 });
+```
+
+### Hono
+
+```typescript
+import { Hono } from "hono";
+import { siwaMiddleware, siwaCors } from "@buildersgarden/siwa/hono";
+
+const app = new Hono();
+app.use("*", siwaCors());
+
+app.post("/api/protected", siwaMiddleware({
+  receiptSecret: process.env.SIWA_SECRET!,
+}), (c) => {
+  const agent = c.get("agent");
+  return c.json({ agent });
+});
+
+export default app;
+```
+
+---
+
+## x402 Payment Middleware
+
+Add pay-per-request or pay-once monetization to any SIWA-protected endpoint. The middleware enforces a two-gate flow: **SIWA authentication first** (401 if invalid), then **payment verification** (402 if missing/invalid). Both must pass before the handler runs.
+
+### Server Setup
+
+```typescript
+import { createFacilitatorClient, type X402Config } from "@buildersgarden/siwa/x402";
+
+const facilitator = createFacilitatorClient({
+  url: "https://api.cdp.coinbase.com/platform/v2/x402",
+});
+
+const x402: X402Config = {
+  facilitator,
+  resource: { url: "/api/premium", description: "Premium data" },
+  accepts: [{
+    scheme: "exact",
+    network: "eip155:84532",
+    amount: "1000000",  // 1 USDC (6 decimals)
+    asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    payTo: "0xYourAddress",
+    maxTimeoutSeconds: 60,
+  }],
+};
+```
+
+### Pay-Once Sessions
+
+```typescript
+import { createMemoryX402SessionStore } from "@buildersgarden/siwa/x402";
+
+const x402WithSession: X402Config = {
+  ...x402,
+  session: {
+    store: createMemoryX402SessionStore(),
+    ttl: 3_600_000,  // 1 hour
+  },
+};
+```
+
+Sessions are keyed by `(address, resource.url)` — different agents and routes are isolated.
+
+### Framework Examples
+
+**Express:**
+```typescript
+app.post("/api/premium", siwaMiddleware({ x402 }), (req, res) => {
+  // req.agent — verified identity
+  // req.payment — { scheme, network, amount, asset, payTo, txHash }
+  res.json({ agent: req.agent, txHash: req.payment?.txHash });
+});
+app.use(siwaCors({ x402: true }));  // expose payment headers in CORS
+```
+
+**Next.js:**
+```typescript
+export const POST = withSiwa(async (agent, req, payment) => {
+  return { agent, txHash: payment?.txHash };
+}, { x402 });
+export const OPTIONS = () => siwaOptions({ x402: true });
+```
+
+**Hono:**
+```typescript
+app.use("*", siwaCors({ x402: true }));
+app.post("/api/premium", siwaMiddleware({ x402 }), (c) => {
+  return c.json({ agent: c.get("agent"), txHash: c.get("payment")?.txHash });
+});
+```
+
+**Fastify:**
+```typescript
+await fastify.register(siwaPlugin, { x402: true });
+fastify.post("/api/premium", { preHandler: siwaAuth({ x402 }) }, async (req) => {
+  return { agent: req.agent, txHash: req.payment?.txHash };
+});
 ```
 
 ---
@@ -483,10 +596,11 @@ verifySIWA(
   criteria?: SIWAVerifyCriteria, // Optional verification criteria
 )
 
-// NonceValidator: either a callback or stateless token
+// NonceValidator: callback, stateless token, or nonce store
 type NonceValidator =
   | ((nonce: string) => boolean | Promise<boolean>)
-  | { nonceToken: string; secret: string };
+  | { nonceToken: string; secret: string }
+  | { nonceStore: SIWANonceStore };
 
 // SIWAVerifyCriteria: optional policy enforcement
 interface SIWAVerifyCriteria {
@@ -501,16 +615,23 @@ interface SIWAVerifyCriteria {
 }
 ```
 
-### Verification Example
+### Verification Example (with Nonce Store)
 
 ```typescript
+import { createSIWANonce, verifySIWA } from "@buildersgarden/siwa";
+import { createMemorySIWANonceStore } from "@buildersgarden/siwa/nonce-store";
+
+const nonceStore = createMemorySIWANonceStore();
+
+// Issue nonce
+const nonce = await createSIWANonce(params, client, { nonceStore });
+
+// Verify — nonceStore consumes the nonce automatically
 const result = await verifySIWA(
-  message,
-  signature,
-  "example.com",
-  (nonce) => validateAndConsumeNonce(nonce),
+  message, signature, "example.com",
+  { nonceStore },
   client,
-  { allowedSignerTypes: ['eoa'] },  // optional criteria
+  { allowedSignerTypes: ['eoa'] },
 );
 
 // result.valid, result.address, result.agentId, result.signerType
@@ -530,7 +651,7 @@ Receipts are HMAC-signed tokens that prove successful SIWA verification. Use the
 ```typescript
 import { createReceipt } from "@buildersgarden/siwa/receipt";
 
-const { receipt } = createReceipt({
+const { receipt, expiresAt } = createReceipt({
   address: "0x1234...",
   agentId: 42,
   agentRegistry: "eip155:84532:0x8004...",
@@ -538,7 +659,7 @@ const { receipt } = createReceipt({
   verified: "onchain",
 }, {
   secret: process.env.SIWA_SECRET!,
-  expiresIn: 3600,  // 1 hour
+  ttl: 3600_000,  // 1 hour in milliseconds (default: 30 min)
 });
 ```
 
@@ -703,10 +824,10 @@ captchaOptions: {
 
 ### Nonce Management
 
-- **Generate cryptographically random nonces** (use `crypto.randomBytes`)
-- **Store nonces server-side** with expiration
-- **Consume nonces after use** (one-time use)
-- **Use Redis or database in production** (not in-memory Map)
+- **Use the built-in nonce store** for production: `createMemorySIWANonceStore()` (single-process), `createRedisSIWANonceStore(redis)` (multi-instance), or `createKVSIWANonceStore(kv)` (Cloudflare Workers)
+- **Nonce stores handle issue + consume atomically** — no manual nonce tracking needed
+- **For custom backends** (SQL, Prisma, etc.), implement the `SIWANonceStore` interface (just `issue` + `consume`)
+- **Memory store is single-process only** — nonces are lost on restart; use Redis for production
 
 ### Domain Verification
 
@@ -734,23 +855,29 @@ captchaOptions: {
 
 | Export | Description |
 |--------|-------------|
+| `signSIWAMessage(fields, signer)` | Sign a SIWA authentication message |
 | `parseSIWAMessage(message)` | Parse SIWA message string to fields |
-| `verifySIWA(message, signature, domain, nonceValid, client, criteria?)` | Verify signature + onchain registration |
+| `verifySIWA(message, signature, domain, nonceValid, client, criteria?)` | Verify signature + onchain registration. `nonceValid` accepts callback, `{ nonceToken, secret }`, or `{ nonceStore }`. |
+| `createSIWANonce(params, client, options?)` | Issue nonce with optional `{ nonceStore }` for server-side tracking |
 | `buildSIWAMessage(fields)` | Build SIWA message from fields |
 
 ### Receipt Module (`@buildersgarden/siwa/receipt`)
 
 | Export | Description |
 |--------|-------------|
-| `createReceipt(claims, options)` | Create HMAC-signed receipt |
-| `verifyReceipt(receipt, secret)` | Verify and decode receipt |
+| `createReceipt(payload, options)` | Create HMAC-signed receipt. Options: `{ secret, ttl? }` (ttl in ms, default 30min). Returns `{ receipt, expiresAt }`. |
+| `verifyReceipt(receipt, secret)` | Verify and decode receipt. Returns `ReceiptPayload` or `null`. |
+| `DEFAULT_RECEIPT_TTL` | Default receipt validity: 30 minutes (1800000 ms) |
 
 ### ERC-8128 Module (`@buildersgarden/siwa/erc8128`)
 
 | Export | Description |
 |--------|-------------|
-| `verifyAuthenticatedRequest(req, options)` | Verify ERC-8128 signed HTTP request. Options accept `captchaPolicy` and `captchaOptions`. |
+| `verifyAuthenticatedRequest(req, options)` | Verify ERC-8128 signed HTTP request. Options accept `captchaPolicy`, `captchaOptions`, `allowedSignerTypes`. Returns `AuthResult`. |
 | `retryWithCaptcha(response, request, receipt, signer, chainId, solver, options?)` | Agent-side: detect captcha in 401, solve, re-sign, return retry request. |
+| `VerifyOptions` | Type: `{ receiptSecret, rpcUrl?, verifyOnchain?, publicClient?, nonceStore?, allowedSignerTypes?, captchaPolicy?, captchaOptions? }` |
+| `AuthResult` | Type: `{ valid: true, agent: SiwaAgent } \| { valid: false, error: string }` |
+| `SiwaAgent` | Type: `{ address, agentId, agentRegistry, chainId, signerType? }` |
 
 ### Captcha Module (`@buildersgarden/siwa/captcha`)
 
@@ -762,23 +889,49 @@ captchaOptions: {
 | `solveCaptchaChallenge(nonceResponse, solver)` | Agent-side: detect + solve captcha from nonce response |
 | `CaptchaSolver` | Type: solver callback `(challenge) => string \| Promise<string>` |
 
+### Nonce Store Module (`@buildersgarden/siwa/nonce-store`)
+
+| Export | Description |
+|--------|-------------|
+| `SIWANonceStore` | Interface: `{ issue(nonce, ttlMs), consume(nonce) }` |
+| `createMemorySIWANonceStore()` | In-memory store with TTL expiry (single-process) |
+| `createRedisSIWANonceStore(redis, prefix?)` | Redis-backed store. Default prefix: `"siwa:nonce:"` |
+| `createKVSIWANonceStore(kv, prefix?)` | Cloudflare Workers KV store |
+| `RedisLikeClient` | Interface for ioredis / node-redis |
+| `KVNamespaceLike` | Interface for Cloudflare KV bindings |
+
 ### Express Module (`@buildersgarden/siwa/express`)
 
 | Export | Description |
 |--------|-------------|
-| `siwaMiddleware(options)` | Express middleware for SIWA verification. Options accept `captchaPolicy` and `captchaOptions`. |
+| `siwaMiddleware(options?)` | Auth middleware. Sets `req.agent` (and `req.payment` when x402). Options accept `captchaPolicy`, `captchaOptions`, `allowedSignerTypes`, `x402`. |
 | `createSiwaMiddleware(defaults)` | Factory: pre-configured `siwaMiddleware` with shared options. Per-route overrides supported. |
-| `siwaJsonParser()` | JSON parser with SIWA-aware error handling |
-| `siwaCors(options)` | CORS middleware for SIWA endpoints |
+| `siwaJsonParser()` | JSON parser with rawBody capture for Content-Digest verification |
+| `siwaCors(options?)` | CORS middleware with SIWA headers |
 
 ### Next.js Module (`@buildersgarden/siwa/next`)
 
 | Export | Description |
 |--------|-------------|
-| `withSiwa(handler, options)` | Wrap route handler with SIWA verification. Options accept `captchaPolicy` and `captchaOptions`. |
+| `withSiwa(handler, options?)` | Wrap route handler with SIWA auth. Handler: `(agent, req, payment?) => object \| Response`. Options accept `captchaPolicy`, `captchaOptions`, `allowedSignerTypes`, `x402`. |
 | `createWithSiwa(defaults)` | Factory: pre-configured `withSiwa` with shared options. Per-handler overrides supported. |
-| `siwaOptions(config)` | Create options object for withSiwa |
-| `corsJson(data, status?)` | Return JSON with CORS headers |
+| `siwaOptions(corsOpts?)` | Return 204 OPTIONS response with CORS headers. Pass `{ x402: true }` to include payment headers. |
+| `corsJson(data, init?)` | JSON Response with CORS headers. `init: { status?: number }` |
+| `corsHeaders()` | Returns CORS headers object |
+
+### Fastify Module (`@buildersgarden/siwa/fastify`)
+
+| Export | Description |
+|--------|-------------|
+| `siwaPlugin` | Fastify plugin: CORS with SIWA headers. Uses `@fastify/cors` if available. |
+| `siwaAuth(options?)` | preHandler hook: verifies ERC-8128 + receipt. Sets `req.agent`. Options: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes? }` |
+
+### Hono Module (`@buildersgarden/siwa/hono`)
+
+| Export | Description |
+|--------|-------------|
+| `siwaMiddleware(options?)` | Auth middleware. Sets `c.set("agent", agent)`. Options: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes? }` |
+| `siwaCors(options?)` | CORS middleware with SIWA headers + OPTIONS preflight |
 
 ---
 

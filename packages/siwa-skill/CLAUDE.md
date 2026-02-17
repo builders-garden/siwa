@@ -1,4 +1,4 @@
-# 8004 Agent Skill v0.0.1
+# 8004 Agent Skill v0.2.0
 
 You are an ERC-8004 agent with access to the 8004 Agent Skill. This skill lets you create and manage an Ethereum wallet, register as an onchain agent, and authenticate with services using the SIWA protocol.
 
@@ -27,7 +27,24 @@ Before using any capabilities, you MUST install the SIWA SDK in your environment
 npm install @buildersgarden/siwa
 ```
 
-This gives you access to `@buildersgarden/siwa/keystore` (wallet creation, signing), `@buildersgarden/siwa` (SIWA authentication), `@buildersgarden/siwa/identity` (SIWA_IDENTITY.md helpers), `@buildersgarden/siwa/registry` (onchain lookups), `@buildersgarden/siwa/receipt` (receipt helpers), `@buildersgarden/siwa/erc8128` (ERC-8128 signing/verification), `@buildersgarden/siwa/captcha` (reverse CAPTCHA: `packCaptchaResponse` for solving challenges), `@buildersgarden/siwa/next` (Next.js server-side wrappers: `withSiwa`, `siwaOptions`, `corsJson`), and `@buildersgarden/siwa/express` (Express wrappers: `siwaMiddleware`, `siwaJsonParser`, `siwaCors`). The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
+This gives you access to:
+- `@buildersgarden/siwa` — SIWA authentication (signSIWAMessage, verifySIWA, createSIWANonce, parseSIWAMessage)
+- `@buildersgarden/siwa/signer` — Signer interface + factories (createLocalAccountSigner, createKeyringProxySigner, createWalletClientSigner, createCircleSiwaSigner, createPrivySiwaSigner)
+- `@buildersgarden/siwa/keystore` — Wallet creation/signing via keyring proxy
+- `@buildersgarden/siwa/identity` — SIWA_IDENTITY.md helpers
+- `@buildersgarden/siwa/registry` — Onchain lookups
+- `@buildersgarden/siwa/receipt` — HMAC receipt helpers (createReceipt, verifyReceipt, DEFAULT_RECEIPT_TTL)
+- `@buildersgarden/siwa/erc8128` — ERC-8128 signing/verification (signAuthenticatedRequest, verifyAuthenticatedRequest)
+- `@buildersgarden/siwa/captcha` — Reverse CAPTCHA (packCaptchaResponse, solveCaptchaChallenge)
+- `@buildersgarden/siwa/nonce-store` — Pluggable nonce stores (Memory, Redis, KV) for replay protection
+- `@buildersgarden/siwa/tba` — Token Bound Account address computation (computeTbaAddress, isTbaForAgent)
+- `@buildersgarden/siwa/next` — Next.js wrappers (withSiwa, siwaOptions, corsJson)
+- `@buildersgarden/siwa/express` — Express wrappers (siwaMiddleware, siwaJsonParser, siwaCors)
+- `@buildersgarden/siwa/fastify` — Fastify wrappers (siwaPlugin, siwaAuth)
+- `@buildersgarden/siwa/hono` — Hono wrappers (siwaMiddleware, siwaCors)
+- `@buildersgarden/siwa/x402` — x402 payment helpers (createX402PaymentHeaders, handleX402Response, isX402Response, X402Config)
+
+The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
 
 ## Your Capabilities
 
@@ -114,7 +131,7 @@ If a server requires a reverse CAPTCHA during sign-in or API calls, use `solveCa
 ## Important Notes
 
 - **Private keys are NEVER accessible to you.** All signing is delegated to the keyring proxy over HMAC-authenticated HTTP. This is by design — even if you are compromised, the key cannot be extracted.
-- **NEVER call the keyring proxy HTTP endpoints directly.** Always use the SDK functions (`createWallet()`, `signMessage()`, etc. from `@buildersgarden/siwa/keystore`) or the CLI commands listed above. The proxy uses a specific HMAC-SHA256 authentication protocol that the SDK handles internally — hand-crafting HTTP requests to the proxy will fail. If you cannot install the SDK, see the "Fallback: Manual HMAC authentication" section in SKILL.md for the exact protocol specification.
+- **NEVER call the keyring proxy HTTP endpoints directly.** Always use the SDK functions (`createWallet()`, `signMessage()`, etc. from `@buildersgarden/siwa/keystore`) or the CLI commands listed above. The proxy uses a specific HMAC-SHA256 authentication protocol that the SDK handles internally — hand-crafting HTTP requests to the proxy will fail. If you cannot install the SDK, see the "Fallback: Manual HMAC authentication" section in skill.md for the exact protocol specification.
 - **SIWA_IDENTITY.md** in `siwa/packages/siwa-testing/` contains your minimal identity state (address, agentId, registry, chainId). Read it to know your current state.
 - If a command fails with "Cannot find module", run `cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm install` first.
 
@@ -134,6 +151,6 @@ You (OpenClaw Agent)          Keyring Proxy (keyring-proxy:3100)     SIWA Server
 
 ## Reference
 
-- Full skill documentation: `siwa/SKILL.md`
+- Full skill documentation: `siwa/skill.md`
 - Security model: `siwa/references/security-model.md`
 - SIWA protocol spec: `siwa/references/siwa-spec.md`

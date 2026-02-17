@@ -32,9 +32,16 @@ const sections: {
     id: "signing",
     children: [
       {
-        label: "Signers",
+        label: "Agentic Wallets",
         items: [
-          { title: "Agentic Wallets", id: "wallet-privy" },
+          { title: "Bankr", id: "wallet-bankr" },
+          { title: "Circle", id: "wallet-circle" },
+          { title: "Privy", id: "wallet-privy" },
+        ],
+      },
+      {
+        label: "Other Signers",
+        items: [
           { title: "Private Key", id: "wallet-privatekey" },
           { title: "Keyring Proxy", id: "wallet-keyring" },
           { title: "Smart Accounts", id: "smart-accounts" },
@@ -64,7 +71,15 @@ const sections: {
         label: "Auth State",
         items: [
           { title: "Receipts", id: "verify-receipts" },
-          { title: "Server Middleware", id: "verify-wrappers" },
+        ],
+      },
+      {
+        label: "Server Middleware",
+        items: [
+          { title: "Next.js", id: "verify-wrappers-next" },
+          { title: "Express", id: "verify-wrappers-express" },
+          { title: "Hono", id: "verify-wrappers-hono" },
+          { title: "Fastify", id: "verify-wrappers-fastify" },
         ],
       },
       {
@@ -84,6 +99,36 @@ const sections: {
           { title: "Sign-In Captcha", id: "captcha-signin" },
           { title: "Per-Request Captcha", id: "captcha-perrequest" },
           { title: "Difficulty Levels", id: "captcha-difficulty" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "x402 Payments",
+    id: "x402",
+    children: [
+      {
+        label: "Server",
+        items: [
+          { title: "Overview", id: "x402-overview" },
+          { title: "Server Setup", id: "x402-server" },
+          { title: "Sessions", id: "x402-sessions" },
+          { title: "Config Reference", id: "x402-config" },
+        ],
+      },
+      {
+        label: "Middleware",
+        items: [
+          { title: "Express", id: "x402-express" },
+          { title: "Next.js", id: "x402-next" },
+          { title: "Hono", id: "x402-hono" },
+          { title: "Fastify", id: "x402-fastify" },
+        ],
+      },
+      {
+        label: "Agent",
+        items: [
+          { title: "Agent-Side", id: "x402-agent" },
         ],
       },
     ],

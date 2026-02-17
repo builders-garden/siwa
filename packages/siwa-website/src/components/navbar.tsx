@@ -56,7 +56,7 @@ export function Navbar() {
           <NavLink href="https://github.com/builders-garden/siwa" external>
             GitHub
           </NavLink>
-          <NavLink href="https://eips.ethereum.org/EIPS/eip-8004" external>
+          <NavLink href="https://8004.org" external>
             ERC-8004
           </NavLink>
         </div>
@@ -97,7 +97,7 @@ export function Navbar() {
             GitHub
           </NavLink>
           <NavLink
-            href="https://eips.ethereum.org/EIPS/eip-8004"
+            href="https://8004.org"
             external
             onClick={() => setOpen(false)}
           >

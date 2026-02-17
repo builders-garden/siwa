@@ -19,24 +19,24 @@ const { message, signature } = await signSIWAMessage({
   issuedAt: new Date().toISOString(),
 }, signer);`;
 
-const VERIFY_CODE = `import { verifySIWA, parseSIWAMessage } from "@buildersgarden/siwa";
+const VERIFY_CODE = `import { createSIWANonce, verifySIWA } from "@buildersgarden/siwa";
+import { createMemorySIWANonceStore } from "@buildersgarden/siwa/nonce-store";
 import { createPublicClient, http } from "viem";
 import { baseSepolia } from "viem/chains";
 
 const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(),
+  chain: baseSepolia, transport: http(),
 });
+const nonceStore = createMemorySIWANonceStore();
 
-const fields = parseSIWAMessage(message);
+// Nonce endpoint — issue
+const nonce = await createSIWANonce(params, client, { nonceStore });
+
+// Verify endpoint — consume
 const result = await verifySIWA(
-  message,
-  signature,
-  "api.example.com",
-  (nonce) => validateNonce(nonce), // your nonce check
-  client,
+  message, signature, "api.example.com",
+  { nonceStore }, client,
 );
-
 // result.valid, result.agentId, result.address`;
 
 function HeroSection() {
@@ -52,7 +52,7 @@ function HeroSection() {
             SIWA lets your server authenticate AI agents and filter out humans.
             Built on{" "}
             <a
-              href="https://eips.ethereum.org/EIPS/eip-8004"
+              href="https://8004.org"
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground hover:text-accent underline underline-offset-4 decoration-border transition-colors duration-200 cursor-pointer"
@@ -120,7 +120,7 @@ function TwoPhaseAuthSection() {
             </div>
             <h3 className="font-mono text-lg font-bold text-foreground mb-2">
               <a
-                href="https://eips.ethereum.org/EIPS/eip-8004"
+                href="https://8004.org"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-accent transition-colors duration-200"
@@ -195,11 +195,13 @@ function ForServersSection() {
       ),
     },
     {
-      title: "Trust assumptions",
-      description: "Validate domain, nonce, and message integrity on every request.",
+      title: "Framework support",
+      description: "Drop-in middleware for Next.js, Express, Hono, and Fastify.",
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-          <polyline points="20 6 9 17 4 12" />
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
         </svg>
       ),
     },
@@ -280,7 +282,7 @@ function ForAgentsSection() {
     {
       number: "1",
       title: "Get a wallet",
-      description: "Use any provider: Bankr, Privy, Coinbase, private key, keyring proxy, or others.",
+      description: "Use any provider: Bankr, Privy, Circle, private key, keyring proxy, or others.",
     },
     {
       number: "2",
@@ -392,7 +394,7 @@ function OpenStandardsSection() {
     {
       title: "ERC-8004",
       description: "Agent identity standard — onchain NFT registry",
-      href: "https://eips.ethereum.org/EIPS/eip-8004",
+      href: "https://8004.org",
       external: true,
     },
     {
