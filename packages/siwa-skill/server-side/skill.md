@@ -501,6 +501,87 @@ export default app;
 
 ---
 
+## x402 Payment Middleware
+
+Add pay-per-request or pay-once monetization to any SIWA-protected endpoint. The middleware enforces a two-gate flow: **SIWA authentication first** (401 if invalid), then **payment verification** (402 if missing/invalid). Both must pass before the handler runs.
+
+### Server Setup
+
+```typescript
+import { createFacilitatorClient, type X402Config } from "@buildersgarden/siwa/x402";
+
+const facilitator = createFacilitatorClient({
+  url: "https://api.cdp.coinbase.com/platform/v2/x402",
+});
+
+const x402: X402Config = {
+  facilitator,
+  resource: { url: "/api/premium", description: "Premium data" },
+  accepts: [{
+    scheme: "exact",
+    network: "eip155:84532",
+    amount: "1000000",  // 1 USDC (6 decimals)
+    asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    payTo: "0xYourAddress",
+    maxTimeoutSeconds: 60,
+  }],
+};
+```
+
+### Pay-Once Sessions
+
+```typescript
+import { createMemoryX402SessionStore } from "@buildersgarden/siwa/x402";
+
+const x402WithSession: X402Config = {
+  ...x402,
+  session: {
+    store: createMemoryX402SessionStore(),
+    ttl: 3_600_000,  // 1 hour
+  },
+};
+```
+
+Sessions are keyed by `(address, resource.url)` — different agents and routes are isolated.
+
+### Framework Examples
+
+**Express:**
+```typescript
+app.post("/api/premium", siwaMiddleware({ x402 }), (req, res) => {
+  // req.agent — verified identity
+  // req.payment — { scheme, network, amount, asset, payTo, txHash }
+  res.json({ agent: req.agent, txHash: req.payment?.txHash });
+});
+app.use(siwaCors({ x402: true }));  // expose payment headers in CORS
+```
+
+**Next.js:**
+```typescript
+export const POST = withSiwa(async (agent, req, payment) => {
+  return { agent, txHash: payment?.txHash };
+}, { x402 });
+export const OPTIONS = () => siwaOptions({ x402: true });
+```
+
+**Hono:**
+```typescript
+app.use("*", siwaCors({ x402: true }));
+app.post("/api/premium", siwaMiddleware({ x402 }), (c) => {
+  return c.json({ agent: c.get("agent"), txHash: c.get("payment")?.txHash });
+});
+```
+
+**Fastify:**
+```typescript
+await fastify.register(siwaPlugin, { x402: true });
+fastify.post("/api/premium", { preHandler: siwaAuth({ x402 }) }, async (req) => {
+  return { agent: req.agent, txHash: req.payment?.txHash };
+});
+```
+
+---
+
 ## Verification Options
 
 ### verifySIWA Parameters
@@ -704,7 +785,7 @@ async function handleRequest(req: Request) {
 
 | Export | Description |
 |--------|-------------|
-| `siwaMiddleware(options?)` | Auth middleware. Sets `req.agent`. Options: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes? }` |
+| `siwaMiddleware(options?)` | Auth middleware. Sets `req.agent` (and `req.payment` when x402). Options: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes?, x402?: X402Config }` |
 | `siwaJsonParser()` | JSON parser with rawBody capture for Content-Digest verification |
 | `siwaCors(options?)` | CORS middleware with SIWA headers |
 
@@ -712,8 +793,8 @@ async function handleRequest(req: Request) {
 
 | Export | Description |
 |--------|-------------|
-| `withSiwa(handler, options?)` | Wrap route handler with SIWA auth. Handler: `(agent, req) => object \| Response`. Options: `{ receiptSecret?, rpcUrl?, verifyOnchain?, allowedSignerTypes? }` |
-| `siwaOptions()` | Return 204 OPTIONS response with CORS headers (no parameters) |
+| `withSiwa(handler, options?)` | Wrap route handler with SIWA auth. Handler: `(agent, req, payment?) => object \| Response`. Options: `{ receiptSecret?, rpcUrl?, verifyOnchain?, allowedSignerTypes?, x402?: X402Config }` |
+| `siwaOptions(corsOpts?)` | Return 204 OPTIONS response with CORS headers. Pass `{ x402: true }` to include payment headers. |
 | `corsJson(data, init?)` | JSON Response with CORS headers. `init: { status?: number }` |
 | `corsHeaders()` | Returns CORS headers object |
 
