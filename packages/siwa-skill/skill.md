@@ -457,6 +457,82 @@ async function callProtectedAPI(walletClient, receipt) {
 
 ---
 
+## x402 Payments (Agent-Side)
+
+When an API requires payment, it returns HTTP **402** with a `Payment-Required` header. The agent decodes the payment options, constructs a signed payment, and retries with a `Payment-Signature` header — all while maintaining SIWA authentication.
+
+### Handling a 402 Response
+
+```typescript
+import {
+  encodeX402Header,
+  decodeX402Header,
+  type PaymentRequired,
+  type PaymentPayload,
+} from "@buildersgarden/siwa/x402";
+import { signAuthenticatedRequest } from "@buildersgarden/siwa/erc8128";
+
+// 1. Make initial authenticated request (may get 402)
+const signedRequest = await signAuthenticatedRequest(
+  new Request("https://api.example.com/premium", { method: "POST" }),
+  receipt,
+  signer,
+  84532,
+);
+
+const res = await fetch(signedRequest);
+
+if (res.status === 402) {
+  // 2. Decode payment requirements from header
+  const header = res.headers.get("Payment-Required");
+  const { accepts, resource } = decodeX402Header<PaymentRequired>(header!);
+
+  // 3. Pick a payment option and construct payload
+  const option = accepts[0];
+  const payload: PaymentPayload = {
+    signature: "0x...",  // sign the payment with your wallet
+    payment: {
+      scheme: option.scheme,
+      network: option.network,
+      amount: option.amount,
+      asset: option.asset,
+      payTo: option.payTo,
+    },
+    resource,
+  };
+
+  // 4. Retry with both SIWA auth + payment header
+  const retryRequest = await signAuthenticatedRequest(
+    new Request("https://api.example.com/premium", {
+      method: "POST",
+      headers: {
+        "Payment-Signature": encodeX402Header(payload),
+      },
+    }),
+    receipt,
+    signer,
+    84532,
+  );
+
+  const paidRes = await fetch(retryRequest);
+  // paidRes.headers.get("Payment-Response") contains { txHash, ... }
+}
+```
+
+### x402 Headers
+
+| Header | Direction | Description |
+|--------|-----------|-------------|
+| `Payment-Required` | Server → Agent | Base64-encoded JSON with accepted payment options. Sent with 402. |
+| `Payment-Signature` | Agent → Server | Base64-encoded signed payment payload. |
+| `Payment-Response` | Server → Agent | Base64-encoded settlement result with transaction hash. |
+
+### Pay-Once Sessions
+
+Some endpoints use **pay-once mode**: the first request requires payment, subsequent requests from the same agent to the same resource pass through without payment until the session expires. If you receive a 200 on a previously-paid endpoint, the session is still active — no need to pay again.
+
+---
+
 ## Server Middleware
 
 ### Next.js
@@ -570,6 +646,24 @@ app.post("/api/protected", siwaMiddleware(), (c) => {
 | `ReceiptOptions` | Type: `{ secret, ttl? }` |
 | `ReceiptResult` | Type: `{ receipt, expiresAt }` |
 
+### x402 Module (`@buildersgarden/siwa/x402`)
+
+| Export | Description |
+|--------|-------------|
+| `encodeX402Header(data)` | Base64-encode an object for x402 headers |
+| `decodeX402Header<T>(header)` | Decode a Base64 x402 header to typed object |
+| `createFacilitatorClient({ url })` | Create facilitator client for payment verification/settlement |
+| `createMemoryX402SessionStore()` | In-memory pay-once session store (single-process) |
+| `processX402Payment(payload, accepts, facilitator)` | Verify + settle a payment. Returns `X402Result`. |
+| `X402Config` | Type: `{ facilitator, resource, accepts, session? }` |
+| `PaymentRequirements` | Type: `{ scheme, network, amount, asset, payTo, maxTimeoutSeconds? }` |
+| `PaymentRequired` | Type: `{ accepts: PaymentRequirements[], resource: ResourceInfo }` |
+| `PaymentPayload` | Type: `{ signature, payment, resource }` |
+| `X402Payment` | Type: `{ scheme, network, amount, asset, payTo, txHash? }` |
+| `FacilitatorClient` | Interface: `{ verify(payload, requirements), settle(payload, requirements) }` |
+| `X402SessionStore` | Interface: `{ get(address, resource), set(address, resource, session, ttlMs) }` |
+| `X402_HEADERS` | Constants: `PAYMENT_REQUIRED`, `PAYMENT_SIGNATURE`, `PAYMENT_RESPONSE` |
+
 ### Token Bound Accounts Module (`@buildersgarden/siwa/tba`)
 
 | Export | Description |
@@ -586,7 +680,7 @@ app.post("/api/protected", siwaMiddleware(), (c) => {
 | `siwaOptions()` | Return 204 OPTIONS response with CORS headers. Use: `export { siwaOptions as OPTIONS }` |
 | `corsJson(data, init?)` | JSON Response with CORS headers. `init: { status?: number }` |
 | `corsHeaders()` | Returns CORS headers object for manual use |
-| `WithSiwaOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, allowedSignerTypes? }` |
+| `WithSiwaOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, allowedSignerTypes?, x402?: X402Config }` |
 | `SiwaAgent` | Type: `{ address, agentId, agentRegistry, chainId, signerType? }` |
 
 ### Express Module (`@buildersgarden/siwa/express`)
@@ -596,7 +690,7 @@ app.post("/api/protected", siwaMiddleware(), (c) => {
 | `siwaMiddleware(options?)` | Auth middleware. Sets `req.agent` on success. Options: `SiwaMiddlewareOptions`. |
 | `siwaJsonParser()` | JSON parser with rawBody capture for Content-Digest verification |
 | `siwaCors(options?)` | CORS middleware with SIWA headers. Options: `SiwaCorsOptions` |
-| `SiwaMiddlewareOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes? }` |
+| `SiwaMiddlewareOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes?, x402?: X402Config }` |
 
 ### Fastify Module (`@buildersgarden/siwa/fastify`)
 
@@ -604,8 +698,8 @@ app.post("/api/protected", siwaMiddleware(), (c) => {
 |--------|-------------|
 | `siwaPlugin` | Fastify plugin: sets up CORS with SIWA headers. Uses `@fastify/cors` if installed, manual fallback otherwise. |
 | `siwaAuth(options?)` | preHandler hook: verifies ERC-8128 signature + receipt. Sets `req.agent` on success. Options: `SiwaAuthOptions`. |
-| `SiwaAuthOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes? }` |
-| `SiwaPluginOptions` | Type: `{ origin?, allowedHeaders? }` |
+| `SiwaAuthOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes?, x402?: X402Config }` |
+| `SiwaPluginOptions` | Type: `{ origin?, allowedHeaders?, x402?: boolean }` |
 
 ### Hono Module (`@buildersgarden/siwa/hono`)
 
@@ -613,7 +707,7 @@ app.post("/api/protected", siwaMiddleware(), (c) => {
 |--------|-------------|
 | `siwaMiddleware(options?)` | Auth middleware: verifies ERC-8128 signature + receipt. Sets `c.set("agent", agent)` on success. Options: `SiwaMiddlewareOptions`. |
 | `siwaCors(options?)` | CORS middleware with SIWA headers. Handles OPTIONS preflight. Options: `SiwaCorsOptions`. |
-| `SiwaMiddlewareOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes? }` |
+| `SiwaMiddlewareOptions` | Type: `{ receiptSecret?, rpcUrl?, verifyOnchain?, publicClient?, allowedSignerTypes?, x402?: X402Config }` |
 
 ### Nonce Store Module (`@buildersgarden/siwa/nonce-store`)
 
