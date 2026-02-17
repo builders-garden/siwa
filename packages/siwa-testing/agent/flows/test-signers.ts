@@ -379,6 +379,8 @@ function createMockPublicClient(ownerOfResult: Address | 'throw'): PublicClient 
       // Use viem's verifyMessage utility for EOA verification
       return verifyMessage({ address, message, signature });
     },
+    // Return '0x' (no code) so verifySIWA treats the signer as EOA
+    getCode: async () => '0x',
   } as unknown as PublicClient;
 }
 

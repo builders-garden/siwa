@@ -7,6 +7,7 @@ import { testProxyFlow } from './flows/test-proxy.js';
 import { testErc8128Flow } from './flows/test-erc8128.js';
 import { testSignersFlow, testViemSignerFlow, testKeyringSignerFlow } from './flows/test-signers.js';
 import { testNonceStoreFlow } from './flows/test-nonce-store.js';
+import { testX402Flow } from './flows/test-x402.js';
 import { hasWallet } from '@buildersgarden/siwa/keystore';
 import { isRegistered, readIdentity } from '@buildersgarden/siwa/identity';
 import { signAuthenticatedRequest } from '@buildersgarden/siwa/erc8128';
@@ -36,6 +37,7 @@ function printUsage(): void {
   console.log('  test-viem      Run signer tests with viem private key only (no proxy needed)');
   console.log('  test-keyring   Run signer tests with keyring proxy only');
   console.log('  test-nonce     Run nonce store adapter tests (pure, no server needed)');
+  console.log('  test-x402      Run x402 payment protocol tests (pure, no server needed)');
   console.log('');
 }
 
@@ -198,6 +200,11 @@ async function main(): Promise<void> {
       }
       case 'test-nonce': {
         const ok = await testNonceStoreFlow();
+        if (!ok) process.exit(1);
+        break;
+      }
+      case 'test-x402': {
+        const ok = await testX402Flow();
         if (!ok) process.exit(1);
         break;
       }
