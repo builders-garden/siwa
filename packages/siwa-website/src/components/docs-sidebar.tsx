@@ -98,8 +98,15 @@ const sections: {
     title: "x402 Payments",
     id: "x402",
     children: [
-      { title: "Overview", id: "x402-overview" },
-      { title: "Server Setup", id: "x402-server" },
+      {
+        label: "Server",
+        items: [
+          { title: "Overview", id: "x402-overview" },
+          { title: "Server Setup", id: "x402-server" },
+          { title: "Sessions", id: "x402-sessions" },
+          { title: "Config Reference", id: "x402-config" },
+        ],
+      },
       {
         label: "Middleware",
         items: [
@@ -109,9 +116,12 @@ const sections: {
           { title: "Fastify", id: "x402-fastify" },
         ],
       },
-      { title: "Sessions", id: "x402-sessions" },
-      { title: "Agent-Side", id: "x402-agent" },
-      { title: "Config Reference", id: "x402-config" },
+      {
+        label: "Agent",
+        items: [
+          { title: "Agent-Side", id: "x402-agent" },
+        ],
+      },
     ],
   },
   {

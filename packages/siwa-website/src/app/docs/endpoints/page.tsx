@@ -76,10 +76,12 @@ function EndpointHeader({
   method,
   path,
   auth,
+  paid,
 }: {
   method: "GET" | "POST";
   path: string;
   auth?: boolean;
+  paid?: boolean;
 }) {
   return (
     <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -88,6 +90,11 @@ function EndpointHeader({
       {auth && (
         <span className="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-xs text-amber-400">
           ERC-8128 signed
+        </span>
+      )}
+      {paid && (
+        <span className="rounded border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 font-mono text-xs text-violet-400">
+          x402 paid
         </span>
       )}
     </div>
@@ -252,6 +259,7 @@ export default function EndpointsPage() {
               </div>
             </div>
           </SubSection>
+
         </Section>
 
         {/* Authentication Endpoints */}
@@ -431,6 +439,244 @@ Content-Digest: sha-256=:<base64-hash>:  (for POST requests)`}</CodeBlock>
             <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 401</h4>
             <CodeBlock language="json">{`{ "error": "Unauthorized" }`}</CodeBlock>
           </SubSection>
+        </Section>
+
+        {/* x402 Paid Endpoints */}
+        <Section id="x402" title="x402 Paid Endpoints">
+          <P>
+            These endpoints require both SIWA authentication <strong className="text-foreground">and</strong> an{" "}
+            <a
+              href="https://www.x402.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+            >
+              x402 payment
+            </a>.
+            The server enforces a two-gate flow: first SIWA auth (returns 401 if invalid), then x402 payment (returns 402 if missing or invalid).
+            Payments are settled on-chain via a Coinbase CDP facilitator.
+            For server-side setup, middleware integration, agent-side handling, and session configuration, see the{" "}
+            <a
+              href="/docs#x402"
+              className="text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent transition-colors duration-200 cursor-pointer"
+            >
+              x402 Payments documentation
+            </a>.
+          </P>
+
+          <SubSection id="x402-payment-flow" title="Payment Flow">
+            <div className="rounded-lg border border-border bg-surface p-5 mb-4">
+              <div className="space-y-4 font-mono text-sm">
+                <div className="flex items-start gap-3">
+                  <span className="text-accent font-semibold shrink-0">1.</span>
+                  <div>
+                    <span className="text-foreground">Agent sends request with</span>
+                    <span className="mx-1 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-400">ERC-8128 + receipt</span>
+                    <span className="text-dim mx-2">&rarr;</span>
+                    <span className="text-foreground">SIWA gate passes</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-accent font-semibold shrink-0">2.</span>
+                  <div>
+                    <span className="text-foreground">No</span>
+                    <span className="mx-1 rounded border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-xs text-violet-400">Payment-Signature</span>
+                    <span className="text-foreground">header</span>
+                    <span className="text-dim mx-2">&rarr;</span>
+                    <span className="text-foreground">Server returns</span>
+                    <span className="mx-1 rounded border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-xs text-red-400">402</span>
+                    <span className="text-foreground">with</span>
+                    <span className="mx-1"><InlineCode>Payment-Required</InlineCode></span>
+                    <span className="text-foreground">header</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-accent font-semibold shrink-0">3.</span>
+                  <div>
+                    <span className="text-foreground">Agent signs payment and retries with</span>
+                    <span className="mx-1"><InlineCode>Payment-Signature</InlineCode></span>
+                    <span className="text-foreground">header</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-accent font-semibold shrink-0">4.</span>
+                  <div>
+                    <span className="text-foreground">Server verifies + settles via facilitator</span>
+                    <span className="text-dim mx-2">&rarr;</span>
+                    <span className="text-foreground">Returns data +</span>
+                    <span className="mx-1"><InlineCode>Payment-Response</InlineCode></span>
+                    <span className="text-foreground">header with txHash</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </SubSection>
+
+          <SubSection id="x402-headers" title="x402 Headers">
+            <Table
+              headers={["Header", "Direction", "Description"]}
+              rows={[
+                ["Payment-Required", "Response (402)", "Base64 JSON with accepted payment options and resource info"],
+                ["Payment-Signature", "Request", "Base64 JSON with signed payment payload"],
+                ["Payment-Response", "Response (200)", "Base64 JSON with settlement details (txHash, amount, network)"],
+              ]}
+            />
+            <P>
+              The <InlineCode>Payment-Required</InlineCode> header is base64-encoded JSON containing the <InlineCode>accepts</InlineCode> array (payment options) and <InlineCode>resource</InlineCode> info. Decode it to build your payment:
+            </P>
+            <CodeBlock language="json">{`{
+  "accepts": [{
+    "scheme": "exact",
+    "network": "eip155:84532",
+    "amount": "10000",
+    "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "payTo": "0xffddB7C78D466f7d55C879c56EB8BF4c66400ab5",
+    "maxTimeoutSeconds": 60
+  }],
+  "resource": {
+    "url": "/api/x402/weather",
+    "description": "Premium weather data"
+  }
+}`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="x402-payment-config" title="Payment Configuration">
+            <div className="rounded-lg border border-border bg-surface p-5 mb-4">
+              <Table
+                headers={["Field", "Value"]}
+                rows={[
+                  ["Network", "Base Sepolia (eip155:84532)"],
+                  ["Asset", "USDC (0x036CbD53842c5426634e7929541eC2318f3dCF7e)"],
+                  ["Amount", "0.01 USDC (10000 units, 6 decimals)"],
+                  ["Pay To", "0xffddB7C78D466f7d55C879c56EB8BF4c66400ab5"],
+                  ["Facilitator", "https://api.cdp.coinbase.com/platform/v2/x402"],
+                ]}
+              />
+            </div>
+          </SubSection>
+
+          <SubSection id="get-x402-weather" title="Weather (Per-Request)">
+            <EndpointHeader method="GET" path="/api/x402/weather" auth paid />
+            <P>
+              Premium weather data endpoint. Requires a <strong className="text-foreground">new payment on every request</strong> (no session caching). This demonstrates the basic x402 per-request payment model.
+            </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-3">Response 200</h4>
+            <CodeBlock language="json">{`{
+  "agent": {
+    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+    "agentId": 42
+  },
+  "payment": {
+    "txHash": "0xabc123...",
+    "amount": "10000",
+    "network": "eip155:84532"
+  },
+  "weather": {
+    "location": "Base Sepolia Testnet City",
+    "temperature": 21,
+    "unit": "celsius",
+    "conditions": "Sunny with a chance of blocks",
+    "humidity": 55,
+    "wind": { "speed": 12, "direction": "NE", "unit": "km/h" },
+    "forecast": [
+      { "day": "Tomorrow", "high": 23, "low": 15, "conditions": "Partly cloudy" },
+      { "day": "Day after", "high": 19, "low": 12, "conditions": "Light rain" }
+    ]
+  },
+  "timestamp": "2026-02-17T12:00:00.000Z"
+}`}</CodeBlock>
+            <P>
+              The response includes a <InlineCode>Payment-Response</InlineCode> header with the on-chain settlement details.
+            </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 401</h4>
+            <CodeBlock language="json">{`{ "error": "Missing or invalid SIWA receipt" }`}</CodeBlock>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Error 402</h4>
+            <P>Returned when no <InlineCode>Payment-Signature</InlineCode> header is present, or when payment verification/settlement fails:</P>
+            <CodeBlock language="json">{`{
+  "error": "Payment required",
+  "accepts": [{ "scheme": "exact", "network": "eip155:84532", "amount": "10000", "..." }],
+  "resource": { "url": "/api/x402/weather", "description": "Premium weather data" }
+}`}</CodeBlock>
+          </SubSection>
+
+          <SubSection id="get-x402-analytics" title="Analytics (Pay-Once Session)">
+            <EndpointHeader method="GET" path="/api/x402/analytics" auth paid />
+            <EndpointHeader method="POST" path="/api/x402/analytics" auth paid />
+            <P>
+              Agent analytics dashboard with <strong className="text-foreground">pay-once session</strong> mode.
+              The first request requires payment. After payment succeeds, a session is created for the agent and resource.
+              Subsequent requests within the session TTL (1 hour) skip payment automatically.
+              Both GET and POST share the same session.
+            </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mb-3">GET Response 200</h4>
+            <CodeBlock language="json">{`{
+  "agent": {
+    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+    "agentId": 42
+  },
+  "sessionActive": false,
+  "payment": {
+    "txHash": "0xabc123...",
+    "amount": "10000",
+    "network": "eip155:84532"
+  },
+  "analytics": {
+    "totalRequests": 7421,
+    "uniqueAgents": 312,
+    "avgResponseTime": "45.2ms",
+    "topEndpoints": [
+      { "path": "/api/protected", "calls": 4821 },
+      { "path": "/api/agent-action", "calls": 3102 },
+      { "path": "/api/x402/weather", "calls": 1547 }
+    ],
+    "period": "last_24h"
+  },
+  "timestamp": "2026-02-17T12:00:00.000Z"
+}`}</CodeBlock>
+            <P>
+              When <InlineCode>sessionActive</InlineCode> is <InlineCode>true</InlineCode>, the request was served from an existing session (no new payment).
+              When <InlineCode>false</InlineCode>, a fresh payment was processed and <InlineCode>payment</InlineCode> contains the settlement details.
+            </P>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">POST Request Body</h4>
+            <Table
+              headers={["Field", "Type", "Required", "Description"]}
+              rows={[
+                ["event", "string", "Yes", "Event name"],
+                ["data", "object", "No", "Arbitrary event payload"],
+              ]}
+            />
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">POST Response 200</h4>
+            <CodeBlock language="json">{`{
+  "agent": {
+    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+    "agentId": 42
+  },
+  "sessionActive": true,
+  "received": { "event": "page_view", "data": { "path": "/dashboard" } },
+  "status": "event_recorded",
+  "timestamp": "2026-02-17T12:01:00.000Z"
+}`}</CodeBlock>
+
+            <h4 className="font-mono text-sm font-semibold text-foreground mt-4 mb-3">Session Behavior</h4>
+            <Table
+              headers={["Request", "Session", "Payment", "sessionActive"]}
+              rows={[
+                ["1st request", "None", "Required (402 then retry with payment)", "false"],
+                ["2nd request (within TTL)", "Active", "Skipped", "true"],
+                ["After TTL expires", "Expired", "Required again", "false"],
+              ]}
+            />
+            <P>
+              Sessions are isolated by <InlineCode>(address, resource)</InlineCode> — different agents and different routes maintain separate sessions.
+            </P>
+          </SubSection>
+
         </Section>
 
         {/* Try It */}
