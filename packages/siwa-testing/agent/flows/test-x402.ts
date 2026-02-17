@@ -1241,7 +1241,7 @@ async function testHonoSiwaOkValidPaymentSuccess() {
         },
       }),
       (c) => {
-        paymentFromCtx = c.get('payment');
+        paymentFromCtx = (c as any).get('payment');
         return c.json({ ok: true });
       },
     );
