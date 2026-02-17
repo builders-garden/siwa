@@ -445,17 +445,19 @@ export async function testCaptchaFlow(): Promise<boolean> {
   // ── Test 17: asciiTolerance allows near-miss ───────────────────
   try {
     const { challenge, challengeToken } = challenges['easy']!;
-    // Build solution with ASCII sum off by 2
+    // Build solution with ASCII sum off by exactly +2 from target
+    // First, build a baseline that hits the exact target, then shift one char by +2
     const lines: string[] = [];
     const baseChar = Math.floor(challenge.asciiTarget / challenge.lineCount);
+    const remainder = challenge.asciiTarget - baseChar * challenge.lineCount;
     for (let i = 0; i < challenge.lineCount; i++) {
-      // Intentionally off by +2 total (add 2 to first line's char)
-      const charCode = i === 0 ? baseChar + 2 : baseChar;
+      // Distribute remainder across first lines to hit exact target, then add 2 to first char
+      const charCode = baseChar + (i < remainder ? 1 : 0) + (i === 0 ? 2 : 0);
       lines.push(String.fromCharCode(charCode) + ' filler words here now');
     }
     const solution: CaptchaSolution = { text: lines.join('\n'), solvedAt: Date.now() };
 
-    // Without tolerance — should fail
+    // Without tolerance — should fail (off by 2)
     const strict = await verifyCaptchaSolution(challengeToken, solution, SECRET, { asciiTolerance: 0 });
     // With tolerance of 3 — should pass the ASCII check
     const tolerant = await verifyCaptchaSolution(challengeToken, solution, SECRET, { asciiTolerance: 3 });

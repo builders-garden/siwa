@@ -447,6 +447,7 @@ export async function createSIWANonce(
           secret: captchaSecret,
           topics: options.captchaOptions?.topics,
           formats: options.captchaOptions?.formats,
+          difficulties: options.captchaOptions?.difficulties,
         };
         const { challenge, challengeToken } = createCaptchaChallenge(difficulty, captchaOpts);
         return { status: 'captcha_required', challenge, challengeToken };

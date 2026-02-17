@@ -162,7 +162,12 @@ export function withSiwa(handler: SiwaHandler, options?: WithSiwaOptions) {
     if (!result.valid) {
       if ('captchaRequired' in result && result.captchaRequired) {
         const response = corsJson(
-          { error: result.error, challenge: result.challenge, challengeToken: result.challengeToken },
+          {
+            error: result.error,
+            challenge: result.challenge,
+            challengeToken: result.challengeToken,
+            captchaRequired: true,
+          },
           { status: 401 },
           corsOpts,
         );

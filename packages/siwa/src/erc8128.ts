@@ -452,6 +452,7 @@ export async function verifyAuthenticatedRequest(
           secret: captchaSecret,
           topics: options.captchaOptions?.topics,
           formats: options.captchaOptions?.formats,
+          difficulties: options.captchaOptions?.difficulties,
         };
         const { challenge, challengeToken } = createCaptchaChallenge(difficulty, captchaOpts);
         return {

@@ -42,6 +42,7 @@ export interface CaptchaSolution {
 
 export interface CaptchaVerificationResult {
   asciiSum: { pass: boolean; actual: number; target: number };
+  lineCount?: { pass: boolean; actual: number; target: number };
   wordCount?: { pass: boolean; actual: number; target: number };
   charPosition?: { pass: boolean };
   totalChars?: { pass: boolean; actual: number; target?: number };
@@ -173,7 +174,11 @@ function verifyToken(token: string, secret: string): Record<string, unknown> | n
   const expected = crypto.createHmac('sha256', secret).update(data).digest('base64url');
   if (sig.length !== expected.length) return null;
   if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
-  return JSON.parse(Buffer.from(data, 'base64url').toString());
+  try {
+    return JSON.parse(Buffer.from(data, 'base64url').toString());
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -299,8 +304,13 @@ export async function verifyCaptchaSolution(
     verdict: 'CHALLENGE_FAILED',
   };
 
-  // 2. Line count check (implicit — lines must match)
+  // 2. Line count check
   const lineCountPass = lines.length === challenge.lineCount;
+  result.lineCount = {
+    pass: lineCountPass,
+    actual: reveal ? lines.length : 0,
+    target: reveal ? challenge.lineCount : 0,
+  };
 
   // 3. Word count
   let wordCountPass = true;

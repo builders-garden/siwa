@@ -198,6 +198,7 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
             error: result.error,
             challenge: result.challenge,
             challengeToken: result.challengeToken,
+            captchaRequired: true,
           });
           return;
         }
