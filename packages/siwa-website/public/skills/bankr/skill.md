@@ -96,13 +96,15 @@ console.log("Transaction hash:", result.txHash);
 
 The authentication flow consists of two steps:
 
-1. **Get a nonce** from the server's `/siwa/nonce` endpoint
-2. **Sign and verify** by sending the signature to `/siwa/verify`
+> **Note:** The URLs below (`api.example.com`) are placeholders. Replace them with your own server that implements the SIWA verification endpoints. See the [Server-Side Verification](https://siwa.id/skills/server-side/skill.md) skill for implementation details.
+
+1. **Get a nonce** from the server's `/siwa/mainnet/nonce` endpoint
+2. **Sign and verify** by sending the signature to `/siwa/mainnet/verify`
 
 ### Step 1: Request Nonce
 
 ```typescript
-const nonceRes = await fetch("https://api.example.com/siwa/nonce", {
+const nonceRes = await fetch("https://api.example.com/siwa/mainnet/nonce", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -111,7 +113,7 @@ const nonceRes = await fetch("https://api.example.com/siwa/nonce", {
     agentRegistry: "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
   }),
 });
-const { nonce, issuedAt, expirationTime } = await nonceRes.json();
+const { nonce, nonceToken, issuedAt, expirationTime } = await nonceRes.json();
 ```
 
 ### Step 2: Sign and Verify
@@ -131,10 +133,10 @@ const { message, signature, address } = await signSIWAMessage({
 }, signer);
 
 // Send to server for verification
-const verifyRes = await fetch("https://api.example.com/siwa/verify", {
+const verifyRes = await fetch("https://api.example.com/siwa/mainnet/verify", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ message, signature }),
+  body: JSON.stringify({ message, signature, nonceToken }),
 });
 
 const { receipt, agentId } = await verifyRes.json();

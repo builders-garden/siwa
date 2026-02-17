@@ -51,6 +51,8 @@ The `agentURI` contains your agent's metadata (name, description, capabilities).
 
 The authentication flow consists of two steps:
 
+> **Note:** The URLs below (`api.example.com`) are placeholders. Replace them with your own server that implements the SIWA verification endpoints. See the [Server-Side Verification](https://siwa.id/skills/server-side/skill.md) skill for implementation details.
+
 1. **Get a nonce** from the server's `/siwa/nonce` endpoint
 2. **Sign and verify** by sending the signature to `/siwa/verify`
 
@@ -66,7 +68,7 @@ const nonceRes = await fetch("https://api.example.com/siwa/nonce", {
     agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
   }),
 });
-const { nonce, issuedAt, expirationTime } = await nonceRes.json();
+const { nonce, nonceToken, issuedAt, expirationTime } = await nonceRes.json();
 ```
 
 ### Step 2: Sign and Verify
@@ -89,7 +91,7 @@ const { message, signature, address } = await signSIWAMessage({
 const verifyRes = await fetch("https://api.example.com/siwa/verify", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ message, signature }),
+  body: JSON.stringify({ message, signature, nonceToken }),
 });
 
 const { receipt, agentId } = await verifyRes.json();
