@@ -394,27 +394,28 @@ async function signIn(walletClient, agentId, agentRegistry, chainId) {
 ### Server-Side Verification
 
 ```typescript
-import { createSIWANonce, verifySIWA } from "@buildersgarden/siwa";
+import { createSIWANonce, verifySIWA, parseSIWAMessage, createClientResolver, parseChainId } from "@buildersgarden/siwa";
 import { createMemorySIWANonceStore } from "@buildersgarden/siwa/nonce-store";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
 
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
+// Dynamic client resolver — supports all chains, no hardcoding needed
+const resolver = createClientResolver();
 const nonceStore = createMemorySIWANonceStore();
 
-// Nonce endpoint — issue
+// Nonce endpoint — resolve client from agentRegistry
+const chainId = parseChainId(agentRegistry)!;
+const client = resolver.getClient(chainId);
 const nonce = await createSIWANonce(params, client, { nonceStore });
 
-// Verify endpoint — consume
+// Verify endpoint — resolve client from the message
+const fields = parseSIWAMessage(message);
+const verifyChainId = parseChainId(fields.agentRegistry)!;
+const verifyClient = resolver.getClient(verifyChainId);
 const result = await verifySIWA(
   message,
   signature,
   "api.example.com",
   { nonceStore },
-  client,
+  verifyClient,
   { allowedSignerTypes: ['eoa', 'sca'] },  // optional criteria
 );
 

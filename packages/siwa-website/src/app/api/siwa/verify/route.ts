@@ -1,14 +1,10 @@
 import { NextRequest } from "next/server";
-import { createPublicClient, http } from "viem";
-import { verifySIWA, buildSIWAResponse, SIWAErrorCode } from "@buildersgarden/siwa";
+import { verifySIWA, buildSIWAResponse, parseSIWAMessage, SIWAErrorCode } from "@buildersgarden/siwa";
 import { createReceiptForAgent, recordSession } from "@/lib/session-store";
 import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
-import { nonceStore } from "../nonce/route";
+import { parseChainId, getClient, nonceStore } from "@/lib/siwa-resolver";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.id";
-const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";
-
-const client = createPublicClient({ transport: http(RPC_URL) });
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -19,6 +15,22 @@ export async function POST(req: NextRequest) {
       { status: "rejected", code: SIWAErrorCode.VERIFICATION_FAILED, error: "Missing message or signature" },
       { status: 400 },
     );
+  }
+
+  const fields = parseSIWAMessage(message);
+  const chainId = parseChainId(fields.agentRegistry);
+  if (!chainId) {
+    return corsJson(
+      { status: "rejected", code: SIWAErrorCode.INVALID_REGISTRY_FORMAT, error: "Invalid agentRegistry in message" },
+      { status: 400 },
+    );
+  }
+
+  let client;
+  try {
+    client = getClient(chainId);
+  } catch (err: any) {
+    return corsJson({ status: "rejected", error: err.message }, { status: 400 });
   }
 
   const result = await verifySIWA(
