@@ -92,7 +92,7 @@ function buildPassingSolution(challenge: CaptchaChallenge): string {
     }
     // On last line, trim or pad to hit exact word count
     if (i === lineCount - 1 && challenge.wordCount !== undefined) {
-      const need = challenge.wordCount - totalWords;
+      const need = Math.max(0, challenge.wordCount - totalWords);
       while (words.length < need) words.push('pad');
       while (words.length > need) words.pop();
     }

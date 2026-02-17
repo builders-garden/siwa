@@ -112,15 +112,15 @@ export function siwaCors(options?: SiwaCorsOptions): RequestHandler {
     headers = `${headers}, ${X402_CORS_HEADERS}`;
   }
 
+  const exposeHeaders = options?.x402
+    ? `X-SIWA-Challenge, ${X402_EXPOSE_HEADERS}`
+    : 'X-SIWA-Challenge';
+
   return (req: Request, res: Response, next: NextFunction): void => {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', methods);
     res.header('Access-Control-Allow-Headers', headers);
-    res.header('Access-Control-Expose-Headers', 'X-SIWA-Challenge');
-
-    if (options?.x402) {
-      res.header('Access-Control-Expose-Headers', X402_EXPOSE_HEADERS);
-    }
+    res.header('Access-Control-Expose-Headers', exposeHeaders);
 
     if (req.method === 'OPTIONS') {
       res.sendStatus(204);
