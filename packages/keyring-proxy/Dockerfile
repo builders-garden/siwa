@@ -8,10 +8,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-COPY packages/keyring-proxy/package.json ./
+COPY package.json ./
 RUN pnpm install --frozen-lockfile || pnpm install
 
-COPY packages/keyring-proxy/src/ src/
+COPY src/ src/
 
 ARG IMAGE_VERSION=dev
 ENV IMAGE_VERSION=${IMAGE_VERSION}
