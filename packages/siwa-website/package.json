@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "rm -rf public/skills && cp -r ../siwa-skill public/skills",
+    "prebuild": "rm -rf public/skills && cp -r ../siwa-skill public/skills && cp ../siwa-skill/skill.md public/skill.md",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
