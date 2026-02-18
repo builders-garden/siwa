@@ -62,8 +62,8 @@ importers:
   packages/keyring-proxy:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: ^0.0.18
-        version: 0.0.18(@circle-fin/developer-controlled-wallets@10.1.0)(@fastify/cors@10.1.0)(express@4.22.1)(fastify@5.7.4)(hono@4.11.9)(typescript@5.9.3)(zod@4.3.6)
+        specifier: ^0.0.20
+        version: 0.0.20(@circle-fin/developer-controlled-wallets@10.1.0)(@fastify/cors@10.1.0)(express@4.22.1)(fastify@5.7.4)(hono@4.11.9)(typescript@5.9.3)(zod@4.3.6)
       '@noble/ciphers':
         specifier: ^2.1.1
         version: 2.1.1
@@ -169,8 +169,8 @@ importers:
   packages/siwa-website:
     dependencies:
       '@buildersgarden/siwa':
-        specifier: ^0.0.19
-        version: 0.0.19(@circle-fin/developer-controlled-wallets@10.1.0)(@fastify/cors@10.1.0)(express@4.22.1)(fastify@5.7.4)(hono@4.11.9)(typescript@5.9.3)(zod@4.3.6)
+        specifier: ^0.0.20
+        version: 0.0.20(@circle-fin/developer-controlled-wallets@10.1.0)(@fastify/cors@10.1.0)(express@4.22.1)(fastify@5.7.4)(hono@4.11.9)(typescript@5.9.3)(zod@4.3.6)
       next:
         specifier: 16.1.6
         version: 16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -288,31 +288,8 @@ packages:
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
 
-  '@buildersgarden/siwa@0.0.18':
-    resolution: {integrity: sha512-KdCwyCjEFgbRbXIARUske+MyndY3dJ3i8UPcONbIzUC8k8BrrVYHMh1sjVFft8vUAXVro5eumG1u4ExmYnCvOA==}
-    peerDependencies:
-      '@circle-fin/developer-controlled-wallets': '>=6.0.0'
-      '@fastify/cors': '>=9.0.0'
-      '@privy-io/node': '>=1.0.0'
-      express: ^4.0.0 || ^5.0.0
-      fastify: '>=4.0.0'
-      hono: '>=4.0.0'
-    peerDependenciesMeta:
-      '@circle-fin/developer-controlled-wallets':
-        optional: true
-      '@fastify/cors':
-        optional: true
-      '@privy-io/node':
-        optional: true
-      express:
-        optional: true
-      fastify:
-        optional: true
-      hono:
-        optional: true
-
-  '@buildersgarden/siwa@0.0.19':
-    resolution: {integrity: sha512-iEC/5+m1nVY4MOPzNUoLf0cIw32jiwzyGXSvC/SP+gFBo3hcltzh7BOuyKSuZmlWeRGt8nmkYPjJoSt2SfJU6g==}
+  '@buildersgarden/siwa@0.0.20':
+    resolution: {integrity: sha512-amoipkOSbrjXjm3DcQGOyT1tWHLedQZKyaECFplD46gShCDjEZ9ngmjZVZX+AtRKs4dBtBoOK3N4yEMBQHEZLQ==}
     peerDependencies:
       '@circle-fin/developer-controlled-wallets': '>=6.0.0'
       '@fastify/cors': '>=9.0.0'
@@ -3048,23 +3025,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@buildersgarden/siwa@0.0.18(@circle-fin/developer-controlled-wallets@10.1.0)(@fastify/cors@10.1.0)(express@4.22.1)(fastify@5.7.4)(hono@4.11.9)(typescript@5.9.3)(zod@4.3.6)':
-    dependencies:
-      '@slicekit/erc8128': 0.1.0
-      viem: 2.45.1(typescript@5.9.3)(zod@4.3.6)
-    optionalDependencies:
-      '@circle-fin/developer-controlled-wallets': 10.1.0
-      '@fastify/cors': 10.1.0
-      express: 4.22.1
-      fastify: 5.7.4
-      hono: 4.11.9
-    transitivePeerDependencies:
-      - bufferutil
-      - typescript
-      - utf-8-validate
-      - zod
-
-  '@buildersgarden/siwa@0.0.19(@circle-fin/developer-controlled-wallets@10.1.0)(@fastify/cors@10.1.0)(express@4.22.1)(fastify@5.7.4)(hono@4.11.9)(typescript@5.9.3)(zod@4.3.6)':
+  '@buildersgarden/siwa@0.0.20(@circle-fin/developer-controlled-wallets@10.1.0)(@fastify/cors@10.1.0)(express@4.22.1)(fastify@5.7.4)(hono@4.11.9)(typescript@5.9.3)(zod@4.3.6)':
     dependencies:
       '@slicekit/erc8128': 0.1.0
       viem: 2.45.1(typescript@5.9.3)(zod@4.3.6)

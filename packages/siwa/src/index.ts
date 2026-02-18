@@ -11,3 +11,4 @@ export * from './nonce-store.js';
 export * from './tba.js';
 export * from './captcha.js';
 export * from './x402.js';
+export * from './client-resolver.js';

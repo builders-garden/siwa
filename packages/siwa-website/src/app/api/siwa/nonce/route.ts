@@ -1,15 +1,9 @@
 import { NextRequest } from "next/server";
-import { createPublicClient, http } from "viem";
-import { createSIWANonce, createMemorySIWANonceStore, SIWAErrorCode } from "@buildersgarden/siwa";
+import { createSIWANonce, SIWAErrorCode } from "@buildersgarden/siwa";
 import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
+import { parseChainId, getClient, nonceStore } from "@/lib/siwa-resolver";
 
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "siwa.id";
-const RPC_URL = process.env.RPC_URL || "https://sepolia.base.org";
-
-const client = createPublicClient({ transport: http(RPC_URL) });
-
-/** Singleton nonce store — shared with the verify route via module import */
-export const nonceStore = createMemorySIWANonceStore();
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -17,6 +11,18 @@ export async function POST(req: NextRequest) {
 
   if (!address) {
     return corsJson({ error: "Missing address" }, { status: 400 });
+  }
+
+  const chainId = parseChainId(agentRegistry);
+  if (!chainId) {
+    return corsJson({ error: "Invalid agentRegistry format" }, { status: 400 });
+  }
+
+  let client;
+  try {
+    client = getClient(chainId);
+  } catch (err: any) {
+    return corsJson({ error: err.message }, { status: 400 });
   }
 
   const result = await createSIWANonce(
@@ -35,7 +41,7 @@ export async function POST(req: NextRequest) {
     expirationTime: result.expirationTime,
     domain: SERVER_DOMAIN,
     uri: `https://${SERVER_DOMAIN}/api/siwa/verify`,
-    chainId: parseInt(agentRegistry?.split(":")[1] || "84532"),
+    chainId,
   });
 }
 

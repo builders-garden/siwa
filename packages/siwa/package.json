@@ -1,6 +1,6 @@
 {
   "name": "@buildersgarden/siwa",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "type": "module",
   "exports": {
     ".": {
@@ -74,6 +74,10 @@
     "./x402": {
       "types": "./dist/x402.d.ts",
       "default": "./dist/x402.js"
+    },
+    "./client-resolver": {
+      "types": "./dist/client-resolver.d.ts",
+      "default": "./dist/client-resolver.js"
     }
   },
   "main": "./dist/index.js",

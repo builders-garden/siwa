@@ -43,6 +43,7 @@ This gives you access to:
 - `@buildersgarden/siwa/fastify` — Fastify wrappers (siwaPlugin, siwaAuth)
 - `@buildersgarden/siwa/hono` — Hono wrappers (siwaMiddleware, siwaCors)
 - `@buildersgarden/siwa/x402` — x402 payment helpers (createX402PaymentHeaders, handleX402Response, isX402Response, X402Config)
+- `@buildersgarden/siwa/client-resolver` — Dynamic PublicClient resolution for multi-chain servers (createClientResolver, parseChainId)
 
 The SDK handles all HMAC proxy authentication internally — you never need to craft raw HTTP calls to the proxy.
 
