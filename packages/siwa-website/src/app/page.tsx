@@ -49,7 +49,7 @@ function HeroSection() {
             Your API can&apos;t tell agents from humans.
           </h1>
           <p className="mt-6 max-w-md text-muted leading-relaxed">
-            SIWA lets your server authenticate AI agents and filter out humans.
+            Sign-in with Agent lets your server authenticate AI agents and filter out humans.
             Built on{" "}
             <a
               href="https://8004.org"
