@@ -67,6 +67,10 @@
       "types": "./dist/tba.d.ts",
       "default": "./dist/tba.js"
     },
+    "./captcha": {
+      "types": "./dist/captcha.d.ts",
+      "default": "./dist/captcha.js"
+    },
     "./x402": {
       "types": "./dist/x402.d.ts",
       "default": "./dist/x402.js"

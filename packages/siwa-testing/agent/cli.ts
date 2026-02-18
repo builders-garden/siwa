@@ -6,6 +6,7 @@ import { signInFlow, callApiFlow } from './flows/sign-in.js';
 import { testProxyFlow } from './flows/test-proxy.js';
 import { testErc8128Flow } from './flows/test-erc8128.js';
 import { testSignersFlow, testViemSignerFlow, testKeyringSignerFlow } from './flows/test-signers.js';
+import { testCaptchaFlow } from './flows/test-captcha.js';
 import { testNonceStoreFlow } from './flows/test-nonce-store.js';
 import { testX402Flow } from './flows/test-x402.js';
 import { hasWallet } from '@buildersgarden/siwa/keystore';
@@ -36,6 +37,7 @@ function printUsage(): void {
   console.log('  test-signers   Run signer tests (both viem private key and keyring proxy)');
   console.log('  test-viem      Run signer tests with viem private key only (no proxy needed)');
   console.log('  test-keyring   Run signer tests with keyring proxy only');
+  console.log('  test-captcha   Run captcha module tests (pure, no proxy/server needed)');
   console.log('  test-nonce     Run nonce store adapter tests (pure, no server needed)');
   console.log('  test-x402      Run x402 payment protocol tests (pure, no server needed)');
   console.log('');
@@ -195,6 +197,11 @@ async function main(): Promise<void> {
       }
       case 'test-keyring': {
         const ok = await testKeyringSignerFlow();
+        if (!ok) process.exit(1);
+        break;
+      }
+      case 'test-captcha': {
+        const ok = await testCaptchaFlow();
         if (!ok) process.exit(1);
         break;
       }

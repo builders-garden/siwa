@@ -24,6 +24,7 @@ import {
   type SiwaAgent,
   type VerifyOptions,
 } from '../erc8128.js';
+import { CHALLENGE_HEADER, type CaptchaPolicy, type CaptchaOptions } from '../captcha.js';
 import type { SignerType } from '../signer/index.js';
 import {
   X402_HEADERS,
@@ -51,6 +52,10 @@ export interface WithSiwaOptions {
   verifyOnchain?: boolean;
   /** Allowed signer types. Omit to accept all. */
   allowedSignerTypes?: SignerType[];
+  /** Captcha policy for per-request challenges. */
+  captchaPolicy?: CaptchaPolicy;
+  /** Captcha options (secret, topics, formats). Secret defaults to receiptSecret. */
+  captchaOptions?: CaptchaOptions;
   /** Optional x402 payment gate. When set, both SIWA auth AND a valid payment are required. */
   x402?: X402Config;
 }
@@ -65,7 +70,7 @@ export interface CorsOptions {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_SIWA_HEADERS =
-  'Content-Type, X-SIWA-Receipt, Signature, Signature-Input, Content-Digest';
+  'Content-Type, X-SIWA-Receipt, X-SIWA-Challenge-Response, Signature, Signature-Input, Content-Digest';
 
 const X402_CORS_HEADERS = `${X402_HEADERS.PAYMENT_SIGNATURE}, ${X402_HEADERS.PAYMENT_REQUIRED}`;
 const X402_EXPOSE_HEADERS = `${X402_HEADERS.PAYMENT_REQUIRED}, ${X402_HEADERS.PAYMENT_RESPONSE}`;
@@ -145,6 +150,8 @@ export function withSiwa(handler: SiwaHandler, options?: WithSiwaOptions) {
       rpcUrl: options?.rpcUrl,
       verifyOnchain: options?.verifyOnchain,
       allowedSignerTypes: options?.allowedSignerTypes,
+      captchaPolicy: options?.captchaPolicy,
+      captchaOptions: options?.captchaOptions,
     };
 
     const result = await verifyAuthenticatedRequest(
@@ -153,6 +160,20 @@ export function withSiwa(handler: SiwaHandler, options?: WithSiwaOptions) {
     );
 
     if (!result.valid) {
+      if ('captchaRequired' in result && result.captchaRequired) {
+        const response = corsJson(
+          {
+            error: result.error,
+            challenge: result.challenge,
+            challengeToken: result.challengeToken,
+            captchaRequired: true,
+          },
+          { status: 401 },
+          corsOpts,
+        );
+        response.headers.set(CHALLENGE_HEADER, result.challengeToken);
+        return response;
+      }
       return corsJson({ error: result.error }, { status: 401 }, corsOpts);
     }
 

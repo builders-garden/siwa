@@ -24,6 +24,7 @@ import {
   type SiwaAgent,
   type VerifyOptions,
 } from '../erc8128.js';
+import { CHALLENGE_HEADER, type CaptchaPolicy, type CaptchaOptions } from '../captcha.js';
 import type { SignerType } from '../signer/index.js';
 import {
   X402_HEADERS,
@@ -68,6 +69,10 @@ export interface SiwaMiddlewareOptions {
   publicClient?: VerifyOptions['publicClient'];
   /** Allowed signer types. Omit to accept all. */
   allowedSignerTypes?: SignerType[];
+  /** Captcha policy for per-request challenges. */
+  captchaPolicy?: CaptchaPolicy;
+  /** Captcha options (secret, topics, formats). Secret defaults to receiptSecret. */
+  captchaOptions?: CaptchaOptions;
   /** Optional x402 payment gate. When set, both SIWA auth AND a valid payment are required. */
   x402?: X402Config;
 }
@@ -88,7 +93,7 @@ export interface SiwaCorsOptions {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_SIWA_HEADERS =
-  'Content-Type, X-SIWA-Receipt, Signature, Signature-Input, Content-Digest';
+  'Content-Type, X-SIWA-Receipt, X-SIWA-Challenge-Response, Signature, Signature-Input, Content-Digest';
 
 const X402_CORS_HEADERS = `${X402_HEADERS.PAYMENT_SIGNATURE}, ${X402_HEADERS.PAYMENT_REQUIRED}`;
 const X402_EXPOSE_HEADERS = `${X402_HEADERS.PAYMENT_REQUIRED}, ${X402_HEADERS.PAYMENT_RESPONSE}`;
@@ -107,14 +112,15 @@ export function siwaCors(options?: SiwaCorsOptions): RequestHandler {
     headers = `${headers}, ${X402_CORS_HEADERS}`;
   }
 
+  const exposeHeaders = options?.x402
+    ? `X-SIWA-Challenge, ${X402_EXPOSE_HEADERS}`
+    : 'X-SIWA-Challenge';
+
   return (req: Request, res: Response, next: NextFunction): void => {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', methods);
     res.header('Access-Control-Allow-Headers', headers);
-
-    if (options?.x402) {
-      res.header('Access-Control-Expose-Headers', X402_EXPOSE_HEADERS);
-    }
+    res.header('Access-Control-Expose-Headers', exposeHeaders);
 
     if (req.method === 'OPTIONS') {
       res.sendStatus(204);
@@ -181,9 +187,21 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
         verifyOnchain: options?.verifyOnchain,
         publicClient: options?.publicClient,
         allowedSignerTypes: options?.allowedSignerTypes,
+        captchaPolicy: options?.captchaPolicy,
+        captchaOptions: options?.captchaOptions,
       });
 
       if (!result.valid) {
+        if ('captchaRequired' in result && result.captchaRequired) {
+          res.header(CHALLENGE_HEADER, result.challengeToken);
+          res.status(401).json({
+            error: result.error,
+            challenge: result.challenge,
+            challengeToken: result.challengeToken,
+            captchaRequired: true,
+          });
+          return;
+        }
         res.status(401).json({ error: result.error });
         return;
       }
@@ -263,4 +281,44 @@ export function siwaMiddleware(options?: SiwaMiddlewareOptions): RequestHandler 
     // -----------------------------------------------------------------------
     next();
   };
+}
+
+// ---------------------------------------------------------------------------
+// Factory: pre-configured middleware
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a pre-configured `siwaMiddleware` with shared defaults.
+ *
+ * Use this to apply the same captcha policy and options globally,
+ * with optional per-route overrides.
+ *
+ * @param defaults  Shared options applied to all routes
+ * @returns         A `siwaMiddleware`-like function that bakes in the defaults
+ *
+ * @example
+ * ```typescript
+ * import { createSiwaMiddleware, siwaJsonParser, siwaCors } from "@buildersgarden/siwa/express";
+ *
+ * const auth = createSiwaMiddleware({
+ *   captchaPolicy: async ({ address }) => {
+ *     const known = await db.agents.exists(address);
+ *     return known ? null : 'medium';
+ *   },
+ *   captchaOptions: { secret: process.env.SIWA_SECRET! },
+ * });
+ *
+ * app.use(siwaJsonParser());
+ * app.use(siwaCors());
+ *
+ * // Apply globally
+ * app.use(auth());
+ *
+ * // Or per-route with overrides
+ * app.post('/api/transfer', auth({ captchaPolicy: () => 'hard' }), handler);
+ * ```
+ */
+export function createSiwaMiddleware(defaults: SiwaMiddlewareOptions) {
+  return (overrides?: Partial<SiwaMiddlewareOptions>): RequestHandler =>
+    siwaMiddleware({ ...defaults, ...overrides });
 }

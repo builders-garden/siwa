@@ -92,6 +92,15 @@ const sections: {
           { title: "Database", id: "nonce-database" },
         ],
       },
+      {
+        label: "Captcha",
+        items: [
+          { title: "How It Works", id: "captcha-how" },
+          { title: "Sign-In Captcha", id: "captcha-signin" },
+          { title: "Per-Request Captcha", id: "captcha-perrequest" },
+          { title: "Difficulty Levels", id: "captcha-difficulty" },
+        ],
+      },
     ],
   },
   {

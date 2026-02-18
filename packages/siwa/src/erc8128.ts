@@ -20,6 +20,17 @@ import {
 } from '@slicekit/erc8128';
 import type { Signer, SignerType } from './signer/index.js';
 import { verifyReceipt, type ReceiptPayload } from './receipt.js';
+import {
+  createCaptchaChallenge,
+  unpackCaptchaResponse,
+  verifyCaptchaSolution,
+  packCaptchaResponse,
+  CHALLENGE_RESPONSE_HEADER,
+  type CaptchaChallenge,
+  type CaptchaPolicy,
+  type CaptchaOptions,
+  type CaptchaSolver,
+} from './captcha.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,6 +43,8 @@ export interface VerifyOptions {
   publicClient?: PublicClient;
   nonceStore?: NonceStore;
   allowedSignerTypes?: SignerType[];
+  captchaPolicy?: CaptchaPolicy;
+  captchaOptions?: CaptchaOptions;
 }
 
 /** Verified agent identity returned from a successful auth check. */
@@ -45,7 +58,8 @@ export interface SiwaAgent {
 
 export type AuthResult =
   | { valid: true; agent: SiwaAgent }
-  | { valid: false; error: string };
+  | { valid: false; error: string }
+  | { valid: false; error: string; captchaRequired: true; challenge: CaptchaChallenge; challengeToken: string };
 
 /**
  * Resolve the receipt secret from an explicit value or environment variables.
@@ -168,6 +182,105 @@ export async function signAuthenticatedRequest(
   return signRequest(withReceipt, erc8128Signer, {
     components: [RECEIPT_HEADER],
   });
+}
+
+// ---------------------------------------------------------------------------
+// Agent-side: captcha retry helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect a captcha challenge in a server response and build a re-signed retry request.
+ *
+ * When a server returns 401 with `{ captchaRequired: true, challenge, challengeToken }`,
+ * this function:
+ *   1. Extracts the challenge from the response body
+ *   2. Calls the solver to generate solution text
+ *   3. Packs the solution into the `X-SIWA-Challenge-Response` header
+ *   4. Re-signs the request with ERC-8128 (binding the challenge response into the signature)
+ *   5. Returns the new signed request ready for retry
+ *
+ * **Important:** The `request` parameter must be a fresh, unconsumed Request
+ * (not the one already sent via `fetch`). Keep the original URL, method, headers,
+ * and body around so you can reconstruct it for the retry.
+ *
+ * @param response  The server's 401 response (body is read via `.clone()`, so the original stays readable)
+ * @param request   A fresh, unconsumed Request matching the original call
+ * @param receipt   Verification receipt from SIWA sign-in
+ * @param signer    A SIWA Signer
+ * @param chainId   Chain ID for the ERC-8128 keyid
+ * @param solver    Callback that generates solution text from a challenge
+ * @param options   Optional overrides (e.g. signerAddress for TBA identity)
+ * @returns `{ retry: true, request }` with the signed retry request, or `{ retry: false }` if no captcha
+ *
+ * @example
+ * ```typescript
+ * import { signAuthenticatedRequest, retryWithCaptcha } from '@buildersgarden/siwa/erc8128';
+ *
+ * const url = 'https://api.example.com/action';
+ * const body = JSON.stringify({ key: 'value' });
+ *
+ * // First attempt
+ * const signed = await signAuthenticatedRequest(
+ *   new Request(url, { method: 'POST', body }),
+ *   receipt, signer, 84532,
+ * );
+ * const response = await fetch(signed);
+ *
+ * // Handle captcha if required
+ * const result = await retryWithCaptcha(
+ *   response,
+ *   new Request(url, { method: 'POST', body }), // fresh request
+ *   receipt, signer, 84532,
+ *   async (challenge) => generateText(challenge), // your LLM solver
+ * );
+ *
+ * if (result.retry) {
+ *   const retryResponse = await fetch(result.request);
+ * }
+ * ```
+ */
+export async function retryWithCaptcha(
+  response: Response,
+  request: Request,
+  receipt: string,
+  signer: Signer,
+  chainId: number,
+  solver: CaptchaSolver,
+  options?: { signerAddress?: Address },
+): Promise<{ retry: true; request: Request } | { retry: false }> {
+  // Only handle 401 responses
+  if (response.status !== 401) return { retry: false };
+
+  // Read from a clone so the original response stays readable for the caller
+  let body: any;
+  try {
+    body = await response.clone().json();
+  } catch {
+    return { retry: false };
+  }
+
+  if (!body.captchaRequired || !body.challenge || !body.challengeToken) {
+    return { retry: false };
+  }
+
+  // Solve the challenge
+  const text = await solver(body.challenge);
+  const packed = packCaptchaResponse(body.challengeToken, text);
+
+  // Rebuild the request with receipt + challenge response headers
+  const headers = new Headers(request.headers);
+  headers.set(RECEIPT_HEADER, receipt);
+  headers.set(CHALLENGE_RESPONSE_HEADER, packed);
+
+  const rebuiltRequest = new Request(request, { headers });
+
+  // Create ERC-8128 signer and sign with both headers bound into the signature
+  const erc8128Signer = await createErc8128Signer(signer, chainId, options);
+  const signedRequest = await signRequest(rebuiltRequest, erc8128Signer, {
+    components: [RECEIPT_HEADER, CHALLENGE_RESPONSE_HEADER],
+  });
+
+  return { retry: true, request: signedRequest };
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +418,51 @@ export async function verifyAuthenticatedRequest(
       }
     } catch {
       return { valid: false, error: 'Onchain ownership check failed: agent not registered' };
+    }
+  }
+
+  // 5. Captcha evaluation (after successful auth, server-defined policy)
+  if (options.captchaPolicy) {
+    const captchaSecret = options.captchaOptions?.secret ?? options.receiptSecret;
+    const difficulty = await options.captchaPolicy({
+      address: receipt.address,
+      agentId: receipt.agentId,
+      agentRegistry: receipt.agentRegistry,
+      request,
+    });
+
+    if (difficulty) {
+      const responseHeader = request.headers.get(CHALLENGE_RESPONSE_HEADER);
+      if (responseHeader) {
+        // Agent submitted a challenge response — verify it
+        const unpacked = unpackCaptchaResponse(responseHeader);
+        if (!unpacked) {
+          return { valid: false, error: 'Invalid captcha response format' };
+        }
+        const verification = await verifyCaptchaSolution(
+          unpacked.challengeToken, unpacked.solution, captchaSecret, options.captchaOptions?.verify,
+        );
+        if (!verification || !verification.overallPass) {
+          return { valid: false, error: `Captcha verification failed: ${verification?.verdict ?? 'invalid token'}` };
+        }
+        // Captcha passed — fall through to return success
+      } else {
+        // No challenge response — issue a new challenge
+        const captchaOpts: CaptchaOptions = {
+          secret: captchaSecret,
+          topics: options.captchaOptions?.topics,
+          formats: options.captchaOptions?.formats,
+          difficulties: options.captchaOptions?.difficulties,
+        };
+        const { challenge, challengeToken } = createCaptchaChallenge(difficulty, captchaOpts);
+        return {
+          valid: false,
+          error: 'Captcha required',
+          captchaRequired: true,
+          challenge,
+          challengeToken,
+        };
+      }
     }
   }
 

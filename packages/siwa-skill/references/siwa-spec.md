@@ -183,6 +183,51 @@ Failure:
 
 For smart contract wallets (e.g., ERC-4337 accounts), verification SHOULD fall back to ERC-1271 `isValidSignature(hash, signature)` if `ecrecover` does not match. This mirrors the ERC-8004 spec's support for EIP-1271 alongside EIP-712.
 
+## Captcha Extension (Reverse CAPTCHA)
+
+Servers MAY require a "reverse CAPTCHA" challenge before issuing a nonce. This proves the requesting entity is an AI agent (not a human) by requiring text that satisfies multiple simultaneous constraints — a task LLMs handle in a single autoregressive pass, but humans must iterate on.
+
+### Captcha Flow (Optional, Server-Configured)
+
+**1a. Nonce Request returns captcha challenge:**
+
+```
+POST /siwa/nonce
+{ "address": "0x...", "agentId": 42, "agentRegistry": "eip155:84532:0x..." }
+
+← 200 { "status": "captcha_required", "challenge": { ... }, "challengeToken": "tok" }
+```
+
+**1b. Agent solves challenge and resubmits:**
+
+```
+POST /siwa/nonce
+{ "address": "0x...", "agentId": 42, "agentRegistry": "eip155:84532:0x...",
+  "challengeResponse": "<base64url-packed solution>" }
+
+← 200 { "status": "nonce_issued", "nonce": "...", ... }
+```
+
+### Challenge Structure
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `topic` | string | Subject for the generated text |
+| `format` | string | `haiku`, `quatrain`, `free_verse`, or `micro_story` |
+| `lineCount` | number | Required number of lines |
+| `asciiTarget` | number | Sum of ASCII values of first character of each line |
+| `wordCount` | number? | Required total word count (medium+) |
+| `charPosition` | [number, string]? | Character at specific position in flattened text (hard+) |
+| `totalChars` | number? | Total characters excluding newlines (extreme) |
+| `timeLimitSeconds` | number | Maximum time to solve |
+| `difficulty` | string | `easy`, `medium`, `hard`, or `extreme` |
+
+### Per-Request Captcha
+
+Servers MAY also challenge agents during authenticated API calls via the `X-SIWA-Challenge` / `X-SIWA-Challenge-Response` headers. The challenge is returned in a 401 response; the agent solves it, adds the response header, re-signs the request with ERC-8128, and retries.
+
+---
+
 ## Security Considerations
 
 - **Replay protection**: Nonces MUST be single-use and server-generated. Servers SHOULD expire unused nonces after a short TTL (e.g., 5–10 minutes).

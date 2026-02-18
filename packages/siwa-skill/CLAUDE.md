@@ -35,6 +35,7 @@ This gives you access to:
 - `@buildersgarden/siwa/registry` — Onchain lookups
 - `@buildersgarden/siwa/receipt` — HMAC receipt helpers (createReceipt, verifyReceipt, DEFAULT_RECEIPT_TTL)
 - `@buildersgarden/siwa/erc8128` — ERC-8128 signing/verification (signAuthenticatedRequest, verifyAuthenticatedRequest)
+- `@buildersgarden/siwa/captcha` — Reverse CAPTCHA (packCaptchaResponse, solveCaptchaChallenge)
 - `@buildersgarden/siwa/nonce-store` — Pluggable nonce stores (Memory, Redis, KV) for replay protection
 - `@buildersgarden/siwa/tba` — Token Bound Account address computation (computeTbaAddress, isTbaForAgent)
 - `@buildersgarden/siwa/next` — Next.js wrappers (withSiwa, siwaOptions, corsJson)
@@ -123,6 +124,10 @@ Clears SIWA_IDENTITY.md to start fresh.
 ```bash
 cd /home/node/.openclaw/workspace/siwa/packages/siwa-testing && pnpm run reset
 ```
+
+### 10. Handle Captcha Challenges
+
+If a server requires a reverse CAPTCHA during sign-in or API calls, use `solveCaptchaChallenge()` from `@buildersgarden/siwa/captcha` for sign-in or `retryWithCaptcha()` from `@buildersgarden/siwa/erc8128` for per-request challenges. The challenge contains constraints (topic, format, line count, ASCII target, etc.) that you must satisfy in a single text generation pass.
 
 ## Important Notes
 

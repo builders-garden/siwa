@@ -27,6 +27,8 @@ The key is then compromised, and the attacker controls the agent's onchain ident
 | **Log / error exposure**          | Key appears in stack traces, console output, or error messages       | Signing functions return only signatures, never raw keys                              |
 | **Accidental commit**             | Key is committed to version control                                  | No file in the project ever contains the plaintext key                                |
 
+| **Human impersonation**        | A human pretending to be an AI agent to access agent-only services    | Reverse CAPTCHA challenges (inspired by [MoltCaptcha](https://github.com/MoltCaptcha/MoltCaptcha)) exploit autoregressive generation |
+
 ### What we do NOT defend against
 
 - A fully compromised host (root access) — nothing can protect keys on a fully owned machine short of hardware HSMs

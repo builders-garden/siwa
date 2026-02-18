@@ -1,6 +1,6 @@
 ---
 name: siwa-server
-version: 0.1.0
+version: 0.2.0
 description: >
   Use this skill to implement server-side SIWA verification. For backends and APIs
   that need to authenticate ERC-8004 agents without signing capabilities.
@@ -8,13 +8,9 @@ description: >
 
 # SIWA Server-Side Verification
 
-This guide covers **server-side SIWA verification** for Agent backends and APIs that need to authenticate agents. No wallet or signing required — only verification.
+This guide covers **server-side SIWA verification** for backends and APIs that need to authenticate agents. No wallet or signing required — only verification.
 
-Use this when building:
-- API backends that accept SIWA authentication
-- Authentication services for agent ecosystems
-- Middleware for protected endpoints
-- Session management systems
+For full API reference and advanced options, see [https://siwa.id/docs](https://siwa.id/docs).
 
 ---
 
@@ -26,7 +22,7 @@ Use this when building:
 npm install @buildersgarden/siwa viem
 ```
 
-### 2. Verify a SIWA Signature
+### 2. Set Environment Variables
 
 ```typescript
 import { parseSIWAMessage, verifySIWA, createClientResolver, parseChainId } from "@buildersgarden/siwa";
@@ -61,30 +57,9 @@ async function verifyAgent(message: string, signature: string) {
 
 ---
 
-## Verification Flow
+## Framework Middleware
 
-```
-┌─────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│   Agent     │────▶│   Your Server   │────▶│  ERC-8004        │
-│  (Client)   │     │  (Verifier)     │     │  Registry        │
-└─────────────┘     └─────────────────┘     └──────────────────┘
-      │                     │                        │
-      │  1. POST /nonce     │                        │
-      │◀────────────────────│                        │
-      │     { nonce }       │                        │
-      │                     │                        │
-      │  2. Sign message    │                        │
-      │     (client-side)   │                        │
-      │                     │                        │
-      │  3. POST /verify    │                        │
-      │────────────────────▶│                        │
-      │  { message, sig }   │  4. Verify signature   │
-      │                     │────────────────────────▶│
-      │                     │  5. Check registration │
-      │                     │◀────────────────────────│
-      │  6. { receipt }     │                        │
-      │◀────────────────────│                        │
-```
+The SDK provides pre-built middleware that handles SIWA sign-in (nonce + verify), ERC-8128 request verification, receipts, and CORS — all in a few lines.
 
 ---
 
@@ -435,7 +410,6 @@ app.get("/api/protected/data", (req, res) => {
 ```typescript
 import { withSiwa, siwaOptions } from "@buildersgarden/siwa/next";
 
-// Handler receives (agent, req) — agent is the verified SiwaAgent
 export const POST = withSiwa(async (agent, req) => {
   const body = await req.json();
   return { agent: { address: agent.address, agentId: agent.agentId }, received: body };
@@ -444,8 +418,24 @@ export const POST = withSiwa(async (agent, req) => {
   allowedSignerTypes: ['eoa', 'sca'],
 });
 
-// OPTIONS handler for CORS preflight
 export { siwaOptions as OPTIONS };
+```
+
+### Express
+
+```typescript
+import express from "express";
+import { siwaMiddleware, siwaJsonParser, siwaCors } from "@buildersgarden/siwa/express";
+
+const app = express();
+app.use(siwaJsonParser());
+app.use(siwaCors());
+
+app.get("/api/protected", siwaMiddleware({
+  receiptSecret: process.env.SIWA_SECRET!,
+}), (req, res) => {
+  res.json({ agent: req.agent });
+});
 ```
 
 ### Fastify
@@ -455,7 +445,7 @@ import Fastify from "fastify";
 import { siwaPlugin, siwaAuth } from "@buildersgarden/siwa/fastify";
 
 const fastify = Fastify();
-await fastify.register(siwaPlugin);  // sets up CORS
+await fastify.register(siwaPlugin);
 
 fastify.post("/api/protected", {
   preHandler: siwaAuth({
@@ -481,8 +471,7 @@ app.use("*", siwaCors());
 app.post("/api/protected", siwaMiddleware({
   receiptSecret: process.env.SIWA_SECRET!,
 }), (c) => {
-  const agent = c.get("agent");
-  return c.json({ agent });
+  return c.json({ agent: c.get("agent") });
 });
 
 export default app;
@@ -492,7 +481,7 @@ export default app;
 
 ## x402 Payment Middleware
 
-Add pay-per-request or pay-once monetization to any SIWA-protected endpoint. The middleware enforces a two-gate flow: **SIWA authentication first** (401 if invalid), then **payment verification** (402 if missing/invalid). Both must pass before the handler runs.
+Add pay-per-request or pay-once monetization to any SIWA-protected endpoint. The middleware enforces: **SIWA authentication first** (401), then **payment verification** (402).
 
 ### Server Setup
 
@@ -531,19 +520,7 @@ const x402WithSession: X402Config = {
 };
 ```
 
-Sessions are keyed by `(address, resource.url)` — different agents and routes are isolated.
-
 ### Framework Examples
-
-**Express:**
-```typescript
-app.post("/api/premium", siwaMiddleware({ x402 }), (req, res) => {
-  // req.agent — verified identity
-  // req.payment — { scheme, network, amount, asset, payTo, txHash }
-  res.json({ agent: req.agent, txHash: req.payment?.txHash });
-});
-app.use(siwaCors({ x402: true }));  // expose payment headers in CORS
-```
 
 **Next.js:**
 ```typescript
@@ -551,6 +528,14 @@ export const POST = withSiwa(async (agent, req, payment) => {
   return { agent, txHash: payment?.txHash };
 }, { x402 });
 export const OPTIONS = () => siwaOptions({ x402: true });
+```
+
+**Express:**
+```typescript
+app.post("/api/premium", siwaMiddleware({ x402 }), (req, res) => {
+  res.json({ agent: req.agent, txHash: req.payment?.txHash });
+});
+app.use(siwaCors({ x402: true }));
 ```
 
 **Hono:**
@@ -573,8 +558,6 @@ fastify.post("/api/premium", { preHandler: siwaAuth({ x402 }) }, async (req) => 
 
 ## Verification Options
 
-### verifySIWA Parameters
-
 ```typescript
 verifySIWA(
   message: string,          // Full SIWA message string
@@ -590,21 +573,9 @@ type NonceValidator =
   | ((nonce: string) => boolean | Promise<boolean>)
   | { nonceToken: string; secret: string }
   | { nonceStore: SIWANonceStore };
-
-// SIWAVerifyCriteria: optional policy enforcement
-interface SIWAVerifyCriteria {
-  allowedSignerTypes?: SignerType[];   // 'eoa', 'sca', or both
-  requiredServices?: string[];         // Required ERC-8004 services
-  requiredTrust?: string[];            // Required trust models
-  minScore?: number;                   // Minimum reputation score
-  minFeedbackCount?: number;           // Minimum feedback count
-  reputationRegistryAddress?: string;  // For reputation queries
-  mustBeActive?: boolean;              // Require active agent
-  custom?: (agent) => boolean;         // Custom validation
-}
 ```
 
-### Verification Example (with Nonce Store)
+### Using Nonce Stores
 
 ```typescript
 import { createSIWANonce, verifySIWA } from "@buildersgarden/siwa";
@@ -622,53 +593,58 @@ const result = await verifySIWA(
   client,
   { allowedSignerTypes: ['eoa'] },
 );
-
-// result.valid, result.address, result.agentId, result.signerType
 ```
+
+Available stores: `createMemorySIWANonceStore()` (single-process), `createRedisSIWANonceStore(redis)` (multi-instance), `createKVSIWANonceStore(kv)` (Cloudflare Workers).
 
 ---
 
-## Receipt System
+## Captcha (Reverse CAPTCHA)
 
-Receipts are HMAC-signed tokens that prove successful SIWA verification. Use them for:
-- Session management
-- Authenticated API calls (ERC-8128)
-- Caching verification results
+Servers can challenge agents at sign-in or during authenticated requests to prove they are AI agents.
 
-### Creating Receipts
+### Sign-In Captcha
 
 ```typescript
-import { createReceipt } from "@buildersgarden/siwa/receipt";
+import { createSIWANonce } from "@buildersgarden/siwa";
 
-const { receipt, expiresAt } = createReceipt({
-  address: "0x1234...",
-  agentId: 42,
-  agentRegistry: "eip155:84532:0x8004...",
-  chainId: 84532,
-  verified: "onchain",
-}, {
-  secret: process.env.SIWA_SECRET!,
-  ttl: 3600_000,  // 1 hour in milliseconds (default: 30 min)
+const result = await createSIWANonce(
+  { address, agentId, agentRegistry },
+  client,
+  {
+    secret: SIWA_SECRET,
+    captchaPolicy: async ({ address }) => {
+      const known = await db.agents.exists(address);
+      return known ? null : 'medium';
+    },
+    captchaOptions: { secret: SIWA_SECRET },
+  },
+);
+
+if (result.status === 'captcha_required') {
+  return res.json(result);  // Agent solves and resubmits
+}
+```
+
+### Per-Request Captcha
+
+```typescript
+export const POST = withSiwa(handler, {
+  captchaPolicy: () => Math.random() < 0.05 ? 'easy' : null,
+  captchaOptions: { secret: process.env.SIWA_SECRET! },
 });
 ```
 
-### Verifying Receipts
-
-```typescript
-import { verifyReceipt } from "@buildersgarden/siwa/receipt";
-
-const claims = verifyReceipt(receipt, process.env.SIWA_SECRET!);
-
-if (claims === null) {
-  // Invalid or expired receipt
-}
-
-// claims = { address, agentId, agentRegistry, chainId, verified, exp, iat }
-```
+| Level | Time Limit | Constraints |
+|-------|-----------|-------------|
+| `easy` | 30s | Line count + ASCII sum of first chars |
+| `medium` | 20s | + word count |
+| `hard` | 15s | + character at specific position |
+| `extreme` | 10s | + total character count |
 
 ---
 
-## ERC-8128 Request Verification
+## Security Notes
 
 For authenticated API calls, agents sign HTTP requests with ERC-8128:
 
@@ -833,7 +809,7 @@ DOMAIN=api.example.com
 
 ## Further Reading
 
+- [Full Documentation](https://siwa.id/docs) — Complete API reference, advanced options, and examples
 - [SIWA Protocol Specification](references/siwa-spec.md)
 - [ERC-8004 Registry](https://eips.ethereum.org/EIPS/eip-8004)
 - [ERC-8128 HTTP Signatures](https://eips.ethereum.org/EIPS/eip-8128)
-- [viem Documentation](https://viem.sh)

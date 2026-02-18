@@ -9,5 +9,6 @@ export * from './receipt.js';
 export * from './erc8128.js';
 export * from './nonce-store.js';
 export * from './tba.js';
+export * from './captcha.js';
 export * from './x402.js';
 export * from './client-resolver.js';
