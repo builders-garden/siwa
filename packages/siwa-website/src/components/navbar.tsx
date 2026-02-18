@@ -46,7 +46,7 @@ export function Navbar() {
           href="/"
           className="font-mono text-sm font-semibold tracking-tight text-foreground hover:text-accent transition-colors duration-200"
         >
-          SIWA
+          Sign-in with Agent
         </Link>
 
         {/* Desktop nav */}
