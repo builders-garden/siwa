@@ -1,6 +1,6 @@
 ---
 name: siwa-server-side
-version: 0.2.0
+version: 0.3.0
 description: >
   Server-side SIWA verification for Next.js, Express, Hono, and Fastify.
 ---
@@ -23,11 +23,13 @@ Server-side verification requires three parts:
 2. **Verify Endpoint** (`/siwa/verify`) — Verify the signed message and issue a receipt
 3. **ERC-8128 Middleware** — Verify subsequent API requests using the receipt
 
+The SDK includes a **client resolver** that dynamically resolves the correct RPC endpoint and viem `PublicClient` for any chain — no hardcoded chain config needed.
+
 ---
 
 ## Nonce Endpoint
 
-Issue a nonce for the agent to include in their SIWA message. The nonce prevents replay attacks.
+Issue a nonce for the agent to include in their SIWA message. The nonce prevents replay attacks. The agent sends its `agentRegistry` (e.g. `eip155:8453:0x...`), and the server uses `parseChainId` to resolve the right chain automatically.
 
 ### Next.js
 
@@ -35,19 +37,22 @@ Issue a nonce for the agent to include in their SIWA message. The nonce prevents
 // app/api/siwa/nonce/route.ts
 import { createSIWANonce } from "@buildersgarden/siwa";
 import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { createClientResolver, parseChainId } from "@buildersgarden/siwa/client-resolver";
 
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
+const resolver = createClientResolver();
 
 // Simple in-memory nonce store (use Redis in production)
 const nonceStore = new Map<string, number>();
 
 export async function POST(req: Request) {
   const { address, agentId, agentRegistry } = await req.json();
+
+  const chainId = parseChainId(agentRegistry);
+  if (!chainId) {
+    return corsJson({ error: "Invalid agentRegistry format" }, { status: 400 });
+  }
+
+  const client = resolver.getClient(chainId);
 
   const result = await createSIWANonce(
     { address, agentId, agentRegistry },
@@ -74,22 +79,24 @@ export { siwaOptions as OPTIONS };
 import express from "express";
 import { createSIWANonce } from "@buildersgarden/siwa";
 import { siwaCors, siwaJsonParser } from "@buildersgarden/siwa/express";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { createClientResolver, parseChainId } from "@buildersgarden/siwa/client-resolver";
 
 const router = express.Router();
 router.use(siwaJsonParser());
 router.use(siwaCors());
 
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
-
+const resolver = createClientResolver();
 const nonceStore = new Map<string, number>();
 
 router.post("/nonce", async (req, res) => {
   const { address, agentId, agentRegistry } = req.body;
+
+  const chainId = parseChainId(agentRegistry);
+  if (!chainId) {
+    return res.status(400).json({ error: "Invalid agentRegistry format" });
+  }
+
+  const client = resolver.getClient(chainId);
 
   const result = await createSIWANonce(
     { address, agentId, agentRegistry },
@@ -115,8 +122,7 @@ export default router;
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createSIWANonce } from "@buildersgarden/siwa";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { createClientResolver, parseChainId } from "@buildersgarden/siwa/client-resolver";
 
 const app = new Hono();
 
@@ -125,15 +131,18 @@ app.use("*", cors({
   allowHeaders: ["Content-Type", "X-SIWA-Receipt", "Signature", "Signature-Input", "Content-Digest"],
 }));
 
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
-
+const resolver = createClientResolver();
 const nonceStore = new Map<string, number>();
 
 app.post("/nonce", async (c) => {
   const { address, agentId, agentRegistry } = await c.req.json();
+
+  const chainId = parseChainId(agentRegistry);
+  if (!chainId) {
+    return c.json({ error: "Invalid agentRegistry format" }, 400);
+  }
+
+  const client = resolver.getClient(chainId);
 
   const result = await createSIWANonce(
     { address, agentId, agentRegistry },
@@ -158,14 +167,9 @@ export default app;
 // src/routes/siwa.ts
 import { FastifyPluginAsync } from "fastify";
 import { createSIWANonce } from "@buildersgarden/siwa";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { createClientResolver, parseChainId } from "@buildersgarden/siwa/client-resolver";
 
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
-
+const resolver = createClientResolver();
 const nonceStore = new Map<string, number>();
 
 const siwaRoutes: FastifyPluginAsync = async (fastify) => {
@@ -175,6 +179,13 @@ const siwaRoutes: FastifyPluginAsync = async (fastify) => {
       agentId: number;
       agentRegistry: string;
     };
+
+    const chainId = parseChainId(agentRegistry);
+    if (!chainId) {
+      throw fastify.httpErrors.badRequest("Invalid agentRegistry format");
+    }
+
+    const client = resolver.getClient(chainId);
 
     const result = await createSIWANonce(
       { address, agentId, agentRegistry },
@@ -198,28 +209,32 @@ export default siwaRoutes;
 
 ## Verify Endpoint
 
-Verify the signed SIWA message and issue an HMAC receipt.
+Verify the signed SIWA message and issue an HMAC receipt. The chain is resolved from the `agentRegistry` field in the signed message.
 
 ### Next.js
 
 ```typescript
 // app/api/siwa/verify/route.ts
-import { verifySIWA } from "@buildersgarden/siwa";
+import { verifySIWA, parseSIWAMessage } from "@buildersgarden/siwa";
 import { createReceipt } from "@buildersgarden/siwa/receipt";
 import { corsJson, siwaOptions } from "@buildersgarden/siwa/next";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { createClientResolver, parseChainId } from "@buildersgarden/siwa/client-resolver";
 
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
+const resolver = createClientResolver();
 
 // Shared with nonce endpoint
 const nonceStore = new Map<string, number>();
 
 export async function POST(req: Request) {
   const { message, signature } = await req.json();
+
+  const fields = parseSIWAMessage(message);
+  const chainId = parseChainId(fields.agentRegistry);
+  if (!chainId) {
+    return corsJson({ error: "Invalid agentRegistry in message" }, { status: 400 });
+  }
+
+  const client = resolver.getClient(chainId);
 
   const result = await verifySIWA(
     message,
@@ -255,8 +270,18 @@ export { siwaOptions as OPTIONS };
 
 ```typescript
 // routes/siwa.ts (add to same router)
+import { parseSIWAMessage } from "@buildersgarden/siwa";
+
 router.post("/verify", async (req, res) => {
   const { message, signature } = req.body;
+
+  const fields = parseSIWAMessage(message);
+  const chainId = parseChainId(fields.agentRegistry);
+  if (!chainId) {
+    return res.status(400).json({ error: "Invalid agentRegistry in message" });
+  }
+
+  const client = resolver.getClient(chainId);
 
   const result = await verifySIWA(
     message,
@@ -290,8 +315,18 @@ router.post("/verify", async (req, res) => {
 
 ```typescript
 // src/routes/siwa.ts (add to same app)
+import { parseSIWAMessage } from "@buildersgarden/siwa";
+
 app.post("/verify", async (c) => {
   const { message, signature } = await c.req.json();
+
+  const fields = parseSIWAMessage(message);
+  const chainId = parseChainId(fields.agentRegistry);
+  if (!chainId) {
+    return c.json({ error: "Invalid agentRegistry in message" }, 400);
+  }
+
+  const client = resolver.getClient(chainId);
 
   const result = await verifySIWA(
     message,
@@ -325,8 +360,18 @@ app.post("/verify", async (c) => {
 
 ```typescript
 // src/routes/siwa.ts (add to same plugin)
+import { parseSIWAMessage } from "@buildersgarden/siwa";
+
 fastify.post("/verify", async (req, reply) => {
   const { message, signature } = req.body as { message: string; signature: string };
+
+  const fields = parseSIWAMessage(message);
+  const chainId = parseChainId(fields.agentRegistry);
+  if (!chainId) {
+    return reply.status(400).send({ error: "Invalid agentRegistry in message" });
+  }
+
+  const client = resolver.getClient(chainId);
 
   const result = await verifySIWA(
     message,
@@ -421,6 +466,51 @@ fastify.post("/api/protected", { preHandler: siwaAuth() }, async (req) => {
 
 ---
 
+## Client Resolver
+
+The `createClientResolver` factory lazily creates and caches viem `PublicClient` instances per chain ID — no need to hardcode chain imports or a single RPC URL.
+
+### RPC Resolution Order
+
+1. Explicit `rpcOverrides` map passed to `createClientResolver()`
+2. Environment variable `RPC_URL_{chainId}` (e.g. `RPC_URL_8453`)
+3. Built-in defaults from the SDK (Base, Base Sepolia, Ethereum, Sepolia, Linea Sepolia, Amoy)
+
+### Options
+
+```typescript
+import { createClientResolver } from "@buildersgarden/siwa/client-resolver";
+
+// Default — uses built-in RPCs + env vars
+const resolver = createClientResolver();
+
+// With explicit overrides and chain restrictions
+const resolver = createClientResolver({
+  rpcOverrides: {
+    8453: "https://my-base-rpc.example.com",
+    42161: "https://my-arbitrum-rpc.example.com",
+  },
+  allowedChainIds: [8453, 84532, 42161],
+});
+
+resolver.getClient(8453);        // returns cached PublicClient
+resolver.isSupported(42161);     // true
+resolver.supportedChainIds();    // [8453, 84532, 42161]
+```
+
+### `parseChainId`
+
+Extracts the chain ID from an `eip155:{chainId}:{address}` agent registry string:
+
+```typescript
+import { parseChainId } from "@buildersgarden/siwa/client-resolver";
+
+parseChainId("eip155:8453:0xAbc...");  // 8453
+parseChainId("invalid");               // null
+```
+
+---
+
 ## Middleware Options
 
 | Option | Type | Description |
@@ -437,5 +527,9 @@ fastify.post("/api/protected", { preHandler: siwaAuth() }, async (req) => {
 
 ```bash
 RECEIPT_SECRET=your-hmac-secret-min-32-chars
-RPC_URL=https://sepolia.base.org
+
+# Per-chain RPC overrides (optional — SDK includes defaults)
+RPC_URL_8453=https://mainnet.base.org
+RPC_URL_84532=https://sepolia.base.org
+RPC_URL_42161=https://arb1.arbitrum.io/rpc
 ```
