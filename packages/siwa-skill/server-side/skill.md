@@ -29,17 +29,15 @@ npm install @buildersgarden/siwa viem
 ### 2. Verify a SIWA Signature
 
 ```typescript
-import { parseSIWAMessage, verifySIWA } from "@buildersgarden/siwa";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { parseSIWAMessage, verifySIWA, createClientResolver, parseChainId } from "@buildersgarden/siwa";
 
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
+// Dynamic client resolver — supports all chains, no hardcoding needed
+const resolver = createClientResolver();
 
 async function verifyAgent(message: string, signature: string) {
   const fields = parseSIWAMessage(message);
+  const chainId = parseChainId(fields.agentRegistry);
+  const client = resolver.getClient(chainId!);
 
   const result = await verifySIWA(
     message,
@@ -97,20 +95,15 @@ async function verifyAgent(message: string, signature: string) {
 ```typescript
 import express from "express";
 import { randomBytes } from "crypto";
-import { parseSIWAMessage, verifySIWA } from "@buildersgarden/siwa";
+import { parseSIWAMessage, verifySIWA, createClientResolver, parseChainId } from "@buildersgarden/siwa";
 import { createReceipt, verifyReceipt } from "@buildersgarden/siwa/receipt";
 import { verifyAuthenticatedRequest } from "@buildersgarden/siwa/erc8128";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
 
 const app = express();
 app.use(express.json());
 
-// RPC client for onchain verification
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
+// Dynamic client resolver — supports all chains, no hardcoding needed
+const resolver = createClientResolver();
 
 // In-memory nonce store (use Redis in production)
 const nonceStore = new Map<string, { nonce: string; expires: number }>();
@@ -134,7 +127,8 @@ app.post("/api/siwa/nonce", (req, res) => {
   const key = `${address}:${agentId}:${agentRegistry}`;
   nonceStore.set(key, { nonce, expires: Date.now() + 10 * 60 * 1000 });
 
-  res.json({ nonce, issuedAt, expirationTime });
+  const chainId = parseChainId(agentRegistry);
+  res.json({ nonce, issuedAt, expirationTime, chainId });
 });
 
 // ─── Verify Endpoint ─────────────────────────────────────────────────
@@ -147,8 +141,13 @@ app.post("/api/siwa/verify", async (req, res) => {
   }
 
   try {
-    // 1. Parse the SIWA message
+    // 1. Parse the SIWA message and resolve the client for this chain
     const fields = parseSIWAMessage(message);
+    const chainId = parseChainId(fields.agentRegistry);
+    if (!chainId) {
+      return res.status(400).json({ error: "Invalid agentRegistry format" });
+    }
+    const client = resolver.getClient(chainId);
 
     // 2. Verify nonce was issued by us
     const key = `${fields.address}:${fields.agentId}:${fields.agentRegistry}`;
@@ -247,14 +246,21 @@ app.listen(3000, () => {
 
 ### Next.js App Router
 
+**lib/siwa-resolver.ts** (shared module)
+
+```typescript
+import { createClientResolver, createMemorySIWANonceStore } from "@buildersgarden/siwa";
+
+export const resolver = createClientResolver();
+export const nonceStore = createMemorySIWANonceStore();
+```
+
 **app/api/siwa/nonce/route.ts**
 
 ```typescript
 import { NextResponse } from "next/server";
-import { randomBytes } from "crypto";
-
-// In production, use Redis or database
-const nonceStore = new Map<string, { nonce: string; issuedAt: string; expires: number }>();
+import { createSIWANonce, parseChainId } from "@buildersgarden/siwa";
+import { resolver, nonceStore } from "@/lib/siwa-resolver";
 
 export async function POST(req: Request) {
   const { address, agentId, agentRegistry } = await req.json();
@@ -263,39 +269,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const nonce = randomBytes(16).toString("hex");
-  const issuedAt = new Date().toISOString();
-  const expirationTime = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-  const key = `${address}:${agentId}:${agentRegistry}`;
-  nonceStore.set(key, { nonce, issuedAt, expires: Date.now() + 10 * 60 * 1000 });
-
-  // Clean up expired nonces periodically
-  for (const [k, v] of nonceStore.entries()) {
-    if (Date.now() > v.expires) nonceStore.delete(k);
+  const chainId = parseChainId(agentRegistry);
+  if (!chainId) {
+    return NextResponse.json({ error: "Invalid agentRegistry format" }, { status: 400 });
   }
 
-  return NextResponse.json({ nonce, issuedAt, expirationTime });
-}
+  const client = resolver.getClient(chainId);
+  const result = await createSIWANonce(
+    { address, agentId, agentRegistry },
+    client,
+    { nonceStore },
+  );
 
-// Export for other routes to access
-export { nonceStore };
+  if (result.status !== "nonce_issued") {
+    return NextResponse.json(result, { status: 403 });
+  }
+
+  return NextResponse.json({
+    nonce: result.nonce,
+    issuedAt: result.issuedAt,
+    expirationTime: result.expirationTime,
+    chainId,
+  });
+}
 ```
 
 **app/api/siwa/verify/route.ts**
 
 ```typescript
 import { NextResponse } from "next/server";
-import { parseSIWAMessage, verifySIWA } from "@buildersgarden/siwa";
+import { parseSIWAMessage, verifySIWA, parseChainId } from "@buildersgarden/siwa";
 import { createReceipt } from "@buildersgarden/siwa/receipt";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
-import { nonceStore } from "../nonce/route";
-
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
+import { resolver, nonceStore } from "@/lib/siwa-resolver";
 
 const SIWA_SECRET = process.env.SIWA_SECRET!;
 
@@ -308,25 +313,17 @@ export async function POST(req: Request) {
 
   try {
     const fields = parseSIWAMessage(message);
-
-    // Verify nonce
-    const key = `${fields.address}:${fields.agentId}:${fields.agentRegistry}`;
-    const stored = nonceStore.get(key);
-
-    if (!stored || stored.nonce !== fields.nonce || Date.now() > stored.expires) {
-      return NextResponse.json({ error: "Invalid or expired nonce" }, { status: 401 });
+    const chainId = parseChainId(fields.agentRegistry);
+    if (!chainId) {
+      return NextResponse.json({ error: "Invalid agentRegistry format" }, { status: 400 });
     }
+    const client = resolver.getClient(chainId);
 
-    // Verify signature + onchain
     const result = await verifySIWA(
       message,
       signature,
       process.env.NEXT_PUBLIC_DOMAIN!,
-      (nonce) => {
-        if (!stored || stored.nonce !== nonce) return false;
-        nonceStore.delete(key);
-        return true;
-      },
+      { nonceStore },
       client,
     );
 
@@ -413,25 +410,17 @@ The SDK provides pre-built middleware for common frameworks:
 ```typescript
 import express from "express";
 import { siwaMiddleware, siwaJsonParser, siwaCors } from "@buildersgarden/siwa/express";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
 
 const app = express();
 
-const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.RPC_URL),
-});
-
-// Apply SIWA middleware to protected routes
+// Apply SIWA middleware to protected routes — no hardcoded chain needed
 app.use("/api/protected", siwaMiddleware({
   receiptSecret: process.env.SIWA_SECRET!,
-  client,
 }));
 
 app.get("/api/protected/data", (req, res) => {
-  // req.siwa contains verified agent info
-  const { address, agentId, verified } = req.siwa;
+  // req.agent contains verified agent info
+  const { address, agentId, verified } = req.agent;
 
   res.json({
     message: `Hello Agent #${agentId}!`,
@@ -770,6 +759,15 @@ async function handleRequest(req: Request) {
 | `AuthResult` | Type: `{ valid: true, agent: SiwaAgent } \| { valid: false, error: string }` |
 | `SiwaAgent` | Type: `{ address, agentId, agentRegistry, chainId, signerType? }` |
 
+### Client Resolver Module (`@buildersgarden/siwa/client-resolver`)
+
+| Export | Description |
+|--------|-------------|
+| `createClientResolver(options?)` | Create a resolver that lazily creates and caches `PublicClient` per chain. Options: `{ rpcOverrides?, allowedChainIds? }`. |
+| `parseChainId(agentRegistry)` | Extract chain ID from `eip155:{chainId}:{address}` format. Returns `number \| null`. |
+| `ClientResolver` | Interface: `{ getClient(chainId), isSupported(chainId), supportedChainIds() }` |
+| `ClientResolverOptions` | Type: `{ rpcOverrides?: Record<number, string>, allowedChainIds?: number[] }` |
+
 ### Nonce Store Module (`@buildersgarden/siwa/nonce-store`)
 
 | Export | Description |
@@ -819,11 +817,17 @@ async function handleRequest(req: Request) {
 ```bash
 # Required
 SIWA_SECRET=your-32-byte-random-secret
-RPC_URL=https://sepolia.base.org
+
+# Optional — override RPC endpoints per chain (createClientResolver checks these)
+RPC_URL_84532=https://sepolia.base.org
+RPC_URL_8453=https://mainnet.base.org
+RPC_URL_11155111=https://rpc.sepolia.org
 
 # Optional
 DOMAIN=api.example.com
 ```
+
+> **Note:** `createClientResolver()` includes built-in RPC endpoints for all supported chains (Base, Base Sepolia, ETH Sepolia, Linea Sepolia, Polygon Amoy). Set `RPC_URL_{chainId}` environment variables only when you need to override the defaults (e.g., for a private RPC provider).
 
 ---
 
