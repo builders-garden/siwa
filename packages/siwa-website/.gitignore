@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# copied at build time
+/public/skills
+
 # vercel
 .vercel
 
