@@ -29,7 +29,7 @@ npm install @buildersgarden/siwa
 
 This gives you access to:
 - `@buildersgarden/siwa` — SIWA authentication (signSIWAMessage, verifySIWA, createSIWANonce, parseSIWAMessage)
-- `@buildersgarden/siwa/signer` — Signer interface + factories (createLocalAccountSigner, createKeyringProxySigner, createWalletClientSigner, createCircleSiwaSigner, createPrivySiwaSigner)
+- `@buildersgarden/siwa/signer` — Signer interface + factories (createLocalAccountSigner, createKeyringProxySigner, createWalletClientSigner, createCircleSiwaSigner, createOpenfortSiwaSigner, createPrivySiwaSigner)
 - `@buildersgarden/siwa/keystore` — Wallet creation/signing via keyring proxy
 - `@buildersgarden/siwa/identity` — SIWA_IDENTITY.md helpers
 - `@buildersgarden/siwa/registry` — Onchain lookups

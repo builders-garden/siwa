@@ -170,7 +170,7 @@ export default function DocsPage() {
               className="rounded-lg border border-border bg-surface px-4 py-3 hover:border-accent/40 transition-colors duration-200 cursor-pointer block"
             >
               <h4 className="font-mono text-xs font-semibold text-foreground mb-1">Wallet Options</h4>
-              <p className="text-xs text-dim">Use any wallet: Bankr, Privy, Circle, private key, or keyring proxy.</p>
+              <p className="text-xs text-dim">Use any wallet: Bankr, Circle, Openfort, Privy, private key, or keyring proxy.</p>
             </a>
             <a
               href="#api"
@@ -321,6 +321,50 @@ const client = initiateDeveloperControlledWalletsClient({
 const signer = await createCircleSiwaSignerFromClient({
   client,
   walletId: process.env.CIRCLE_WALLET_ID!,
+});`}</CollapsibleCodeBlock>
+          </SubSection>
+
+          <SubSection id="wallet-openfort" title="Openfort">
+            <P>
+              Openfort&apos;s backend wallets provide secure key management and account abstraction for AI agents. Install the Openfort Node SDK alongside SIWA:
+            </P>
+            <CodeBlock language="bash">{`npm install @openfort/openfort-node`}</CodeBlock>
+            <P>
+              Create a signer from your Openfort wallet credentials:
+            </P>
+            <CollapsibleCodeBlock title="Openfort Signer Example" language="typescript">{`import { signSIWAMessage } from "@buildersgarden/siwa";
+import { createOpenfortSiwaSigner } from "@buildersgarden/siwa/signer";
+
+// Create signer - wallet address is fetched automatically from Openfort
+const signer = await createOpenfortSiwaSigner({
+  apiKey: process.env.OPENFORT_PROJECT_PUBLISHABLE_KEY!,
+  walletSecret: process.env.OPENFORT_WALLET_SECRET!,
+  accountId: process.env.OPENFORT_BACKEND_WALLET_ACCOUNT_ID!,
+});
+
+// Sign SIWA message
+const { message, signature, address } = await signSIWAMessage({
+  domain: "api.example.com",
+  uri: "https://api.example.com/siwa",
+  agentId: 42,
+  agentRegistry: "eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  chainId: 84532,
+  nonce,
+  issuedAt: new Date().toISOString(),
+}, signer);`}</CollapsibleCodeBlock>
+            <P>
+              If you already have an Openfort client instance, use <InlineCode>createOpenfortSiwaSignerFromClient</InlineCode>:
+            </P>
+            <CollapsibleCodeBlock title="From Existing Client" language="typescript">{`import Openfort from "@openfort/openfort-node";
+import { createOpenfortSiwaSignerFromClient } from "@buildersgarden/siwa/signer";
+
+const client = new Openfort(process.env.OPENFORT_PROJECT_PUBLISHABLE_KEY!, {
+  walletSecret: process.env.OPENFORT_WALLET_SECRET!,
+});
+
+const signer = await createOpenfortSiwaSignerFromClient({
+  client,
+  accountId: process.env.OPENFORT_BACKEND_WALLET_ACCOUNT_ID!,
 });`}</CollapsibleCodeBlock>
           </SubSection>
 

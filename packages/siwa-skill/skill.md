@@ -23,6 +23,7 @@ Choose based on your wallet provider:
 
 - [Bankr](https://siwa.id/skills/bankr/skill.md) — Bankr Agent API wallets
 - [Circle](https://siwa.id/skills/circle/skill.md) — Circle developer-controlled wallets
+- [Openfort](https://siwa.id/skills/openfort/skill.md) — Openfort backend wallets
 - [Privy](https://siwa.id/skills/privy/skill.md) — Privy server wallets
 - [Private Key](https://siwa.id/skills/private-key/skill.md) — Raw private key (viem LocalAccount)
 - [Keyring Proxy](https://siwa.id/skills/keyring-proxy/skill.md) — Self-hosted proxy with optional 2FA

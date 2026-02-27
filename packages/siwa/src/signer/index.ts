@@ -14,6 +14,8 @@
  *   - createCircleSiwaSignerFromClient(config) — Circle with existing client
  *   - createPrivySiwaSigner(config)            — Privy server wallet
  *   - createBankrSiwaSigner(config)            — Bankr Agent API wallet
+ *   - createOpenfortSiwaSigner(config)           — Openfort backend wallet
+ *   - createOpenfortSiwaSignerFromClient(config) — Openfort with existing client
  *
  * Usage:
  *   import { signSIWAMessage, createLocalAccountSigner } from '@buildersgarden/siwa';
@@ -51,3 +53,9 @@ export {
   createBankrSiwaSigner,
   type BankrSiwaSignerConfig,
 } from './bankr.js';
+export {
+  createOpenfortSiwaSigner,
+  createOpenfortSiwaSignerFromClient,
+  type OpenfortSiwaSignerConfig,
+  type OpenfortSiwaSignerClientConfig,
+} from './openfort.js';

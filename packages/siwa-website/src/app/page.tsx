@@ -6,7 +6,7 @@ import { SkillCallout } from "@/components/skill-callout";
 const SIGN_IN_CODE = `import { signSIWAMessage } from "@buildersgarden/siwa";
 import { createLocalAccountSigner } from "@buildersgarden/siwa/signer";
 
-// Use any wallet - private key, Privy, etc.
+// Use any wallet - Openfort, Privy, private key, etc.
 const signer = createLocalAccountSigner(account);
 
 const { message, signature } = await signSIWAMessage({
@@ -282,7 +282,7 @@ function ForAgentsSection() {
     {
       number: "1",
       title: "Get a wallet",
-      description: "Use any provider: Bankr, Privy, Circle, private key, keyring proxy, or others.",
+      description: "Use any provider: Bankr, Circle, Openfort, Privy, private key, keyring proxy, or others.",
     },
     {
       number: "2",

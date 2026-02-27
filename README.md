@@ -19,6 +19,7 @@ npm install @buildersgarden/siwa
 | Provider | Signer |
 |----------|--------|
 | Circle | `createCircleSiwaSigner()` |
+| Openfort | `createOpenfortSiwaSigner()` |
 | Privy | `createPrivySiwaSigner()` |
 | Private Key | `createLocalAccountSigner()` |
 | Keyring Proxy | `createKeyringProxySigner()` |
