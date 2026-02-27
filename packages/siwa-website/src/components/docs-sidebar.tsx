@@ -36,6 +36,7 @@ const sections: {
         items: [
           { title: "Bankr", id: "wallet-bankr" },
           { title: "Circle", id: "wallet-circle" },
+          { title: "Openfort", id: "wallet-openfort" },
           { title: "Privy", id: "wallet-privy" },
         ],
       },

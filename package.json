@@ -9,5 +9,8 @@
   },
   "devDependencies": {
     "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "@openfort/react": "^0.2.9"
   }
 }
