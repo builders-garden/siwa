@@ -1,6 +1,6 @@
 {
   "name": "@buildersgarden/siwa",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "type": "module",
   "exports": {
     ".": {
@@ -87,7 +87,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/builders-garden/siwa",
+    "url": "git+https://github.com/builders-garden/siwa.git",
     "directory": "packages/siwa"
   },
   "publishConfig": {
