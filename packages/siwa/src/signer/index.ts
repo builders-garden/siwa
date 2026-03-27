@@ -16,6 +16,7 @@
  *   - createBankrSiwaSigner(config)            — Bankr Agent API wallet
  *   - createOpenfortSiwaSigner(config)           — Openfort backend wallet
  *   - createOpenfortSiwaSignerFromClient(config) — Openfort with existing client
+ *   - createMagicSiwaSigner(config)              — Magic server wallet
  *
  * Usage:
  *   import { signSIWAMessage, createLocalAccountSigner } from '@buildersgarden/siwa';
@@ -59,3 +60,7 @@ export {
   type OpenfortSiwaSignerConfig,
   type OpenfortSiwaSignerClientConfig,
 } from './openfort.js';
+export {
+  createMagicSiwaSigner,
+  type MagicSiwaSignerConfig,
+} from './magic.js';
