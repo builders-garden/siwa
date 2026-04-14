@@ -11,7 +11,7 @@
 import type { Address, Hex } from "viem";
 import type { Signer } from "./types.js";
 
-const DEFAULT_BASE_URL = "https://tee.express.magiclabs.com";
+const BASE_URL = "https://tee.express.magiclabs.com";
 
 /**
  * Configuration for the Magic SIWA signer.
@@ -23,102 +23,6 @@ export interface MagicSiwaSignerConfig {
   jwt: string;
   /** OIDC Provider ID for your Magic application */
   providerId: string;
-  /** Express API base URL (defaults to https://tee.express.magiclabs.com) */
-  baseUrl?: string;
-  /** Blockchain chain identifier (defaults to "ETH") */
-  chain?: string;
-}
-
-interface ResolvedConfig {
-  secretKey: string;
-  jwt: string;
-  providerId: string;
-  baseUrl: string;
-  chain: string;
-}
-
-function resolveConfig(config: MagicSiwaSignerConfig): ResolvedConfig {
-  const secretKey = config.secretKey ?? process.env.MAGIC_SECRET_KEY;
-  if (!secretKey) {
-    throw new Error(
-      "Magic Secret Key is required. Provide secretKey in config or set MAGIC_SECRET_KEY env var."
-    );
-  }
-
-  return {
-    secretKey,
-    jwt: config.jwt,
-    providerId: config.providerId,
-    baseUrl: (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, ""),
-    chain: config.chain ?? "ETH",
-  };
-}
-
-function buildHeaders(config: ResolvedConfig): Record<string, string> {
-  return {
-    "X-Magic-Secret-Key": config.secretKey,
-    "X-Magic-Chain": config.chain,
-    "X-OIDC-Provider-ID": config.providerId,
-    Authorization: `Bearer ${config.jwt}`,
-  };
-}
-
-/**
- * Fetches the wallet address from the Magic Express API.
- * POST /v1/wallet is idempotent — returns the existing wallet or creates one.
- */
-async function fetchWalletAddress(config: ResolvedConfig): Promise<Address> {
-  const response = await fetch(`${config.baseUrl}/v1/wallet`, {
-    method: "POST",
-    headers: buildHeaders(config),
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Magic /v1/wallet failed: ${response.status} ${response.statusText}`
-    );
-  }
-
-  const data = await response.json();
-  if (!data.public_address) {
-    throw new Error("No public address returned from Magic Express API");
-  }
-
-  return data.public_address as Address;
-}
-
-/**
- * Signs a base64-encoded message via the Magic Express API.
- * The TEE performs EIP-191 personal_sign on the decoded payload.
- */
-async function magicSign(
-  config: ResolvedConfig,
-  messageBase64: string
-): Promise<Hex> {
-  const response = await fetch(
-    `${config.baseUrl}/v1/wallet/sign/message`,
-    {
-      method: "POST",
-      headers: {
-        ...buildHeaders(config),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ message_base64: messageBase64 }),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      `Magic sign failed: ${response.status} ${response.statusText}`
-    );
-  }
-
-  const result = await response.json();
-  if (!result.signature) {
-    throw new Error("No signature returned from Magic Express API");
-  }
-
-  return result.signature as Hex;
 }
 
 /**
@@ -159,8 +63,50 @@ async function magicSign(
 export async function createMagicSiwaSigner(
   config: MagicSiwaSignerConfig
 ): Promise<Signer> {
-  const resolved = resolveConfig(config);
-  const walletAddress = await fetchWalletAddress(resolved);
+  const secretKey = config.secretKey ?? process.env.MAGIC_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error(
+      "Magic Secret Key is required. Provide secretKey in config or set MAGIC_SECRET_KEY env var."
+    );
+  }
+
+  const headers: Record<string, string> = {
+    "X-Magic-Secret-Key": secretKey,
+    "X-Magic-Chain": "ETH",
+    "X-OIDC-Provider-ID": config.providerId,
+    Authorization: `Bearer ${config.jwt}`,
+  };
+
+  // Fetch wallet address eagerly to validate credentials.
+  // POST /v1/wallet is idempotent — returns the existing wallet or creates one.
+  const walletRes = await fetch(`${BASE_URL}/v1/wallet`, {
+    method: "POST",
+    headers,
+  });
+  if (!walletRes.ok) {
+    throw new Error(`Magic /v1/wallet failed: ${walletRes.status} ${walletRes.statusText}`);
+  }
+  const { public_address } = await walletRes.json();
+  if (!public_address) {
+    throw new Error("No public address returned from Magic Express API");
+  }
+  const walletAddress = public_address as Address;
+
+  async function sign(messageBase64: string): Promise<Hex> {
+    const res = await fetch(`${BASE_URL}/v1/wallet/sign/message`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ message_base64: messageBase64 }),
+    });
+    if (!res.ok) {
+      throw new Error(`Magic sign failed: ${res.status} ${res.statusText}`);
+    }
+    const { signature } = await res.json();
+    if (!signature) {
+      throw new Error("No signature returned from Magic Express API");
+    }
+    return signature as Hex;
+  }
 
   return {
     async getAddress(): Promise<Address> {
@@ -168,14 +114,11 @@ export async function createMagicSiwaSigner(
     },
 
     async signMessage(message: string): Promise<Hex> {
-      const messageBase64 = Buffer.from(message, "utf-8").toString("base64");
-      return magicSign(resolved, messageBase64);
+      return sign(Buffer.from(message, "utf-8").toString("base64"));
     },
 
     async signRawMessage(rawHex: Hex): Promise<Hex> {
-      const bytes = Buffer.from(rawHex.slice(2), "hex");
-      const messageBase64 = bytes.toString("base64");
-      return magicSign(resolved, messageBase64);
+      return sign(Buffer.from(rawHex.slice(2), "hex").toString("base64"));
     },
   };
 }
