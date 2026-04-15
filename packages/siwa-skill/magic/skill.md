@@ -36,10 +36,72 @@ The signer calls `POST /v1/wallet` on creation to fetch (or create) the wallet a
 You need three things:
 
 1. **Magic Secret Key** — from your Magic dashboard
-2. **OIDC Provider ID** — configure an OIDC provider in Magic to issue JWTs for your agents
+2. **Identity Provider ID** — register a provider with Magic's Express API (see below)
 3. **JWT** — a valid token from that provider, identifying the agent
 
 The JWT maps to an identity in Magic, and each identity has a wallet. No wallet IDs needed — wallet lookup is handled automatically via the JWT.
+
+### Setting Up an Identity Provider
+
+Magic needs to verify the JWTs your agents present. You register an OIDC-compatible identity provider that tells Magic where to find your public keys.
+
+**Option A: Self-signed JWTs (lowest friction)**
+
+Generate an RSA key pair and host the public key as a JWKS endpoint. This can be a static file on any public URL (GitHub Gist, your app's `/.well-known/jwks.json` route, S3, etc.).
+
+```typescript
+import { generateKeyPair, exportJWK, exportPKCS8 } from "jose";
+
+const { publicKey, privateKey } = await generateKeyPair("RS256", {
+  extractable: true,
+});
+
+// Save private key (keep secret — used to sign JWTs)
+const privatePem = await exportPKCS8(privateKey);
+
+// Build JWKS (host publicly)
+const jwk = await exportJWK(publicKey);
+jwk.kid = "my-agent-key-1";
+jwk.alg = "RS256";
+jwk.use = "sig";
+const jwks = { keys: [jwk] };
+```
+
+Then mint JWTs with matching `issuer` and `audience` claims:
+
+```typescript
+import { SignJWT, importPKCS8 } from "jose";
+
+const key = await importPKCS8(privatePem, "RS256");
+const jwt = await new SignJWT({ sub: "my-agent" })
+  .setProtectedHeader({ alg: "RS256", kid: "my-agent-key-1" })
+  .setIssuedAt()
+  .setExpirationTime("1h")
+  .setIssuer("my-app")
+  .setAudience("my-app")
+  .sign(key);
+```
+
+**Option B: External identity provider**
+
+Use any OIDC-compatible provider (Auth0, Clerk, Firebase Auth, etc.) — just point Magic to their JWKS endpoint.
+
+### Register the Provider with Magic
+
+```bash
+curl -X POST 'https://tee.express.magiclabs.com/v1/identity/provider' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Magic-Secret-Key: YOUR_SECRET_KEY' \
+  -d '{
+    "issuer": "my-app",
+    "audience": "my-app",
+    "jwks_uri": "https://example.com/.well-known/jwks.json"
+  }'
+```
+
+The response contains the `provider_id` — use this as `MAGIC_PROVIDER_ID`.
+
+**Important:** The `issuer` and `audience` must match the `iss` and `aud` claims in your JWTs. The `jwks_uri` must be publicly reachable so Magic can fetch the public keys for verification.
 
 ## Register as ERC-8004 Agent
 
@@ -172,8 +234,8 @@ The Magic Express API proxies all signing to a Trusted Execution Environment. Pr
 ## Environment Variables
 
 ```bash
-MAGIC_SECRET_KEY=sk-live-...
-MAGIC_PROVIDER_ID=your-oidc-provider-id
+MAGIC_SECRET_KEY=sk-live-...       # From your Magic dashboard
+MAGIC_PROVIDER_ID=your-provider-id # From POST /v1/identity/provider (see Prerequisites)
 ```
 
 The JWT is passed per-request (not an env var) since each agent has its own token.
