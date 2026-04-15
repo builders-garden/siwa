@@ -43,7 +43,7 @@ export interface MagicSiwaSignerConfig {
  * credentials and cache the address for subsequent calls.
  *
  * @param config - Magic Express API configuration
- * @returns A Promise that resolves to a Signer compatible with SIWA's signSIWAMessage function
+ * @returns A Promise that resolves to a TransactionSigner compatible with SIWA's signSIWAMessage function and capable of signing transactions
  *
  * @example
  * ```typescript
