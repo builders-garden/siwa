@@ -3,13 +3,20 @@
  *
  * Magic server-wallet signer implementation.
  *
- * Uses the Magic Server Wallet Express API for wallet operations and message signing.
- * Wallet address is fetched via POST /v1/wallet, messages are signed
- * via POST /v1/wallet/sign/message (EIP-191 personal_sign in the TEE).
+ * Uses the Magic Server Wallet Express API for wallet operations, message signing,
+ * and transaction signing. Wallet address is fetched via POST /v1/wallet, messages
+ * are signed via POST /v1/wallet/sign/message, and transactions are signed via
+ * POST /v1/wallet/sign/data (all within the TEE).
  */
 
-import type { Address, Hex } from "viem";
-import type { Signer } from "./types.js";
+import {
+  type Address,
+  type Hex,
+  type TransactionSerializable,
+  serializeTransaction,
+  keccak256,
+} from "viem";
+import type { TransactionSigner, TransactionRequest } from "./types.js";
 
 const BASE_URL = "https://tee.express.magiclabs.com";
 
@@ -62,7 +69,7 @@ export interface MagicSiwaSignerConfig {
  */
 export async function createMagicSiwaSigner(
   config: MagicSiwaSignerConfig
-): Promise<Signer> {
+): Promise<TransactionSigner> {
   const secretKey = config.secretKey ?? process.env.MAGIC_SECRET_KEY;
   if (!secretKey) {
     throw new Error(
@@ -92,7 +99,7 @@ export async function createMagicSiwaSigner(
   }
   const walletAddress = public_address as Address;
 
-  async function sign(messageBase64: string): Promise<Hex> {
+  async function signMsg(messageBase64: string): Promise<Hex> {
     const res = await fetch(`${BASE_URL}/v1/wallet/sign/message`, {
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
@@ -108,17 +115,75 @@ export async function createMagicSiwaSigner(
     return signature as Hex;
   }
 
+  async function signData(rawDataHash: Hex): Promise<{ signature: Hex; v: string; r: string; s: string }> {
+    const res = await fetch(`${BASE_URL}/v1/wallet/sign/data`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ raw_data_hash: rawDataHash }),
+    });
+    if (!res.ok) {
+      throw new Error(`Magic sign/data failed: ${res.status} ${res.statusText}`);
+    }
+    const data = await res.json();
+    if (!data.signature) {
+      throw new Error("No signature returned from Magic sign/data");
+    }
+    return data as { signature: Hex; v: string; r: string; s: string };
+  }
+
   return {
     async getAddress(): Promise<Address> {
       return walletAddress;
     },
 
     async signMessage(message: string): Promise<Hex> {
-      return sign(Buffer.from(message, "utf-8").toString("base64"));
+      return signMsg(Buffer.from(message, "utf-8").toString("base64"));
     },
 
     async signRawMessage(rawHex: Hex): Promise<Hex> {
-      return sign(Buffer.from(rawHex.slice(2), "hex").toString("base64"));
+      return signMsg(Buffer.from(rawHex.slice(2), "hex").toString("base64"));
+    },
+
+    async signTransaction(tx: TransactionRequest): Promise<Hex> {
+      // Build the serializable transaction, choosing legacy vs EIP-1559 format
+      const serializable = (tx.gasPrice
+        ? {
+            to: tx.to,
+            data: tx.data,
+            value: tx.value,
+            nonce: tx.nonce,
+            chainId: tx.chainId,
+            gas: tx.gas,
+            gasPrice: tx.gasPrice,
+          }
+        : {
+            to: tx.to,
+            data: tx.data,
+            value: tx.value,
+            nonce: tx.nonce,
+            chainId: tx.chainId,
+            gas: tx.gas,
+            maxFeePerGas: tx.maxFeePerGas,
+            maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+          }) as TransactionSerializable;
+
+      // Serialize the unsigned transaction and hash it
+      const unsignedSerialized = serializeTransaction(serializable);
+      const txHash = keccak256(unsignedSerialized);
+
+      // Sign the hash via Magic's sign/data endpoint
+      // Note: sign/data returns r, s as decimal strings and v as legacy (27/28)
+      const { r, s, v } = await signData(txHash);
+      const rHex = ("0x" + BigInt(r).toString(16).padStart(64, "0")) as Hex;
+      const sHex = ("0x" + BigInt(s).toString(16).padStart(64, "0")) as Hex;
+      const yParity = parseInt(v) >= 27 ? parseInt(v) - 27 : parseInt(v);
+
+      // Re-serialize with the signature to produce the signed transaction
+      return serializeTransaction(serializable, {
+        r: rHex,
+        s: sHex,
+        yParity,
+      });
     },
   };
 }

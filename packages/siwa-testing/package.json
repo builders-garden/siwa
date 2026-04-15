@@ -19,6 +19,7 @@
     "test:nonce": "tsx agent/cli.ts test-nonce",
     "test:x402": "tsx agent/cli.ts test-x402",
     "test:openfort": "tsx test-openfort-standalone.ts",
+    "test:magic": "tsx test-magic-standalone.ts",
     "dev": "concurrently \"pnpm run server\" \"sleep 2 && pnpm run agent:flow\""
   },
   "dependencies": {
