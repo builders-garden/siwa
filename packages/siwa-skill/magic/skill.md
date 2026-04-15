@@ -135,9 +135,27 @@ const data = encodeFunctionData({
   args: [agentURI],
 });
 
-// Send the registration transaction via Magic's Express API
+// Sign and broadcast the registration transaction
+const { createPublicClient, http } = await import("viem");
+const { baseSepolia } = await import("viem/chains");
+
+const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
 const address = await signer.getAddress();
-// Use your preferred method to submit the transaction to Base Sepolia
+const nonce = await publicClient.getTransactionCount({ address });
+const gas = await publicClient.estimateGas({ account: address, to: IDENTITY_REGISTRY_ADDRESS, data });
+const fees = await publicClient.estimateFeesPerGas();
+
+const signedTx = await signer.signTransaction({
+  to: IDENTITY_REGISTRY_ADDRESS,
+  data,
+  nonce,
+  chainId: 84532,
+  gas,
+  maxFeePerGas: fees.maxFeePerGas,
+  maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+});
+
+const hash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx });
 ```
 
 ---
@@ -225,6 +243,10 @@ Agent (using SIWA SDK)
   ├─ signSIWAMessage(fields, signer)
   │     └─ signer.signMessage(message)
   │           └─ POST /v1/wallet/sign/message → TEE signs, returns signature
+  │
+  ├─ signer.signTransaction(tx)
+  │     └─ POST /v1/wallet/sign/data → TEE signs tx hash, returns r/s/v
+  │           → caller broadcasts signed tx via any RPC provider
   │
   └─ sends { message, signature } to verifying service
 ```
