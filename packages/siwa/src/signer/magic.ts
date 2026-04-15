@@ -99,6 +99,7 @@ export async function createMagicSiwaSigner(
   }
   const walletAddress = public_address as Address;
 
+  /** Sign a base64-encoded message via Magic's sign/message endpoint. */
   async function signMsg(messageBase64: string): Promise<Hex> {
     const res = await fetch(`${BASE_URL}/v1/wallet/sign/message`, {
       method: "POST",
@@ -115,6 +116,7 @@ export async function createMagicSiwaSigner(
     return signature as Hex;
   }
 
+  /** Sign a raw data hash via Magic's sign/data endpoint (returns decimal r/s and legacy v). */
   async function signData(rawDataHash: Hex): Promise<{ signature: Hex; v: string; r: string; s: string }> {
     const res = await fetch(`${BASE_URL}/v1/wallet/sign/data`, {
       method: "POST",
@@ -132,21 +134,27 @@ export async function createMagicSiwaSigner(
   }
 
   return {
+    /** Returns the cached wallet address. */
     async getAddress(): Promise<Address> {
       return walletAddress;
     },
 
+    /** Sign a UTF-8 message using EIP-191 personal_sign. */
     async signMessage(message: string): Promise<Hex> {
       return signMsg(Buffer.from(message, "utf-8").toString("base64"));
     },
 
+    /** Sign raw hex bytes using EIP-191 personal_sign (used by ERC-8128). */
     async signRawMessage(rawHex: Hex): Promise<Hex> {
       return signMsg(Buffer.from(rawHex.slice(2), "hex").toString("base64"));
     },
 
+    /** Sign a transaction via Magic's sign/data endpoint and return the serialized signed transaction. */
     async signTransaction(tx: TransactionRequest): Promise<Hex> {
-      // Build the serializable transaction, choosing legacy vs EIP-1559 format
-      const serializable = (tx.gasPrice
+      // Determine if this is a legacy or EIP-1559 transaction
+      const isLegacy = tx.gasPrice !== undefined || (tx.maxFeePerGas === undefined && tx.maxPriorityFeePerGas === undefined);
+
+      const serializable = (isLegacy
         ? {
             to: tx.to,
             data: tx.data,
@@ -154,6 +162,8 @@ export async function createMagicSiwaSigner(
             nonce: tx.nonce,
             chainId: tx.chainId,
             gas: tx.gas,
+            type: tx.type,
+            accessList: tx.accessList,
             gasPrice: tx.gasPrice,
           }
         : {
@@ -163,6 +173,8 @@ export async function createMagicSiwaSigner(
             nonce: tx.nonce,
             chainId: tx.chainId,
             gas: tx.gas,
+            type: tx.type,
+            accessList: tx.accessList,
             maxFeePerGas: tx.maxFeePerGas,
             maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
           }) as TransactionSerializable;

@@ -47,9 +47,9 @@ function fail(label: string, detail?: string) {
 
 async function main() {
   console.log(chalk.bold.cyan('\n Magic SIWA Signer \u2014 Standalone Test\n'));
-  console.log(chalk.dim(`Secret Key: ${MAGIC_SECRET_KEY!.slice(0, 12)}...`));
+  console.log(chalk.dim(`Secret Key: ${MAGIC_SECRET_KEY ? 'configured' : 'not configured'}`));
   console.log(chalk.dim(`Provider:   ${MAGIC_PROVIDER_ID}`));
-  console.log(chalk.dim(`JWT:        ${MAGIC_JWT!.slice(0, 20)}...`));
+  console.log(chalk.dim(`JWT:        ${MAGIC_JWT ? 'configured' : 'not configured'}`));
 
   // 1. Create signer (this also fetches/creates the wallet)
   let signer: Awaited<ReturnType<typeof createMagicSiwaSigner>>;
@@ -150,6 +150,32 @@ async function main() {
     }
   } catch (err: any) {
     fail('signRawMessage()', err.message);
+  }
+
+  // 6. signTransaction round-trip
+  try {
+    const tx = {
+      to: '0x0000000000000000000000000000000000000001' as Address,
+      value: 0n,
+      nonce: 0,
+      chainId: 84532,
+      gas: 21000n,
+      maxFeePerGas: 1000000000n,
+      maxPriorityFeePerGas: 1000000n,
+    };
+
+    const signedTx = await signer.signTransaction(tx);
+
+    // EIP-1559 signed transactions start with 0x02
+    if (!signedTx.startsWith('0x02')) {
+      fail('signTransaction()', `Expected EIP-1559 prefix 0x02, got ${signedTx.slice(0, 4)}`);
+    } else if (signedTx.length < 100) {
+      fail('signTransaction()', `Signed tx too short: ${signedTx.length} chars`);
+    } else {
+      pass(`signTransaction() — valid EIP-1559 signed tx (${signedTx.length} chars)`);
+    }
+  } catch (err: any) {
+    fail('signTransaction()', err.message);
   }
 
   printSummary();
