@@ -142,7 +142,7 @@ async function main() {
     } else {
       const rawHex: Hex = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
       const signature = await signer.signRawMessage(rawHex);
-      if (signature && signature.startsWith('0x') && signature.length > 2) {
+      if (signature && signature.startsWith('0x') && signature.length === 132) {
         pass(`signRawMessage() \u2192 ${signature.slice(0, 20)}... (ERC-8128 compatible)`);
       } else {
         fail('signRawMessage()', `Unexpected result: ${signature}`);
