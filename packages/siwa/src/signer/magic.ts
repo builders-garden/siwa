@@ -127,8 +127,17 @@ export async function createMagicSiwaSigner(
       throw new Error(`Magic sign/data failed: ${res.status} ${res.statusText}`);
     }
     const data = await res.json();
-    if (!data.signature) {
-      throw new Error("No signature returned from Magic sign/data");
+    if (
+      typeof data.signature !== "string" ||
+      typeof data.r !== "string" ||
+      typeof data.s !== "string" ||
+      typeof data.v !== "string" ||
+      !data.signature ||
+      !data.r ||
+      !data.s ||
+      !data.v
+    ) {
+      throw new Error("Missing or invalid signature/r/s/v in Magic sign/data response");
     }
     return data as { signature: Hex; v: string; r: string; s: string };
   }
