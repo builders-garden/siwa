@@ -197,7 +197,8 @@ export async function createMagicSiwaSigner(
       const { r, s, v } = await signData(txHash);
       const rHex = ("0x" + BigInt(r).toString(16).padStart(64, "0")) as Hex;
       const sHex = ("0x" + BigInt(s).toString(16).padStart(64, "0")) as Hex;
-      const yParity = parseInt(v) >= 27 ? parseInt(v) - 27 : parseInt(v);
+      const parsedV = parseInt(v, 10);
+      const yParity = parsedV >= 27 ? parsedV - 27 : parsedV;
 
       // Re-serialize with the signature to produce the signed transaction
       return serializeTransaction(serializable, {
