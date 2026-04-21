@@ -18,7 +18,7 @@ import {
 } from "viem";
 import type { TransactionSigner, TransactionRequest } from "./types.js";
 
-const BASE_URL = "https://tee.express.magiclabs.com";
+const DEFAULT_BASE_URL = "https://tee.express.magiclabs.com";
 
 /**
  * Configuration for the Magic SIWA signer.
@@ -30,6 +30,8 @@ export interface MagicSiwaSignerConfig {
   jwt: string;
   /** OIDC Provider ID for your Magic application */
   providerId: string;
+  /** Override the Magic Express API base URL (defaults to production TEE). */
+  baseUrl?: string;
 }
 
 /**
@@ -77,6 +79,8 @@ export async function createMagicSiwaSigner(
     );
   }
 
+  const baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
+
   const headers: Record<string, string> = {
     "X-Magic-Secret-Key": secretKey,
     "X-Magic-Chain": "ETH",
@@ -86,7 +90,7 @@ export async function createMagicSiwaSigner(
 
   // Fetch wallet address eagerly to validate credentials.
   // POST /v1/wallet is idempotent — returns the existing wallet or creates one.
-  const walletRes = await fetch(`${BASE_URL}/v1/wallet`, {
+  const walletRes = await fetch(`${baseUrl}/v1/wallet`, {
     method: "POST",
     headers,
   });
@@ -101,7 +105,7 @@ export async function createMagicSiwaSigner(
 
   /** Sign a base64-encoded message via Magic's sign/message endpoint. */
   async function signMsg(messageBase64: string): Promise<Hex> {
-    const res = await fetch(`${BASE_URL}/v1/wallet/sign/message`, {
+    const res = await fetch(`${baseUrl}/v1/wallet/sign/message`, {
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({ message_base64: messageBase64 }),
@@ -118,7 +122,7 @@ export async function createMagicSiwaSigner(
 
   /** Sign a raw data hash via Magic's sign/data endpoint (returns decimal r/s and legacy v). */
   async function signData(rawDataHash: Hex): Promise<{ signature: Hex; v: string; r: string; s: string }> {
-    const res = await fetch(`${BASE_URL}/v1/wallet/sign/data`, {
+    const res = await fetch(`${baseUrl}/v1/wallet/sign/data`, {
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({ raw_data_hash: rawDataHash }),
@@ -160,33 +164,59 @@ export async function createMagicSiwaSigner(
 
     /** Sign a transaction via Magic's sign/data endpoint and return the serialized signed transaction. */
     async signTransaction(tx: TransactionRequest): Promise<Hex> {
-      // Determine if this is a legacy or EIP-1559 transaction
-      const isLegacy = tx.gasPrice !== undefined || (tx.maxFeePerGas === undefined && tx.maxPriorityFeePerGas === undefined);
+      // Prefer an explicit tx.type; otherwise infer from fee fields.
+      // Current behavior: default to legacy when no fee fields are provided.
+      let txType: "legacy" | "eip2930" | "eip1559";
+      if (tx.type !== undefined) {
+        if (tx.type === 0 || tx.type === "legacy" || tx.type === "0x0") {
+          txType = "legacy";
+        } else if (tx.type === 1 || tx.type === "eip2930" || tx.type === "0x1") {
+          txType = "eip2930";
+        } else if (tx.type === 2 || tx.type === "eip1559" || tx.type === "0x2") {
+          txType = "eip1559";
+        } else {
+          throw new Error(`Unsupported transaction type: ${tx.type}`);
+        }
+      } else if (tx.maxFeePerGas !== undefined || tx.maxPriorityFeePerGas !== undefined) {
+        txType = "eip1559";
+      } else if (tx.accessList !== undefined && tx.gasPrice !== undefined) {
+        txType = "eip2930";
+      } else {
+        txType = "legacy";
+      }
 
-      const serializable = (isLegacy
-        ? {
-            to: tx.to,
-            data: tx.data,
-            value: tx.value,
-            nonce: tx.nonce,
-            chainId: tx.chainId,
-            gas: tx.gas,
-            type: tx.type,
-            accessList: tx.accessList,
-            gasPrice: tx.gasPrice,
-          }
-        : {
-            to: tx.to,
-            data: tx.data,
-            value: tx.value,
-            nonce: tx.nonce,
-            chainId: tx.chainId,
-            gas: tx.gas,
-            type: tx.type,
-            accessList: tx.accessList,
-            maxFeePerGas: tx.maxFeePerGas,
-            maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
-          }) as TransactionSerializable;
+      const common = {
+        to: tx.to,
+        data: tx.data,
+        value: tx.value,
+        nonce: tx.nonce,
+        chainId: tx.chainId,
+        gas: tx.gas,
+      };
+
+      let serializable: TransactionSerializable;
+      if (txType === "legacy") {
+        serializable = {
+          ...common,
+          type: "legacy",
+          gasPrice: tx.gasPrice,
+        } as TransactionSerializable;
+      } else if (txType === "eip2930") {
+        serializable = {
+          ...common,
+          type: "eip2930",
+          gasPrice: tx.gasPrice,
+          accessList: tx.accessList,
+        } as TransactionSerializable;
+      } else {
+        serializable = {
+          ...common,
+          type: "eip1559",
+          maxFeePerGas: tx.maxFeePerGas,
+          maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+          accessList: tx.accessList,
+        } as TransactionSerializable;
+      }
 
       // Serialize the unsigned transaction and hash it
       const unsignedSerialized = serializeTransaction(serializable);
