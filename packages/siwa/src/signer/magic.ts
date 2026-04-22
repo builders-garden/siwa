@@ -81,6 +81,18 @@ export async function createMagicSiwaSigner(
 
   const baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
 
+  /** Read a failed response's body (best effort) and format a detailed error message. */
+  async function errorMessage(prefix: string, res: Response): Promise<string> {
+    let body = "";
+    try {
+      body = await res.text();
+    } catch {
+      // ignore — body is best-effort
+    }
+    const suffix = body ? ` — ${body}` : "";
+    return `${prefix}: ${res.status} ${res.statusText}${suffix}`;
+  }
+
   const headers: Record<string, string> = {
     "X-Magic-Secret-Key": secretKey,
     "X-Magic-Chain": "ETH",
@@ -95,7 +107,7 @@ export async function createMagicSiwaSigner(
     headers,
   });
   if (!walletRes.ok) {
-    throw new Error(`Magic /v1/wallet failed: ${walletRes.status} ${walletRes.statusText}`);
+    throw new Error(await errorMessage("Magic /v1/wallet failed", walletRes));
   }
   const { public_address } = await walletRes.json();
   if (!public_address) {
@@ -111,7 +123,7 @@ export async function createMagicSiwaSigner(
       body: JSON.stringify({ message_base64: messageBase64 }),
     });
     if (!res.ok) {
-      throw new Error(`Magic sign failed: ${res.status} ${res.statusText}`);
+      throw new Error(await errorMessage("Magic sign failed", res));
     }
     const { signature } = await res.json();
     if (!signature) {
@@ -128,7 +140,7 @@ export async function createMagicSiwaSigner(
       body: JSON.stringify({ raw_data_hash: rawDataHash }),
     });
     if (!res.ok) {
-      throw new Error(`Magic sign/data failed: ${res.status} ${res.statusText}`);
+      throw new Error(await errorMessage("Magic sign/data failed", res));
     }
     const data = await res.json();
     if (
@@ -159,6 +171,9 @@ export async function createMagicSiwaSigner(
 
     /** Sign raw hex bytes using EIP-191 personal_sign (used by ERC-8128). */
     async signRawMessage(rawHex: Hex): Promise<Hex> {
+      if (typeof rawHex !== "string" || !rawHex.startsWith("0x")) {
+        throw new Error("signRawMessage expects 0x-prefixed hex");
+      }
       return signMsg(Buffer.from(rawHex.slice(2), "hex").toString("base64"));
     },
 
